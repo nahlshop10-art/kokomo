@@ -1,4 +1,4 @@
-name = "paikarix-store"
+name = "pkx-max"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-03-20"
 compatibility_flags = ["nodejs_compat"]
@@ -6,19 +6,20 @@ compatibility_flags = ["nodejs_compat"]
 [placement]
 mode = "smart"
 
-# D1 Database binding
+# D1 Database binding - NEW max-db
 [[d1_databases]]
 binding = "DB"
-database_name = "paikarix-db"
-database_id = "7a2554ae-66ce-46c9-9d81-8c486cac8ed4"
+database_name = "max-db"
+database_id = "a785d61d-8c9a-477e-b2df-e738082c9f72"
 
-# R2 Bucket binding
+# R2 Bucket binding - NEW max-images
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "paikarix-images"
+bucket_name = "max-images"
 
 [vars]
-# Ensure fallback environment variables can run locally.
 ENVIRONMENT = "production"
-R2_PUBLIC_DOMAIN = "pub-6a0fdc5513454bd19473508e0d154f70.r2.dev"
-
+# R2 Public Development URL for max-images
+R2_PUBLIC_DOMAIN = "pub-e5254e3b24604306b8ea63f93412de76.r2.dev"
+# Secure JWT Secret key for admin authentication
+JWT_SECRET = "pkx_sec_9f8b1c4e7d2a50638194b7e2d0a1f5c83e7b9a4d6f021c5e8b3a7d9f2c4e6a8b"

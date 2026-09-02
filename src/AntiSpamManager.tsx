@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, Save, ShieldAlert, Zap, Clock, Smartphone, Check } from 'lucide-react';
+import { ChevronLeft, Save, ShieldAlert, Zap, Clock, Smartphone, Check, ShieldCheck, AlertOctagon } from 'lucide-react';
 import { WebsiteSettings } from './types';
 import { cn } from './lib/utils';
 import { cloudStore } from './lib/cloudStore';
@@ -23,6 +23,8 @@ export default function AntiSpamManager({ websiteSettings, setWebsiteSettings, o
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const themeColor = '#6366F1';
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -45,7 +47,7 @@ export default function AntiSpamManager({ websiteSettings, setWebsiteSettings, o
       setTimeout(() => {
         setSaved(false);
         onClose();
-      }, 800);
+      }, 600);
     } catch (e) {
       console.error(e);
     } finally {
@@ -55,149 +57,204 @@ export default function AntiSpamManager({ websiteSettings, setWebsiteSettings, o
 
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[var(--dash-border)] bg-[var(--dash-card)] shrink-0 md:px-8 md:py-5">
-        <div className="flex items-center gap-2">
-          <button onClick={onClose} className="p-2 -ml-2 text-white hover:text-[#fafafa] transition-colors rounded-full hover:bg-white/5">
-            <ChevronLeft size={24} />
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
-            <ShieldAlert size={20} className="text-[#fafafa]" /> Anti-Spam System
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <ShieldAlert size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                Anti-Spam & Fraud Protection
+              </h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+                Rate limiting, bot shields, and device fingerprinting to block fake orders
+              </p>
+            </div>
+          </div>
         </div>
+
         <button 
           onClick={handleSave} 
           disabled={isSaving}
-          style={{ backgroundColor: websiteSettings.themeColors?.primary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-xs md:text-sm hover:brightness-95 active:scale-95 transition-all shadow-md cursor-pointer disabled:opacity-50"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
         >
-          {isSaving ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : saved ? (
-            <Check size={16} className="text-white" />
-          ) : (
-            <Save size={16} />
-          )}
-          <span>{saved ? 'Saved' : 'Save'}</span>
+          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 md:p-8 space-y-8 max-w-3xl mx-auto w-full pb-20">
-        
+      {/* Main Content */}
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-3xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Master Control */}
-        <div className="bg-[var(--dash-card)] rounded-2xl p-5 md:p-6 border border-[var(--dash-border)] shadow-md flex justify-between items-center transition-all">
-          <div className="flex items-center gap-4">
-            <div className={cn("p-3 rounded-xl", enabled ? "bg-[#fafafa]/10 text-[#fafafa]" : "bg-[var(--dash-card)] text-gray-500")}>
-              <ShieldAlert size={24} />
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <ShieldCheck size={22} />
+              </div>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white">Master Anti-Spam Engine</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Toggle global fake order prevention and IP verification</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-white mb-1">Master Control</h2>
-              <p className="text-sm text-gray-400">Toggle the entire Anti-Spam system on or off.</p>
-            </div>
+
+            <button
+              onClick={() => setEnabled(!enabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  enabled ? "translate-x-5.5" : "translate-x-0"
+                )}
+              />
+            </button>
           </div>
-          <div 
-             className={cn(
-               "w-[50px] h-[28px] rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out flex items-center shrink-0 ml-4",
-               enabled ? "bg-[#fafafa]" : "bg-gray-600"
-             )}
-             onClick={() => setEnabled(!enabled)}
-           >
-             <div className={cn("w-5 h-5 rounded-full shadow transform transition-transform duration-200", enabled ? "bg-[var(--dash-card)] translate-x-[22px]" : "bg-white translate-x-0")} />
-           </div>
         </div>
 
-        {/* Settings blocks */}
-        <div className={cn("space-y-6 transition-all duration-300", enabled ? "opacity-100" : "opacity-50 pointer-events-none")}>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Rate Limit Feature */}
-            <div className="bg-[var(--dash-card)] rounded-2xl p-5 border border-[var(--dash-border)] shadow-md">
-              <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--dash-border)]">
-                <div className="flex items-center gap-2 text-white font-semibold">
-                  <Zap size={18} className="text-blue-400" /> Rate Limits
+        {enabled && (
+          <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+              
+              {/* Rate Limits */}
+              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-[var(--dash-border)]/40">
+                  <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                    <Zap size={15} className="text-indigo-400" /> Rate Limits
+                  </div>
+                  <button
+                    onClick={() => setRateLimitEnabled(!rateLimitEnabled)}
+                    className={cn(
+                      "w-10 h-5.5 rounded-full relative transition-all duration-200 p-0.5 focus:outline-none cursor-pointer",
+                      rateLimitEnabled ? "bg-indigo-600" : "bg-slate-700/60"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-4.5 h-4.5 rounded-full bg-white transition-all shadow-sm",
+                        rateLimitEnabled ? "translate-x-4.5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
                 </div>
-                <div 
-                   className={cn(
-                     "w-10 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out flex items-center",
-                     rateLimitEnabled ? "bg-blue-500" : "bg-gray-600"
-                   )}
-                   onClick={() => setRateLimitEnabled(!rateLimitEnabled)}
-                 >
-                   <div className={cn("w-4 h-4 rounded-full shadow transform transition-transform duration-200", rateLimitEnabled ? "bg-[var(--dash-card)] translate-x-4" : "bg-white translate-x-0")} />
+
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 mb-1.5 block">Short-Term Rapid Checkout Limit</label>
+                    <div className="flex items-center gap-2 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-2 px-3">
+                      <input 
+                        type="number" 
+                        value={shortTermOrdersCount} 
+                        onChange={e => setShortTermOrdersCount(Number(e.target.value))} 
+                        className="w-12 bg-transparent text-white font-bold text-xs md:text-sm focus:outline-none" 
+                      />
+                      <span className="text-xs text-slate-400">orders per</span>
+                      <input 
+                        type="number" 
+                        value={shortTermMinutes} 
+                        onChange={e => setShortTermMinutes(Number(e.target.value))} 
+                        className="w-12 bg-transparent text-white font-bold text-xs md:text-sm focus:outline-none" 
+                      />
+                      <span className="text-xs text-slate-400">mins</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 mb-1.5 block">Hourly Order Cap</label>
+                    <div className="flex items-center gap-2 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-2 px-3">
+                      <input 
+                        type="number" 
+                        value={hourlyOrdersCount} 
+                        onChange={e => setHourlyOrdersCount(Number(e.target.value))} 
+                        className="w-14 bg-transparent text-white font-bold text-xs md:text-sm focus:outline-none" 
+                      />
+                      <span className="text-xs text-slate-400">orders per 1 hour</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 mb-1.5 block">Daily Order Cap</label>
+                    <div className="flex items-center gap-2 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-2 px-3">
+                      <input 
+                        type="number" 
+                        value={dailyOrdersCount} 
+                        onChange={e => setDailyOrdersCount(Number(e.target.value))} 
+                        className="w-14 bg-transparent text-white font-bold text-xs md:text-sm focus:outline-none" 
+                      />
+                      <span className="text-xs text-slate-400">orders per day</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p className="text-sm text-gray-400 mb-6 font-medium">Prevent rapid sequential orders from being placed.</p>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 block">Short-Term Limit</label>
-                  <div className="flex items-center gap-2">
-                    <input type="number" value={shortTermOrdersCount} onChange={e => setShortTermOrdersCount(Number(e.target.value))} className="w-16 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-2 text-center text-white focus:border-blue-500 outline-none" />
-                    <span className="text-sm text-gray-400">orders per</span>
-                    <input type="number" value={shortTermMinutes} onChange={e => setShortTermMinutes(Number(e.target.value))} className="w-16 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-2 text-center text-white focus:border-blue-500 outline-none" />
-                    <span className="text-sm text-gray-400">mins</span>
+              {/* Device Tracking */}
+              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-[var(--dash-border)]/40">
+                  <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                    <Smartphone size={15} className="text-indigo-400" /> Device Tracking
                   </div>
+                  <button
+                    onClick={() => setDeviceTrackingEnabled(!deviceTrackingEnabled)}
+                    className={cn(
+                      "w-10 h-5.5 rounded-full relative transition-all duration-200 p-0.5 focus:outline-none cursor-pointer",
+                      deviceTrackingEnabled ? "bg-indigo-600" : "bg-slate-700/60"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-4.5 h-4.5 rounded-full bg-white transition-all shadow-sm",
+                        deviceTrackingEnabled ? "translate-x-4.5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 block">Hourly Limit</label>
-                  <div className="flex items-center gap-2">
-                    <input type="number" value={hourlyOrdersCount} onChange={e => setHourlyOrdersCount(Number(e.target.value))} className="w-16 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-2 text-center text-white focus:border-blue-500 outline-none" />
-                    <span className="text-sm text-gray-400">orders per 1 hour</span>
-                  </div>
-                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Fingerprints device screen, canvas hashes, and headers to prevent automated script submissions.
+                </p>
 
-                <div>
-                  <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 block">Daily Limit</label>
+                <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-400 block">Block Expiry Duration</label>
                   <div className="flex items-center gap-2">
-                    <input type="number" value={dailyOrdersCount} onChange={e => setDailyOrdersCount(Number(e.target.value))} className="w-16 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-2 text-center text-white focus:border-blue-500 outline-none" />
-                    <span className="text-sm text-gray-400">orders per day</span>
+                    <input 
+                      type="number" 
+                      value={blockDurationMinutes} 
+                      onChange={e => setBlockDurationMinutes(Number(e.target.value))} 
+                      className="w-16 bg-transparent text-white font-bold text-sm focus:outline-none" 
+                    />
+                    <span className="text-xs text-slate-400">Minutes</span>
                   </div>
+                  <p className="text-[10px] text-slate-500">Duration a flagged suspicious device remains blocked.</p>
                 </div>
               </div>
+
             </div>
 
-            {/* Device Tracking */}
-            <div className="bg-[var(--dash-card)] rounded-2xl p-5 border border-[var(--dash-border)] shadow-md">
-               <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--dash-border)]">
-                <div className="flex items-center gap-2 text-white font-semibold">
-                  <Smartphone size={18} className="text-purple-400" /> Device Tracking
-                </div>
-                <div 
-                   className={cn(
-                     "w-10 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out flex items-center",
-                     deviceTrackingEnabled ? "bg-purple-500" : "bg-gray-600"
-                   )}
-                   onClick={() => setDeviceTrackingEnabled(!deviceTrackingEnabled)}
-                 >
-                   <div className={cn("w-4 h-4 rounded-full shadow transform transition-transform duration-200", deviceTrackingEnabled ? "bg-[var(--dash-card)] translate-x-4" : "bg-white translate-x-0")} />
-                </div>
-              </div>
-              <p className="text-sm text-gray-400 mb-4 font-medium leading-relaxed">
-                Generates a unique fingerprint for each device based on browser data & resolution. Helps block users even if they use multiple tabs or a basic VPN.
+            {/* Info notice */}
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 flex gap-3 text-xs text-slate-300">
+              <AlertOctagon className="w-5 h-5 flex-shrink-0 text-indigo-400 mt-0.5" />
+              <p className="leading-relaxed">
+                When rate limits are breached, users receive a polite "Too many attempts, please wait" notice to safeguard server resources and maintain inventory integrity.
               </p>
-
-              <div className="bg-[var(--dash-bg)] rounded-xl p-4 border border-[var(--dash-border)]">
-                <p className="text-xs text-gray-400 mb-1">Block Duration</p>
-                <div className="flex items-center gap-2">
-                  <input type="number" value={blockDurationMinutes} onChange={e => setBlockDurationMinutes(Number(e.target.value))} className="w-20 bg-transparent border-b border-[var(--dash-border)] p-1 text-white focus:border-purple-500 outline-none" />
-                  <span className="text-sm text-gray-400 font-medium">Minutes</span>
-                </div>
-                <p className="text-[11px] text-gray-500 mt-2">How long a user stays blocked if they exceed the rate limit.</p>
-              </div>
             </div>
-
           </div>
-
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-3 text-sm text-blue-200">
-            <Clock className="shrink-0 text-blue-400 mt-0.5" size={18} />
-            <p>If a limit is reached, the user will be temporarily blocked from creating any new orders, displaying a "Too many orders" error.</p>
-          </div>
-
-        </div>
-
+        )}
       </div>
     </div>
   );
 }
+

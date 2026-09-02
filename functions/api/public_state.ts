@@ -2,9 +2,10 @@ import { replaceUploadUrls } from './_domain';
 export async function onRequestGet(context: any) {
   const { request, env, waitUntil } = context;
   const cache = (caches as any).default;
+  const cacheKey = new Request(new URL('/api/public_state', request.url).toString());
 
   try {
-    let response = await cache.match(request);
+    let response = await cache.match(cacheKey);
     if (response) {
       return response;
     }
@@ -73,7 +74,7 @@ export async function onRequestGet(context: any) {
     });
 
     if (waitUntil && typeof waitUntil === 'function') {
-      waitUntil(cache.put(request, response.clone()));
+      waitUntil(cache.put(cacheKey, response.clone()));
     }
     return response;
   } catch (error: any) {

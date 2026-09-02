@@ -558,6 +558,7 @@ export default function ProductDetails({
                       src={p.thumbnail || p.image} 
                       alt={p.title} 
                       loading="lazy"
+                      decoding="async"
                       className={cn(
                         "absolute inset-0 w-full h-full object-cover cursor-pointer transition-opacity duration-300",
                         websiteSettings?.productImageHover && p.images && p.images.length > 1 ? "group-hover:opacity-0" : ""
@@ -568,6 +569,7 @@ export default function ProductDetails({
                         src={p.thumbnails?.[1] || p.images[1]} 
                         alt={`${p.title} hover`} 
                         loading="lazy"
+                        decoding="async"
                         className="absolute inset-0 w-full h-full object-cover cursor-pointer transition-opacity duration-300 opacity-0 group-hover:opacity-100"
                       />
                     )}

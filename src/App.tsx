@@ -24,6 +24,7 @@ import ProductDetails from './ProductDetails';
 import StockOutView from './StockOutView';
 
 const Dashboard = React.lazy(() => import('./Dashboard'));
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Receipt } from './components/Receipt';
 import { VariantModal } from './components/VariantModal';
 import { downloadReceiptAsJPG, downloadReceiptAsPDF } from './lib/downloadReceipt';
@@ -1142,29 +1143,31 @@ export default function App() {
 
   if (isDashboardOpen) {
     return (
-      <React.Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-[#09090b] text-white">Loading loading...</div>}>
-        <Dashboard 
-          products={products} 
-          setProducts={setProducts} 
-          orders={orders} 
-          setOrders={setOrders} 
-          incompleteOrders={incompleteOrders} // Newly added
-          setIncompleteOrders={setIncompleteOrders}
-          categories={categories}
-          setCategories={setCategories}
-          websiteSettings={websiteSettings}
-          setWebsiteSettings={setWebsiteSettings}
-          marketingSettings={marketingSettings}
-          setMarketingSettings={setMarketingSettings}
-          courierSettings={courierSettings}
-          setCourierSettings={setCourierSettings}
-          priceCalculatorSettings={priceCalculatorSettings}
-          setPriceCalculatorSettings={setPriceCalculatorSettings}
-          onClose={() => setIsDashboardOpen(false)} 
-          isMaintenanceMode={isMaintenanceMode}
-          setIsMaintenanceMode={setIsMaintenanceMode}
-        />
-      </React.Suspense>
+      <ErrorBoundary fallbackTitle="Admin Panel Error">
+        <React.Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-[#09090b] text-white">Loading Admin...</div>}>
+          <Dashboard 
+            products={products} 
+            setProducts={setProducts} 
+            orders={orders} 
+            setOrders={setOrders} 
+            incompleteOrders={incompleteOrders} // Newly added
+            setIncompleteOrders={setIncompleteOrders}
+            categories={categories}
+            setCategories={setCategories}
+            websiteSettings={websiteSettings}
+            setWebsiteSettings={setWebsiteSettings}
+            marketingSettings={marketingSettings}
+            setMarketingSettings={setMarketingSettings}
+            courierSettings={courierSettings}
+            setCourierSettings={setCourierSettings}
+            priceCalculatorSettings={priceCalculatorSettings}
+            setPriceCalculatorSettings={setPriceCalculatorSettings}
+            onClose={() => setIsDashboardOpen(false)} 
+            isMaintenanceMode={isMaintenanceMode}
+            setIsMaintenanceMode={setIsMaintenanceMode}
+          />
+        </React.Suspense>
+      </ErrorBoundary>
     );
   }
 
@@ -1493,6 +1496,7 @@ export default function App() {
                         src={product.thumbnail || product.image} 
                         alt={product.title} 
                         loading="lazy"
+                        decoding="async"
                         className={cn(
                           "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
                           websiteSettings.productImageHover && product.images && product.images.length > 1 ? "group-hover:opacity-0" : "",
@@ -1504,6 +1508,7 @@ export default function App() {
                           src={product.thumbnails?.[1] || product.images[1]} 
                           alt={`${product.title} hover`} 
                           loading="lazy"
+                          decoding="async"
                           className={cn(
                             "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
                             hoveredProductId === product.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"

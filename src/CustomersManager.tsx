@@ -297,59 +297,120 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 bg-[var(--dash-bg)]">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-white absolute left-1/2 -translate-x-1/2">Customers</h1>
-        <div className="w-10"></div>
-      </div>
-
-      <div className="flex px-4 gap-2 mb-4">
-        {['Analytics', 'Blocked', 'Settings'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={cn(
-              "flex-1 py-2 text-sm font-medium rounded-xl transition-colors",
-              activeTab === tab ? "bg-[#fafafa] text-[var(--dash-bg)]" : "bg-[var(--dash-card)] text-gray-400 border border-[var(--dash-border)]"
-            )}
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
           >
-            {tab}
+            <ChevronLeft size={20} />
           </button>
-        ))}
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+            <User size={20} />
+          </div>
+          <div>
+            <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              Customer Intelligence & Blacklist
+            </h1>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+              Purchase history, cancellation rates, blacklist control, and automated spam filtering
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white transition-colors cursor-pointer shrink-0"
+        >
+          Done
+        </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-20 md:px-8 max-w-6xl mx-auto w-full">
+      {/* Sub-header Tab Bar */}
+      <div className="px-4 py-2.5 bg-[var(--dash-bg)]/95 backdrop-blur-md border-b border-[var(--dash-border)]/60 flex items-center shrink-0 z-10">
+        <div className="flex items-center bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-1 gap-1 w-full max-w-md mx-auto">
+          {(['Analytics', 'Blocked', 'Settings'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all cursor-pointer",
+                activeTab === tab 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" 
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-5xl mx-auto w-full pb-36 overscroll-y-contain custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
         {activeTab === 'Analytics' && (
           <div className="flex flex-col gap-4">
             
             {/* Filter and Sort Controls */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-3 flex flex-col gap-3">
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                {['All Time', 'Today', 'Last 7 Days', 'Last 30 Days', 'Custom'].map(filter => (
+            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-5 shadow-xl flex flex-col gap-3.5">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {(['All Time', 'Today', 'Last 7 Days', 'Last 30 Days', 'Custom'] as const).map(filter => (
+                    <button
+                      key={filter}
+                      onClick={() => setDateFilter(filter)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer",
+                        dateFilter === filter 
+                          ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/40" 
+                          : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:border-slate-600"
+                      )}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-1">
+                  <span className="text-[11px] text-slate-500 font-bold uppercase px-2">Sort:</span>
                   <button
-                    key={filter}
-                    onClick={() => setDateFilter(filter as DateFilterType)}
+                    onClick={() => setSortBy('spent')}
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border",
-                      dateFilter === filter 
-                        ? "bg-[#fafafa]/10 text-[#fafafa] border-[#fafafa]/30" 
-                        : "bg-[var(--dash-bg)] text-gray-400 border-transparent hover:border-[var(--dash-border)]"
+                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer",
+                      sortBy === 'spent' ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"
                     )}
                   >
-                    {filter}
+                    Most Spent
                   </button>
-                ))}
+                  <button
+                    onClick={() => setSortBy('orders')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer",
+                      sortBy === 'orders' ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    Most Orders
+                  </button>
+                  <button
+                    onClick={() => setSortBy('low_orders')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer",
+                      sortBy === 'low_orders' ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    Low Orders
+                  </button>
+                </div>
               </div>
               
               {dateFilter === 'Custom' && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 pt-2 border-t border-[var(--dash-border)]/50">
                   <div className="flex-1">
                     <DatePicker 
                       label="From" 
                       value={customFromDate} 
                       onChange={setCustomFromDate} 
+                      align="left"
                     />
                   </div>
                   <div className="flex-1">
@@ -357,141 +418,113 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
                       label="To" 
                       value={customToDate} 
                       onChange={setCustomToDate} 
+                      align="right"
                     />
                   </div>
                 </div>
               )}
-              
-              <div className="flex items-center gap-2 pt-2 border-t border-[var(--dash-border)]">
-                <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Sort By:</span>
-                <button
-                  onClick={() => setSortBy('spent')}
-                  className={cn(
-                    "px-3 py-1 text-xs rounded-md transition-colors",
-                    sortBy === 'spent' ? "bg-[var(--dash-border)] text-white" : "text-gray-400 hover:text-gray-200"
-                  )}
-                >
-                  Most Spent
-                </button>
-                <button
-                  onClick={() => setSortBy('orders')}
-                  className={cn(
-                    "px-3 py-1 text-xs rounded-md transition-colors",
-                    sortBy === 'orders' ? "bg-[var(--dash-border)] text-white" : "text-gray-400 hover:text-gray-200"
-                  )}
-                >
-                  Most Orders
-                </button>
-                <button
-                  onClick={() => setSortBy('low_orders')}
-                  className={cn(
-                    "px-3 py-1 text-xs rounded-md transition-colors",
-                    sortBy === 'low_orders' ? "bg-[var(--dash-border)] text-white" : "text-gray-400 hover:text-gray-200"
-                  )}
-                >
-                  Low Orders
-                </button>
-              </div>
             </div>
 
+            {/* Search Bar */}
             <div className="relative">
               <input 
                 type="text" 
-                placeholder="Search phone, name, order ID..." 
+                placeholder="Search by customer phone, name, or order ID..." 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full h-12 bg-white border-[1.5px] border-[var(--theme-primary)] rounded-full px-4 pl-10 text-sm outline-none text-[var(--dash-bg)] shadow-sm placeholder-gray-400 focus:shadow-md transition-shadow"
+                className="w-full h-11 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl px-4 pl-10 text-xs md:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-lg"
               />
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
 
             {/* Bulk Selection Bar */}
-            <div className="flex items-center justify-between border-b border-[var(--dash-border)] pb-2 mb-2">
-              <button onClick={handleSelectAll} className="text-sm font-medium text-[#fafafa] flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div className="flex items-center justify-between px-1">
+              <button onClick={handleSelectAll} className="text-xs font-bold text-slate-300 flex items-center gap-2 hover:text-white transition-colors cursor-pointer">
                 <div className={cn(
-                  "w-5 h-5 rounded flex items-center justify-center border transition-colors",
+                  "w-4.5 h-4.5 rounded-lg flex items-center justify-center border transition-colors",
                   selectedPhones.length === sortedCustomers.length && sortedCustomers.length > 0 
-                    ? "bg-[#fafafa] border-[#fafafa] text-[var(--dash-bg)]" 
-                    : "border-gray-500 text-transparent"
+                    ? "bg-indigo-600 border-indigo-600 text-white" 
+                    : "border-slate-600 text-transparent"
                 )}>
-                  <Check size={14} className={selectedPhones.length === sortedCustomers.length && sortedCustomers.length > 0 ? "opacity-100" : "opacity-0"} />
+                  <Check size={12} className={selectedPhones.length === sortedCustomers.length && sortedCustomers.length > 0 ? "opacity-100" : "opacity-0"} />
                 </div>
-                {selectedPhones.length > 0 ? `${selectedPhones.length} Selected` : 'Select All'}
+                {selectedPhones.length > 0 ? `${selectedPhones.length} Customers Selected` : 'Select All Customers'}
               </button>
               
               {selectedPhones.length > 0 && (
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setSelectedPhones([])} className="text-sm text-gray-400 hover:text-white transition-colors">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setSelectedPhones([])} className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
                     Clear Selection
                   </button>
                   {isOwner && (
                     <button 
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="text-sm text-red-500 hover:text-red-400 font-medium transition-colors"
+                      className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-xs text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg font-bold transition-colors cursor-pointer"
                     >
-                      Delete
+                      Delete Selected
                     </button>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="flex flex-col gap-3">
+            {/* Customers Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {sortedCustomers.map(customer => {
                 const normPhone = normalizePhone(customer.phone);
                 const isSelected = selectedPhones.includes(normPhone);
                 
                 return (
                 <div key={customer.phone} className={cn(
-                  "bg-[var(--dash-card)] shadow-lg border border-[var(--dash-border)] rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden transition-all",
-                  isSelected ? "border-[var(--theme-primary)] ring-1 ring-[var(--theme-primary)]" : ""
+                  "bg-[var(--dash-card)] border rounded-2xl p-4 md:p-5 flex flex-col justify-between gap-4 relative overflow-hidden transition-all shadow-xl",
+                  isSelected ? "border-indigo-500 ring-1 ring-indigo-500/40" : "border-[var(--dash-border)]/70 hover:border-slate-700"
                 )}>
-                  <div className="absolute -top-6 -right-6 text-[80px] font-black text-white/[0.02] pointer-events-none select-none">
+                  <div className="absolute -top-4 -right-4 text-[72px] font-black text-white/[0.03] pointer-events-none select-none">
                     #{customer.rank}
                   </div>
                   
                   <div className="flex justify-between items-start z-10 relative">
                     <div className="flex gap-3">
-                      <div className="mt-1">
+                      <div className="mt-0.5">
                         <button 
                           onClick={() => toggleSelection(customer.phone)}
                           className={cn(
-                            "w-5 h-5 rounded flex items-center justify-center border transition-colors",
+                            "w-5 h-5 rounded-lg flex items-center justify-center border transition-colors cursor-pointer",
                             isSelected 
-                              ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white" 
-                              : "border-gray-500 text-transparent"
+                              ? "bg-indigo-600 border-indigo-600 text-white" 
+                              : "border-slate-600 text-transparent"
                           )}
                         >
-                          <Check size={14} className={isSelected ? "opacity-100" : "opacity-0"} />
+                          <Check size={12} className={isSelected ? "opacity-100" : "opacity-0"} />
                         </button>
                       </div>
                       <div>
-                        <div className="font-bold text-white flex items-center gap-2 text-lg cursor-pointer" onClick={() => toggleSelection(customer.phone)}>
-                          <span className="text-[#fafafa]">#{customer.rank}</span> {customer.name}
-                          {customer.isBlocked && <ShieldAlert size={14} className="text-red-500" />}
+                        <div className="font-bold text-white flex items-center gap-2 text-sm md:text-base cursor-pointer" onClick={() => toggleSelection(customer.phone)}>
+                          <span className="text-indigo-400 text-xs">#{customer.rank}</span> {customer.name || 'Anonymous Customer'}
+                          {customer.isBlocked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold">Blocked</span>}
                         </div>
-                        <div className="text-sm text-gray-400 flex items-center gap-1 mt-1 cursor-pointer" onClick={() => toggleSelection(customer.phone)}>
-                          <Phone size={12} /> {formatWhatsAppPhone(customer.phone)}
-                          <span className="mx-1 text-gray-600">•</span>
-                          <Clock size={12} /> {formatShortTimeAgo(customer.lastOrderTime)}
+                        <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-1 cursor-pointer" onClick={() => toggleSelection(customer.phone)}>
+                          <Phone size={11} className="text-slate-500" /> {formatWhatsAppPhone(customer.phone)}
+                          <span className="text-slate-600">•</span>
+                          <Clock size={11} className="text-slate-500" /> {formatShortTimeAgo(customer.lastOrderTime)}
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 shrink-0">
                       <button 
                          onClick={() => handleWhatsApp(customer)}
-                         className="flex items-center justify-center p-2 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 transition-colors"
+                         className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 flex items-center justify-center transition-colors cursor-pointer"
                          title="Send WhatsApp Message"
                       >
-                         <MessageCircle size={18} />
+                         <MessageCircle size={15} />
                       </button>
                       <button 
                         onClick={() => handleBlockToggle(customer.phone, customer.isBlocked)}
                         className={cn(
-                          "text-xs px-3 py-1 rounded-full border transition-colors",
+                          "text-xs px-2.5 py-1 rounded-xl font-bold border transition-colors cursor-pointer",
                           customer.isBlocked 
-                            ? "bg-[var(--dash-card)] text-white border-[var(--dash-border)] hover:bg-[var(--dash-border)]" 
-                            : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"
+                            ? "bg-white/5 text-slate-300 border-white/10 hover:bg-white/10" 
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
                         )}
                       >
                         {customer.isBlocked ? 'Unblock' : 'Block'}
@@ -499,29 +532,29 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2 z-10 relative">
-                    <div className="bg-[var(--dash-bg)] p-2 rounded-lg flex flex-col items-center border border-[var(--dash-border)]/50 shadow-sm">
-                      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Spent</div>
-                      <div className="font-bold text-white flex items-center gap-1 text-sm">
+                  <div className="grid grid-cols-4 gap-2 z-10 relative pt-1">
+                    <div className="bg-[var(--dash-bg)] p-2.5 rounded-xl flex flex-col items-center border border-[var(--dash-border)]/60">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Spent</div>
+                      <div className="font-bold text-white text-xs md:text-sm">
                         {formatPrice(customer.totalSpent)}
                       </div>
                     </div>
-                    <div className="bg-[var(--dash-bg)] p-2 rounded-lg flex flex-col items-center border border-[var(--dash-border)]/50 shadow-sm">
-                      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Orders</div>
-                      <div className="font-bold text-[#fafafa] flex items-center gap-1 text-sm">
-                        <ShoppingCart size={12} /> {customer.totalOrders}
+                    <div className="bg-[var(--dash-bg)] p-2.5 rounded-xl flex flex-col items-center border border-[var(--dash-border)]/60">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Orders</div>
+                      <div className="font-bold text-indigo-400 text-xs md:text-sm flex items-center gap-1">
+                        {customer.totalOrders}
                       </div>
                     </div>
-                    <div className="bg-[var(--dash-bg)] p-2 rounded-lg flex flex-col items-center border border-[var(--dash-border)]/50 shadow-sm">
-                      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Cancelled</div>
-                      <div className="font-bold text-red-500 flex items-center gap-1 text-sm">
-                        <X size={12} /> {customer.cancelledOrders}
+                    <div className="bg-[var(--dash-bg)] p-2.5 rounded-xl flex flex-col items-center border border-[var(--dash-border)]/60">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Canceled</div>
+                      <div className="font-bold text-rose-400 text-xs md:text-sm">
+                        {customer.cancelledOrders}
                       </div>
                     </div>
-                    <div className="bg-[var(--dash-bg)] p-2 rounded-lg flex flex-col items-center border border-[var(--dash-border)]/50 shadow-sm">
-                      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Success</div>
-                      <div className="font-bold text-yellow-500 flex items-center gap-1 text-sm">
-                        <Activity size={12} /> {customer.successRate}%
+                    <div className="bg-[var(--dash-bg)] p-2.5 rounded-xl flex flex-col items-center border border-[var(--dash-border)]/60">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">Success</div>
+                      <div className="font-bold text-emerald-400 text-xs md:text-sm">
+                        {customer.successRate}%
                       </div>
                     </div>
                   </div>
@@ -529,146 +562,172 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
                 );
               })}
               {sortedCustomers.length === 0 && (
-                <div className="text-center text-gray-500 mt-10">No customers found</div>
+                <div className="col-span-2 text-center text-slate-500 py-12 bg-[var(--dash-card)] rounded-2xl border border-[var(--dash-border)]">
+                  No customers found matching your filter criteria.
+                </div>
               )}
             </div>
           </div>
         )}
 
         {activeTab === 'Blocked' && (
-          <div className="flex flex-col gap-3">
-            {sortedCustomers.filter(c => c.isBlocked).map(customer => (
-                <div key={customer.phone} className="bg-[var(--dash-card)] border border-red-500/30 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/10 rounded-bl-[100px] -z-0"></div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {sortedCustomers.filter(c => c.isBlocked).map(customer => (
+                <div key={customer.phone} className="bg-[var(--dash-card)] border border-rose-500/30 rounded-2xl p-4 md:p-5 flex flex-col justify-between gap-4 relative overflow-hidden shadow-xl">
                   <div className="flex justify-between items-start relative z-10">
                     <div>
-                      <div className="font-bold text-red-400 flex items-center gap-2">
+                      <div className="font-bold text-rose-400 flex items-center gap-2 text-base">
                         {customer.name}
                       </div>
-                      <div className="text-sm text-gray-400 flex items-center gap-1">
-                        <Phone size={12} /> {formatWhatsAppPhone(customer.phone)}
-                        <span className="mx-1 text-gray-600">•</span>
-                        <Clock size={12} /> {formatShortTimeAgo(customer.lastOrderTime)}
+                      <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
+                        <Phone size={11} className="text-slate-500" /> {formatWhatsAppPhone(customer.phone)}
+                        <span className="text-slate-600">•</span>
+                        <Clock size={11} className="text-slate-500" /> {formatShortTimeAgo(customer.lastOrderTime)}
                       </div>
                     </div>
                     <button 
                       onClick={() => handleBlockToggle(customer.phone, true)}
-                      className="text-xs px-3 py-1 bg-[var(--dash-border)] text-white rounded-full border border-gray-600 hover:bg-[var(--dash-border)] transition-colors"
+                      className="text-xs px-3 py-1.5 bg-white/5 text-slate-200 rounded-xl border border-white/10 hover:bg-white/10 font-bold transition-colors cursor-pointer"
                     >
                       Unblock
                     </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 relative z-10">
-                    <div className="bg-[var(--dash-bg)] p-2 rounded-lg flex flex-col items-center border border-[var(--dash-border)]">
-                      <div className="text-xs text-gray-500 mb-1">Total Cancelled</div>
-                      <div className="font-bold text-red-500 text-lg">
+                    <div className="bg-[var(--dash-bg)] p-3 rounded-xl flex flex-col items-center border border-[var(--dash-border)]">
+                      <div className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Total Cancelled</div>
+                      <div className="font-bold text-rose-400 text-base">
                         {customer.cancelledOrders}
                       </div>
                     </div>
-                    <div className="bg-[var(--dash-bg)] p-2 rounded-lg flex flex-col items-center border border-[var(--dash-border)]">
-                      <div className="text-xs text-gray-500 mb-1">Success Rate</div>
-                      <div className="font-bold text-gray-400 text-lg">
+                    <div className="bg-[var(--dash-bg)] p-3 rounded-xl flex flex-col items-center border border-[var(--dash-border)]">
+                      <div className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Success Rate</div>
+                      <div className="font-bold text-slate-300 text-base">
                         {customer.successRate}%
                       </div>
                     </div>
                   </div>
                 </div>
               ))}
-              {sortedCustomers.filter(c => c.isBlocked).length === 0 && (
-                <div className="text-center text-gray-500 mt-10">No blocked customers</div>
-              )}
+            </div>
+            {sortedCustomers.filter(c => c.isBlocked).length === 0 && (
+              <div className="text-center text-slate-500 py-12 bg-[var(--dash-card)] rounded-2xl border border-[var(--dash-border)]">
+                No customers are currently blacklisted.
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'Settings' && (
-          <div className="flex flex-col gap-4">
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+          <div className="space-y-4 max-w-3xl mx-auto">
+            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <User size={20} className="text-[#fafafa]" />
-                  <div className="font-medium text-white text-lg">Customer System</div>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                    <User size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm md:text-base">Customer Intelligence System</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Master toggle for customer database tracking and silent blocking.</p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => handleSettingsUpdate({ systemEnabled: !systemEnabled })}
-                  className={cn("w-12 h-6 rounded-full relative flex items-center px-1 transition-colors group", systemEnabled ? "bg-[#fafafa]" : "bg-[var(--dash-border)]")}
+                  className={cn(
+                    "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                    systemEnabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+                  )}
                 >
-                  <div className={cn("w-4 h-4 rounded-full transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]", systemEnabled  ? "bg-[var(--dash-card)] translate-x-6 group-active:w-6 group-active:translate-x-4" : "bg-white translate-x-0 group-active:w-6")}></div>
+                  <div
+                    className={cn(
+                      "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                      systemEnabled ? "translate-x-5.5" : "translate-x-0"
+                    )}
+                  />
                 </button>
               </div>
-              <p className="text-xs text-gray-400">Master toggle to enable or disable all block features.</p>
             </div>
 
-            <div className={cn("transition-opacity", !systemEnabled && "opacity-50 pointer-events-none")}>
-              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
+            <div className={cn("space-y-4 transition-all duration-300", !systemEnabled && "opacity-40 pointer-events-none")}>
+              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--dash-border)]/50">
                   <div className="flex items-center gap-3">
-                    <ShieldAlert size={20} className="text-[#fafafa]" />
-                    <div className="font-medium text-white text-lg">Auto Block System</div>
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                      <ShieldAlert size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-sm md:text-base">Auto-Block High-Cancellation Numbers</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Automatically silences users after exceeding cancel threshold.</p>
+                    </div>
                   </div>
                   <button 
                     onClick={() => handleSettingsUpdate({ autoBlockEnabled: !customerSettings.autoBlockEnabled })}
-                    className={cn("w-12 h-6 rounded-full relative flex items-center px-1 transition-colors group", customerSettings.autoBlockEnabled ? "bg-[#fafafa]" : "bg-[var(--dash-border)]")}
+                    className={cn(
+                      "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                      customerSettings.autoBlockEnabled ? "bg-rose-500 shadow-md shadow-rose-500/20" : "bg-slate-700/60"
+                    )}
                   >
-                    <div className={cn("w-4 h-4 rounded-full transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]", customerSettings.autoBlockEnabled  ? "bg-[var(--dash-card)] translate-x-6 group-active:w-6 group-active:translate-x-4" : "bg-white translate-x-0 group-active:w-6")}></div>
+                    <div
+                      className={cn(
+                        "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                        customerSettings.autoBlockEnabled ? "translate-x-5.5" : "translate-x-0"
+                      )}
+                    />
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mb-4">Automatically block customers who cancel too many orders.</p>
 
-                <div className={cn("flex flex-col gap-2 transition-opacity", !customerSettings.autoBlockEnabled && "opacity-50 pointer-events-none")}>
-                  <label className="text-sm text-gray-300">Max Cancellations Allowed</label>
-                  <div className="flex items-center gap-3 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-1">
-                    <button 
-                      onClick={() => handleSettingsUpdate({ maxCancelLimit: Math.max(1, customerSettings.maxCancelLimit - 1) })}
-                      className="w-10 h-10 flex items-center justify-center text-white bg-[var(--dash-card)] rounded-md"
-                    >-</button>
-                    <div className="flex-1 text-center font-bold text-white text-lg">
-                      {customerSettings.maxCancelLimit}
+                {customerSettings.autoBlockEnabled && (
+                  <div className="flex items-center justify-between bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 px-4">
+                    <span className="text-xs text-slate-300 font-semibold">Max Cancellations Allowed:</span>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => handleSettingsUpdate({ maxCancelLimit: Math.max(1, customerSettings.maxCancelLimit - 1) })}
+                        className="w-8 h-8 flex items-center justify-center text-white bg-white/5 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors cursor-pointer"
+                      >-</button>
+                      <span className="font-bold text-white text-sm w-6 text-center">
+                        {customerSettings.maxCancelLimit}
+                      </span>
+                      <button 
+                        onClick={() => handleSettingsUpdate({ maxCancelLimit: customerSettings.maxCancelLimit + 1 })}
+                        className="w-8 h-8 flex items-center justify-center text-white bg-white/5 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors cursor-pointer"
+                      >+</button>
                     </div>
-                    <button 
-                      onClick={() => handleSettingsUpdate({ maxCancelLimit: customerSettings.maxCancelLimit + 1 })}
-                      className="w-10 h-10 flex items-center justify-center text-white bg-[var(--dash-card)] rounded-md"
-                    >+</button>
                   </div>
-                </div>
+                )}
               </div>
-            </div>
 
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <MessageCircle size={20} className="text-[#25D366]" />
-                <div className="font-medium text-white text-lg">WhatsApp Message</div>
-              </div>
-              <p className="text-xs text-gray-400 mb-4">Customize the default message sent when you click the WhatsApp button on a customer's card.</p>
-              
-              <div className="flex flex-col gap-2">
-                <label className="text-sm text-gray-300">Message Template</label>
-                <textarea 
-                  value={customerSettings.whatsappMessage || ''}
-                  onChange={(e) => handleSettingsUpdate({ whatsappMessage: e.target.value })}
-                  placeholder="Hello {name}, thank you for ordering from our store."
-                  rows={4}
-                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[#fafafa] transition-colors resize-none"
-                />
-                <div className="bg-[var(--dash-border)]/50 rounded-lg p-3 mt-2">
-                  <div className="text-xs font-medium text-gray-300 mb-2">Available Variables:</div>
-                  <div className="flex flex-wrap gap-2 text-xs text-gray-400 font-mono">
-                    <span className="bg-[var(--dash-bg)] px-2 py-1 rounded select-all cursor-pointer hover:text-[#fafafa]">{"{name}"}</span>
-                    <span className="bg-[var(--dash-bg)] px-2 py-1 rounded select-all cursor-pointer hover:text-[#fafafa]">{"{phone}"}</span>
-                    <span className="bg-[var(--dash-bg)] px-2 py-1 rounded select-all cursor-pointer hover:text-[#fafafa]">{"{total_orders}"}</span>
-                    <span className="bg-[var(--dash-bg)] px-2 py-1 rounded select-all cursor-pointer hover:text-[#fafafa]">{"{total_spent}"}</span>
+              {/* WhatsApp Message Template */}
+              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-3 pb-3 border-b border-[var(--dash-border)]/50">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                    <MessageCircle size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm md:text-base">WhatsApp Outreach Template</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Automated message template when clicking WhatsApp icon on customer card</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <textarea 
+                    value={customerSettings.whatsappMessage || ''}
+                    onChange={(e) => handleSettingsUpdate({ whatsappMessage: e.target.value })}
+                    placeholder="Hello {name}, thank you for ordering from our store."
+                    rows={3}
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                  />
+                  <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)]/60 rounded-xl p-3 space-y-1.5">
+                    <span className="text-[11px] font-bold text-slate-400 block uppercase">Dynamic Tags:</span>
+                    <div className="flex flex-wrap gap-2 text-[11px] text-slate-300 font-mono">
+                      <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg select-all">{"{name}"}</span>
+                      <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg select-all">{"{phone}"}</span>
+                      <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg select-all">{"{total_orders}"}</span>
+                      <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg select-all">{"{total_spent}"}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-               <h3 className="text-white font-medium mb-2">How Silent Block Works</h3>
-               <ul className="text-xs text-gray-400 space-y-2 list-disc pl-4">
-                 <li>When a blocked customer tries to place an order, it appears completely normal to them.</li>
-                 <li>They will not see any errors or "blocked" messages.</li>
-                 <li>The order is completely discarded and will not appear in your Dashboard.</li>
-               </ul>
             </div>
           </div>
         )}
@@ -681,34 +740,34 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110]"
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110]"
               onClick={() => setShowDeleteConfirm(false)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[400px] bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-xl z-[120] p-6 lg:left-[calc(50%+120px)]"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[400px] bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-[120] p-6 lg:left-[calc(50%+120px)]"
             >
-              <h2 className="text-xl font-bold text-white mb-2">Delete Customer Data?</h2>
-              <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-                This action cannot be undone. All selected customer information will be permanently removed.
+              <h2 className="text-lg font-bold text-white mb-2">Delete Customer Records?</h2>
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+                This action is permanent and irreversible. All selected customer history and their associated orders will be purged.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   disabled={isDeleting}
-                  className="flex-1 py-3 bg-[var(--dash-bg)] text-white font-medium rounded-xl border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors disabled:opacity-50"
+                  className="flex-1 py-2.5 bg-white/5 text-slate-300 font-semibold text-xs rounded-xl border border-white/10 hover:bg-white/10 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteCustomers}
                   disabled={isDeleting}
-                  className="flex-1 py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 bg-rose-500 text-white font-bold text-xs rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 cursor-pointer"
                 >
                   {isDeleting ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : 'Delete Permanently'}
                 </button>
               </div>

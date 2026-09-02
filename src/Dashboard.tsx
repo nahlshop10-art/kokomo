@@ -7,10 +7,10 @@ import {
   Trash2, Move, RefreshCcw, ChevronDown, ChevronUp, Image as ImageIcon,
   LayoutGrid, Activity, Check, SlidersHorizontal, Calendar as CalendarIcon,
   ChevronRight, Edit3, Copy, RefreshCw, Palette, Factory, BadgePercent, Globe, CreditCard, Truck, JapaneseYen, Target, LogOut, User, ShieldAlert, UserCheck, UserX, Unlock, Lock,
-  Printer, CheckSquare, PackagePlus, AlertCircle, FileArchive, Calculator, PackageX, Download,
+  Printer, CheckSquare, PackagePlus, AlertCircle, FileArchive, FolderArchive, Calculator, PackageX, Download,
   HelpCircle, Shield, Layers, Database, Info, ExternalLink,
   TrendingUp, ShoppingBag, CircleDollarSign, Undo2, MinusCircle, ClipboardList, ClipboardCheck, XCircle, Tag,
-  Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb
+  Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb, Mail, Clock, BarChart2
 } from 'lucide-react';
 import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
 import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff } from './lib/stockUtils';
@@ -24,6 +24,7 @@ import { getDefaultImageOptimization, setDefaultImageOptimization, ImageOptimiza
 import ProductEditorModal from './ProductEditorModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import ZipImportModal from './components/ZipImportModal';
+import FbZipExportModal from './components/FbZipExportModal';
 import { DatePicker } from './components/DatePicker';
 import DiscountManager from './DiscountManager';
 import CustomersManager from './CustomersManager';
@@ -69,6 +70,167 @@ type TopBarMode = 'default' | 'search' | 'category' | 'filter' | 'move' | 'visib
 
 let hasRunCleanup = false;
 
+// Memoized Top Product item for lag-free Analytics Items Grid
+const TopProductItem = React.memo(({ 
+  product, 
+  quantity, 
+  showImages 
+}: { 
+  product: Product; 
+  quantity: number; 
+  showImages: boolean; 
+}) => {
+  if (!product) return null;
+  return (
+    <div 
+      className="relative overflow-hidden rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] aspect-square"
+    >
+      {showImages && (
+        <img 
+          src={product.thumbnail || product.image || ''} 
+          alt={product.title || ''} 
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+      <div className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-md">
+        {quantity}
+      </div>
+    </div>
+  );
+});
+
+// Memoized Product Card for lag-free Virtualized Products Grid
+interface DashboardProductGridCardProps {
+  product: Product;
+  topBarMode: TopBarMode;
+  isOutOfStock: boolean;
+  isSelected: boolean;
+  isVisible: boolean;
+  perms: any;
+  onEdit: (p: Product) => void;
+  onToggleSelection: (id: string) => void;
+  onToggleVisibility: (id: string) => void;
+  onMoveProducts: (e: React.MouseEvent, id: string) => void;
+}
+
+const DashboardProductGridCard = React.memo(({
+  product,
+  topBarMode,
+  isOutOfStock,
+  isSelected,
+  isVisible,
+  perms,
+  onEdit,
+  onToggleSelection,
+  onToggleVisibility,
+  onMoveProducts
+}: DashboardProductGridCardProps) => {
+  if (!product) return null;
+  const buyPriceVal = product.buyPrice ?? (product.price ? Math.floor(product.price * 0.4) : 0);
+  const sellPriceVal = product.price || 0;
+  const profitVal = sellPriceVal - buyPriceVal;
+
+  return (
+    <div 
+      className="rounded-xl overflow-hidden border flex flex-col relative cursor-pointer bg-[var(--dash-card)] border-[var(--dash-border)]"
+      onClick={() => {
+        if (topBarMode === 'default') {
+          onEdit(product);
+        } else if (topBarMode === 'move' || topBarMode === 'delete') {
+          onToggleSelection(product.id);
+        } else if (topBarMode === 'visibility') {
+          if (!isOutOfStock) {
+            onToggleVisibility(product.id);
+          }
+        }
+      }}
+    >
+      <div className="relative aspect-square w-full overflow-hidden bg-[var(--dash-card)]">
+        <img 
+          src={product.thumbnail || product.image || ''} 
+          alt={product.title || ''} 
+          loading="lazy"
+          decoding="async"
+          className={cn("absolute inset-0 w-full h-full object-cover", (product.isVisible === false || isOutOfStock) ? "opacity-75 grayscale" : "")} 
+        />
+        
+        {/* Stock Out Overlay/Label */}
+        {isOutOfStock && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[var(--dash-bg)]/20 pointer-events-none transition-opacity duration-200">
+             <div className="w-8 h-8 rounded-full border border-[#ff4d4f] flex items-center justify-center bg-[var(--dash-bg)]/90 text-[#ff4d4f] shadow-lg shadow-[#ff4d4f]/20 backdrop-blur-sm">
+                <PackageX size={14} strokeWidth={2} />
+             </div>
+          </div>
+        )}
+        
+        {/* Mode Specific Overlays */}
+        {(topBarMode === 'move' || topBarMode === 'delete') && (
+          <div className="absolute top-2 left-2 w-6 h-6 rounded border-2 border-[var(--dash-border)] bg-[var(--dash-bg)]/50 flex items-center justify-center z-10">
+            {isSelected && <Check size={16} className="text-[#fafafa]" />}
+          </div>
+        )}
+
+        {topBarMode === 'visibility' && (
+          <div className={cn("absolute top-2 left-2 w-8 h-8 rounded flex items-center justify-center z-10", 
+            isVisible ? "bg-[#fafafa] text-[var(--dash-bg)]" : "bg-red-500 text-white"
+          )}>
+            {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+          </div>
+        )}
+
+        {topBarMode === 'move' && (
+          <button 
+            onClick={(e) => onMoveProducts(e, product.id)}
+            className="absolute bottom-2 left-2 bg-[var(--dash-bg)]/80 text-white text-xs font-medium px-3 py-1.5 rounded z-10"
+          >
+            Insert
+          </button>
+        )}
+
+        {/* Default Overlays */}
+        {topBarMode === 'default' && (
+          <>
+            <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+              {product.isNew && <div className="bg-[var(--dash-bg)]/80 text-white text-[10px] font-bold px-2 py-1 rounded w-fit">NEW</div>}
+            </div>
+            <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
+              <div className="bg-[var(--dash-bg)]/80 text-white text-[10px] font-bold px-2 py-1 rounded w-fit flex items-center gap-1">
+                ID: {product.id} <CopyButton text={product.id} className="p-0 text-gray-300 hover:text-white" />
+              </div>
+            </div>
+          </>
+        )}
+        
+        <div className="absolute bottom-2 right-2 bg-[#ff4d6d] text-white text-xs font-bold px-2 py-1 rounded z-10">
+          ¥{product.autoPrice || 0}
+        </div>
+        {topBarMode !== 'move' && !isOutOfStock && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border z-10 shadow-md bg-[#fafafa] text-[var(--dash-bg)] border-[#fafafa]/20">
+            <Package size={14} />
+            {perms?.product?.stock !== false ? (product.stock || 0) : '***'}
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-3 text-center text-[10px] border-t border-[var(--dash-border)] divide-x divide-[var(--dash-border)]">
+        <div className="py-1">
+          <div className="text-gray-500">BUY</div>
+          <div className="font-medium text-white">{perms?.product?.buyPrice !== false ? buyPriceVal : '***'}</div>
+        </div>
+        <div className="py-1">
+          <div className="text-gray-500">SELL</div>
+          <div className="font-medium text-white">{perms?.product?.sellPrice !== false ? sellPriceVal : '***'}</div>
+        </div>
+        <div className="py-1">
+          <div className="text-gray-500">PROFIT</div>
+          <div className="font-medium text-white">{perms?.product?.profit !== false ? profitVal : '***'}</div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function Dashboard({ products, setProducts, orders, setOrders, incompleteOrders, setIncompleteOrders, categories, setCategories, websiteSettings, setWebsiteSettings, marketingSettings, setMarketingSettings, courierSettings, setCourierSettings, priceCalculatorSettings, setPriceCalculatorSettings, onClose, isMaintenanceMode, setIsMaintenanceMode }: DashboardProps) {
   useScrollLock(true);
   const [activeTab, setActiveTab] = useState('Products');
@@ -80,7 +242,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [settingsView, setSettingsView] = useState<'main' | 'categories' | 'website' | 'marketing' | 'courier' | 'priceCalculator' | 'account' | 'accountControl' | 'discounts' | 'customers' | 'suppliers' | 'customise' | 'qtyRules' | 'incompleteOrders' | 'antiSpam' | 'minOrder' | 'bulkPrice' | 'socialMedia' | 'preOrder' | 'imageSettings' | 'seoSettings' | 'apiSync' | 'notification'>('main');
+  const [settingsView, setSettingsView] = useState<'main' | 'categories' | 'website' | 'marketing' | 'courier' | 'priceCalculator' | 'account' | 'accountControl' | 'discounts' | 'customers' | 'suppliers' | 'customise' | 'qtyRules' | 'incompleteOrders' | 'antiSpam' | 'minOrder' | 'bulkPrice' | 'socialMedia' | 'preOrder' | 'imageSettings' | 'seoSettings' | 'apiSync' | 'notification' | 'fbZipExport'>('main');
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -93,7 +255,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
      if (path.startsWith('/admin/settings/')) {
         const slug = path.replace('/admin/settings/', '');
         setActiveTab('Settings');
-        const validViews = ['main', 'categories', 'website', 'marketing', 'courier', 'priceCalculator', 'account', 'accountControl', 'discounts', 'customers', 'suppliers', 'customise', 'qtyRules', 'incompleteOrders', 'antiSpam', 'minOrder', 'bulkPrice', 'socialMedia', 'preOrder', 'imageSettings', 'seoSettings', 'apiSync', 'notification'];
+        const validViews = ['main', 'categories', 'website', 'marketing', 'courier', 'priceCalculator', 'account', 'accountControl', 'discounts', 'customers', 'suppliers', 'customise', 'qtyRules', 'incompleteOrders', 'antiSpam', 'minOrder', 'bulkPrice', 'socialMedia', 'preOrder', 'imageSettings', 'seoSettings', 'apiSync', 'notification', 'fbZipExport'];
         const matchedView = validViews.find(v => slugify(v) === slug) || slug;
         setSettingsView(matchedView as any);
      } else if (path.startsWith('/admin/')) {
@@ -126,12 +288,14 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showZipImport, setShowZipImport] = useState(false);
+  const [showFbZipExport, setShowFbZipExport] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   useHistoryModal(isAddingProduct, () => setIsAddingProduct(false), 'add-product');
   useHistoryModal(!!editingProduct, () => setEditingProduct(null), 'edit-product');
   useHistoryModal(showZipImport, () => setShowZipImport(false), 'zip-import');
+  useHistoryModal(showFbZipExport, () => setShowFbZipExport(false), 'fb-zip-export');
   useHistoryModal(!!confirmAction, () => setConfirmAction(null), 'confirm-action');
 
   const handleTabChange = (tab: any) => {
@@ -206,7 +370,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     return null;
   });
 
-  const perms = currentAdmin?.permissions || DEFAULT_ADMIN_PERMISSIONS;
+  const perms = {
+    sections: { ...DEFAULT_ADMIN_PERMISSIONS.sections, ...(currentAdmin?.permissions?.sections || {}) },
+    product: { ...DEFAULT_ADMIN_PERMISSIONS.product, ...(currentAdmin?.permissions?.product || {}) },
+    order: { ...DEFAULT_ADMIN_PERMISSIONS.order, ...(currentAdmin?.permissions?.order || {}) },
+    analytics: { ...DEFAULT_ADMIN_PERMISSIONS.analytics, ...(currentAdmin?.permissions?.analytics || {}) },
+  };
   const isOwner = currentAdmin?.role === 'Owner' || !currentAdmin?.role;
 
   // Enforce Permissions on Route/Tab changes
@@ -306,12 +475,14 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     const fetchAdminData = async () => {
       const state = await cloudStore.getAdminState();
       if (state) {
+        if (state.products && state.products.length > 0) setProducts(state.products);
         if (state.orders) setOrders(state.orders);
         if (state.incompleteOrders) setIncompleteOrders(state.incompleteOrders);
         if (state.adminUsers) setAdminUsers(state.adminUsers);
         if (state.customers) setCustomers(state.customers);
         
         if (state.settings) {
+          if (state.settings.categories) setCategories(state.settings.categories);
           if (state.settings.websiteSettings) setWebsiteSettings(state.settings.websiteSettings);
           if (state.settings.marketingSettings) setMarketingSettings(state.settings.marketingSettings);
           if (state.settings.courierSettings) setCourierSettings(state.settings.courierSettings);
@@ -803,21 +974,37 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const rowCount = Math.ceil(displayProducts.length / cols);
   
   const listRef = useRef<HTMLDivElement>(null);
-  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(() => scrollRef.current);
+
+  const setScrollContainerRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (scrollRef) {
+      scrollRef.current = node;
+    }
+    setScrollEl(node);
+  }, [scrollRef]);
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && scrollRef.current !== scrollEl) {
       setScrollEl(scrollRef.current);
     }
-  }, [scrollRef.current, activeTab]);
+  }, [currentAdmin, activeTab, scrollEl]);
   
-  const getScrollElement = React.useCallback(() => scrollEl, [scrollEl]);
-  
+  const estimateRowHeight = React.useCallback(() => {
+    if (typeof window === 'undefined') return 240;
+    const w = window.innerWidth;
+    if (w < 768) {
+      return Math.round((w - 16) / 2 + 45);
+    }
+    return 300;
+  }, []);
+
+  const getScrollElement = React.useCallback(() => scrollEl || scrollRef.current, [scrollEl]);
+
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement,
-    estimateSize: () => 350,
-    overscan: 5,
+    estimateSize: estimateRowHeight,
+    overscan: 8,
   });
 
   // Orders filtering
@@ -865,12 +1052,18 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const totalProfitAmount = adminStats ? adminStats.totalProfitAmount : rawTotalProfitAmount;
   const completedProfitAmount = adminStats ? adminStats.completedProfitAmount : rawCompletedProfitAmount;
 
-  const totalQuantity = adminStats ? adminStats.totalQuantity : filteredOrders.reduce((acc, o) => acc + o.items.reduce((sum, item) => sum + item.quantity, 0), 0);
+  const totalQuantity = adminStats ? adminStats.totalQuantity : filteredOrders.reduce((acc, o) => acc + (o.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0), 0);
   
   // Unique items sold
   const uniqueItemIds = new Set<string>();
-  filteredOrders.forEach(o => o.items.forEach(item => uniqueItemIds.add(item.product.id)));
-  const uniqueItemsCount = adminStats ? adminStats.uniqueItemIds.length : uniqueItemIds.size;
+  filteredOrders.forEach(o => {
+    (o.items || []).forEach(item => {
+      if (item?.product?.id) {
+        uniqueItemIds.add(item.product.id);
+      }
+    });
+  });
+  const uniqueItemsCount = adminStats ? (adminStats.uniqueItemIds?.length || 0) : uniqueItemIds.size;
 
   // Product Sales Calculation
   const productSales = new Map<string, { product: Product, quantity: number }>();
@@ -878,19 +1071,23 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       Object.entries(adminStats.productSales).forEach(([productId, quantity]) => {
           const latestProduct = products.find(p => p.id === productId);
           if (latestProduct) {
-              productSales.set(productId, { product: latestProduct, quantity: quantity as number });
+              productSales.set(productId, { product: latestProduct, quantity: Number(quantity) || 0 });
           }
       });
   } else {
       filteredOrders.forEach(order => {
         if (order.status !== 'Canceled' && order.status !== 'Returned' && order.status !== 'Complete Return') {
-          order.items.forEach(item => {
-            const existing = productSales.get(item.product.id);
+          (order.items || []).forEach(item => {
+            const pId = item?.product?.id;
+            if (!pId) return;
+            const existing = productSales.get(pId);
             if (existing) {
-              existing.quantity += item.quantity;
+              existing.quantity += (item.quantity || 0);
             } else {
-              const latestProduct = products.find(p => p.id === item.product.id) || item.product;
-              productSales.set(item.product.id, { product: latestProduct, quantity: item.quantity });
+              const latestProduct = products.find(p => p.id === pId) || item.product;
+              if (latestProduct) {
+                productSales.set(pId, { product: latestProduct, quantity: (item.quantity || 0) });
+              }
             }
           });
         }
@@ -898,7 +1095,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   }
 
   const topProducts = Array.from(productSales.values())
-    .filter(p => p.quantity > 0)
+    .filter(p => p && p.product && p.quantity > 0)
     .sort((a, b) => b.quantity - a.quantity);
 
   const toggleProductSelection = (id: string) => {
@@ -1472,8 +1669,17 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             )}
 
             <button 
+              onClick={() => { setActiveTab('Settings'); setSettingsView('fbZipExport'); }}
+              className="ml-auto px-3 py-2 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2 cursor-pointer"
+              title="Download FB Auto-Sender In-Stock Dataset"
+            >
+              <Download size={18} className="text-blue-400" />
+              <span className="hidden sm:inline">Download Fb Zip</span>
+            </button>
+
+            <button 
               onClick={() => setShowZipImport(true)}
-              className="ml-auto px-3 py-2 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2"
+              className="px-3 py-2 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2"
             >
               <FileArchive size={18} className="text-[#fafafa]" />
               <span className="hidden sm:inline">Import ZIP</span>
@@ -1653,7 +1859,14 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
       </AnimatePresence>
 
-      <div ref={scrollRef} className={cn("flex-grow min-h-0 overflow-y-auto relative z-0 md:p-8", activeTab === 'Dashboard' ? 'px-1.5 pt-1 pb-20' : 'px-4 pt-4 pb-20')}>
+      <div 
+        ref={setScrollContainerRef} 
+        className={cn(
+          "flex-grow min-h-0 overflow-y-auto relative z-0 md:p-8 overscroll-y-contain", 
+          activeTab === 'Dashboard' ? 'px-1.5 pt-1 pb-20' : 'px-4 pt-4 pb-20'
+        )}
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         <div className="max-w-7xl mx-auto w-full">
         {/* Stats - Only show on Dashboard tab */}
         {activeTab === 'Dashboard' && perms.sections.dashboard && (
@@ -1688,21 +1901,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center justify-center">Items</h3>
                 <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
                   {topProducts.map(({ product, quantity }) => (
-                    <div 
-                      key={product.id} 
-                      className="relative overflow-hidden rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] aspect-square"
-                    >
-                      {perms.analytics.productImages && (
-                        <img 
-                          src={product.thumbnail || product.image} 
-                          alt={product.title} 
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      )}
-                      <div className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-md">
-                        {quantity}
-                      </div>
-                    </div>
+                    <TopProductItem 
+                      key={product.id}
+                      product={product}
+                      quantity={quantity}
+                      showImages={Boolean(perms.analytics.productImages)}
+                    />
                   ))}
                 </div>
               </div>
@@ -1712,12 +1916,18 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
         {/* Products Grid */}
         {activeTab === 'Products' && perms.sections.products && (
-          <div ref={listRef} className="w-full relative px-1 pb-1" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          <div 
+            ref={listRef} 
+            className="w-full relative px-1 pb-1" 
+            style={{ 
+              height: `${virtualizer.getTotalSize()}px`,
+              transform: 'translateZ(0)',
+              willChange: 'transform'
+            }}
+          >
             {virtualizer.getVirtualItems().map((virtualRow) => (
               <div
                 key={virtualRow.index}
-                ref={virtualizer.measureElement}
-                data-index={virtualRow.index}
                 className={`absolute top-0 left-0 w-full grid grid-cols-2 gap-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-4 md:px-4`}
                 style={{
                   transform: `translateY(${virtualRow.start}px)`,
@@ -1732,117 +1942,24 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                       ? !product.variants.some(v => v.stock !== undefined && v.stock !== null && Number(v.stock) > 0)
                       : (product.stock === undefined || product.stock === null || Number(product.stock) <= 0);
 
-            return (
-            <div 
-              key={product.id} 
-              className={cn(
-                "rounded-xl overflow-hidden border flex flex-col relative cursor-pointer transition-all",
-                isOutOfStock 
-                  ? "bg-[var(--dash-card)] border-[var(--dash-border)]" 
-                  : "bg-[var(--dash-card)] border-[var(--dash-border)]"
-              )}
-              onClick={() => {
-                if (topBarMode === 'default') {
-                  setEditingProduct(product);
-                } else if (topBarMode === 'move' || topBarMode === 'delete') {
-                  toggleProductSelection(product.id);
-                } else if (topBarMode === 'visibility') {
-                  if (!isOutOfStock) {
-                    toggleVisibility(product.id);
-                  }
-                }
-              }}
-            >
-              <div className="relative aspect-square w-full overflow-hidden bg-[var(--dash-card)]">
-                <img src={product.thumbnail || product.image} alt={product.title} className={cn("absolute inset-0 w-full h-full object-cover", (product.isVisible === false || isOutOfStock) ? "opacity-75 grayscale" : "")} />
-                
-                {/* Stock Out Overlay/Label */}
-                <AnimatePresence>
-                {isOutOfStock && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[var(--dash-bg)]/20 pointer-events-none"
-                  >
-                     <div className="w-8 h-8 rounded-full border border-[#ff4d4f] flex items-center justify-center bg-[var(--dash-bg)]/90 text-[#ff4d4f] shadow-lg shadow-[#ff4d4f]/20 backdrop-blur-sm">
-                        <PackageX size={14} strokeWidth={2} />
-                     </div>
-                  </motion.div>
-                )}
-                </AnimatePresence>
-                
-                {/* Mode Specific Overlays */}
-                {(topBarMode === 'move' || topBarMode === 'delete') && (
-                  <div 
-                    className="absolute top-2 left-2 w-6 h-6 rounded border-2 border-[var(--dash-border)] bg-[var(--dash-bg)]/50 flex items-center justify-center z-10"
-                  >
-                    {selectedProducts.includes(product.id) && <Check size={16} className="text-[#fafafa]" />}
-                  </div>
-                )}
+                    const isSelected = selectedProducts.includes(product.id);
+                    const isVisible = visibilityChanges[product.id] !== undefined ? visibilityChanges[product.id] : product.isVisible !== false;
 
-                {topBarMode === 'visibility' && (
-                  <div 
-                    className={cn("absolute top-2 left-2 w-8 h-8 rounded flex items-center justify-center z-10", 
-                      (visibilityChanges[product.id] !== undefined ? visibilityChanges[product.id] : product.isVisible !== false) 
-                        ? "bg-[#fafafa] text-[var(--dash-bg)]" 
-                        : "bg-red-500 text-white"
-                    )}
-                  >
-                    {(visibilityChanges[product.id] !== undefined ? visibilityChanges[product.id] : product.isVisible !== false) ? <Eye size={16} /> : <EyeOff size={16} />}
-                  </div>
-                )}
-
-                {topBarMode === 'move' && (
-                  <button 
-                    onClick={(e) => handleMoveProducts(e, product.id)}
-                    className="absolute bottom-2 left-2 bg-[var(--dash-bg)]/80 text-white text-xs font-medium px-3 py-1.5 rounded z-10"
-                  >
-                    Insert
-                  </button>
-                )}
-
-                {/* Default Overlays */}
-                {topBarMode === 'default' && (
-                  <>
-                    <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                      {product.isNew && <div className="bg-[var(--dash-bg)]/80 text-white text-[10px] font-bold px-2 py-1 rounded w-fit">NEW</div>}
-                    </div>
-                    <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
-                      <div className="bg-[var(--dash-bg)]/80 text-white text-[10px] font-bold px-2 py-1 rounded w-fit flex items-center gap-1">
-                        ID: {product.id} <CopyButton text={product.id} className="p-0 text-gray-300 hover:text-white" />
-                      </div>
-                    </div>
-                  </>
-                )}
-                
-                <div className="absolute bottom-2 right-2 bg-[#ff4d6d] text-white text-xs font-bold px-2 py-1 rounded z-10">
-                  ¥{product.autoPrice || 0}
-                </div>
-                {topBarMode !== 'move' && !isOutOfStock && (
-                  <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border z-10 shadow-md bg-[#fafafa] text-[var(--dash-bg)] border-[#fafafa]/20">
-                    <Package size={14} />
-                    {perms.product.stock ? (product.stock || 0) : '***'}
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-3 text-center text-[10px] border-t border-[var(--dash-border)] divide-x divide-[var(--dash-border)]">
-                <div className="py-1">
-                  <div className="text-gray-500">BUY</div>
-                  <div className="font-medium text-white">{perms.product.buyPrice ? (product.buyPrice || Math.floor(product.price * 0.4)) : '***'}</div>
-                </div>
-                <div className="py-1">
-                  <div className="text-gray-500">SELL</div>
-                  <div className="font-medium text-white">{perms.product.sellPrice ? product.price : '***'}</div>
-                </div>
-                <div className="py-1">
-                  <div className="text-gray-500">PROFIT</div>
-                  <div className="font-medium text-white">{perms.product.profit ? product.price - (product.buyPrice || Math.floor(product.price * 0.4)) : '***'}</div>
-                </div>
-              </div>
-            </div>
-            );
+                    return (
+                      <DashboardProductGridCard
+                        key={product.id}
+                        product={product}
+                        topBarMode={topBarMode}
+                        isOutOfStock={isOutOfStock}
+                        isSelected={isSelected}
+                        isVisible={isVisible}
+                        perms={perms}
+                        onEdit={setEditingProduct}
+                        onToggleSelection={toggleProductSelection}
+                        onToggleVisibility={toggleVisibility}
+                        onMoveProducts={handleMoveProducts}
+                      />
+                    );
                   })}
               </div>
             ))}
@@ -2096,7 +2213,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
         {/* Settings Tab */}
         {activeTab === 'Settings' && perms.sections.settings && (
-          <div className="max-w-2xl mx-auto w-full flex flex-col gap-2.5 md:gap-3.5 px-1.5 md:px-4 py-2">
+          <div className="max-w-2xl mx-auto w-full flex flex-col gap-2.5 md:gap-3.5 px-1.5 md:px-4 py-2 pb-36">
             {/* Header */}
             <div className="mb-1">
               <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Settings</h1>
@@ -2318,7 +2435,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="text-pink-500 shrink-0 flex items-center justify-center w-6 h-6">
+                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
                     <Globe size={20} strokeWidth={1.75} />
                   </div>
                   <span className="text-white text-sm md:text-base font-medium tracking-wide">Website</span>
@@ -2360,10 +2477,27 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="text-pink-400 shrink-0 flex items-center justify-center w-6 h-6">
+                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
                     <Palette size={20} strokeWidth={1.75} />
                   </div>
                   <span className="text-white text-sm md:text-base font-medium tracking-wide">Customise</span>
+                </div>
+                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+              </div>
+
+              {/* Download FB Zip (FB Auto-Sender Dataset) */}
+              <div 
+                onClick={() => setSettingsView('fbZipExport')}
+                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
+                    <FolderArchive size={20} strokeWidth={1.75} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-sm md:text-base font-medium tracking-wide">Download Fb Zip</span>
+                    <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-medium">In-Stock</span>
+                  </div>
                 </div>
                 <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
               </div>
@@ -2503,7 +2637,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
              height: ${websiteSettings?.dashboardNav?.height ?? 64}px !important;
              width: ${websiteSettings?.dashboardNav?.width ?? 92}% !important;
              left: 50% !important;
-             transform: translateX(-50%) !important;
+             transform: translateX(-50%) translateZ(0) !important;
+             will-change: transform;
              backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
              -webkit-backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
           }
@@ -2511,6 +2646,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
              backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
              -webkit-backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
              bottom: calc(${websiteSettings?.dashboardNav?.bottomOffset ?? 10}px + ${websiteSettings?.dashboardNav?.height ?? 64}px + 16px) !important;
+             transform: translateZ(0) !important;
+             will-change: transform;
           }
         }
       `}</style>
@@ -2726,7 +2863,23 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         <QtyRulesManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
       )}
       {settingsView === 'customise' && perms.sections.settings && (
-        <CustomiseManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <CustomiseManager 
+          settings={websiteSettings} 
+          setSettings={setWebsiteSettings} 
+          onClose={() => setSettingsView('main')} 
+          products={products}
+          categories={categories}
+          onDownloadFbZip={() => setSettingsView('fbZipExport')}
+        />
+      )}
+      {settingsView === 'fbZipExport' && perms.sections.settings && (
+        <FbZipExportModal 
+          products={products}
+          categories={categories}
+          websiteSettings={websiteSettings}
+          themePrimary={websiteSettings.themeColors?.primary}
+          onClose={() => setSettingsView('main')}
+        />
       )}
       {settingsView === 'notification' && perms.sections.settings && (
         <NotificationManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
@@ -2898,46 +3051,71 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-bg)]">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-white absolute left-1/2 -translate-x-1/2">Categories</h1>
-        <div className="w-10"></div>
-      </div>
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <LayoutGrid size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Category Management</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Organize products into intuitive collections and groups</p>
+            </div>
+          </div>
+        </div>
 
-      <div className="p-4">
         <button 
           onClick={() => { setEditingCategory(null); setIsEditing(true); }}
-          className="bg-transparent border border-[var(--dash-border)] text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 w-fit hover:bg-[var(--dash-card)]"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
         >
-          <Plus size={16} /> Add New
+          <Plus size={16} /> Add Category
         </button>
       </div>
 
       {/* Categories Grid */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 pt-0">
-        <div className="max-w-3xl mx-auto w-full">
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-4">
-          {categories.map(cat => (
-            <div 
-              key={cat.id} 
-              className="flex flex-col items-center gap-2 cursor-pointer group"
-              onClick={() => { setEditingCategory(cat); setIsEditing(true); }}
-            >
-              <div className="w-[72px] h-[72px] rounded-full bg-[var(--dash-card)] flex items-center justify-center overflow-hidden group-hover:ring-2 ring-[#fafafa] transition-all">
-                <div className="w-[60px] h-[60px] rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+      <div 
+        ref={scrollRef} 
+        className="flex-1 overflow-y-auto p-4 md:p-8 overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="max-w-4xl mx-auto w-full space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+            {categories.map(cat => (
+              <div 
+                key={cat.id} 
+                className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 cursor-pointer group hover:border-indigo-500/50 transition-all shadow-xl active:scale-95"
+                onClick={() => { setEditingCategory(cat); setIsEditing(true); }}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-[var(--dash-bg)] border border-[var(--dash-border)] flex items-center justify-center overflow-hidden group-hover:border-indigo-500/50 transition-all shadow-inner relative">
                   {cat.icon ? (
                     <img src={cat.icon} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-gray-400 font-bold text-xl">{cat.name.charAt(0)}</span>
+                    <span className="text-indigo-400 font-bold text-xl">{cat.name.charAt(0)}</span>
                   )}
                 </div>
+                <div className="text-center">
+                  <span className="text-xs md:text-sm font-bold text-white group-hover:text-indigo-400 transition-colors line-clamp-1">{cat.name}</span>
+                </div>
               </div>
-              <div className="text-white text-xs font-medium text-center">{cat.name}</div>
+            ))}
+          </div>
+
+          {categories.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 px-4 bg-[var(--dash-card)] rounded-2xl border border-dashed border-[var(--dash-border)]">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
+                <LayoutGrid size={22} />
+              </div>
+              <p className="text-white font-bold text-sm">No categories created yet</p>
+              <p className="text-xs text-slate-500 mt-1">Click "Add Category" to create your first collection</p>
             </div>
-          ))}
-        </div>
+          )}
         </div>
       </div>
 
@@ -2955,143 +3133,125 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
 }
 
 function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary }: { category: Category | null, onSave: (c: Category) => void, onClose: () => void, onDelete?: () => void, themePrimary?: string }) {
-  const [name, setName] = useState(category?.name || '');
-  const [icon, setIcon] = useState(category?.icon || '');
+  const [name, setName] = useState(category ? category.name : '');
+  const [icon, setIcon] = useState(category ? category.icon || '' : '');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 400;
-          const MAX_HEIGHT = 400;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob(async (blob) => {
-            if (blob) {
-              try {
-                const url = await cloudStore.uploadFile(blob, `cat_${Date.now()}.jpg`);
-                setIcon(url);
-              } catch (e) {
-                console.error('Category image upload failed', e);
-                setIcon(canvas.toDataURL('image/jpeg', 0.8));
-              }
-            }
-          }, 'image/jpeg', 0.8);
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file as Blob);
-    }
-  };
 
   const handleSave = () => {
     if (!name.trim()) return;
     onSave({
-      id: category?.id || `cat_${Date.now()}`,
+      id: category ? category.id : Date.now().toString(),
       name: name.trim(),
       icon: icon.trim() || undefined
     });
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      cloudStore.uploadFile(file, `category_${Date.now()}_${file.name}`)
+        .then(url => {
+          setIcon(url);
+        })
+        .catch(() => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setIcon(event.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+        });
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[110] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 bg-[var(--dash-bg)] border-b border-[var(--dash-border)]">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-white absolute left-1/2 -translate-x-1/2">{category ? 'Edit Category' : 'Add Category'}</h1>
-        {onDelete ? (
-          <button onClick={onDelete} className="p-2 -mr-2 text-red-500 hover:text-red-400">
-            <Trash2 size={20} />
-          </button>
-        ) : (
-          <div className="w-10"></div>
-        )}
-      </div>
-
-      <div className="p-4 flex-1 overflow-y-auto md:p-8 max-w-3xl mx-auto w-full">
-        <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-4 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[#ff4d6d]">Title *</label>
-            <input 
-              type="text" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Necklace"
-              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-            />
-            <div className="text-xs text-gray-500">
-              https://paikarix.com/c/{name.toLowerCase().replace(/\s+/g, '-')}
-            </div>
+    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+        <div className="p-4 md:p-6 border-b border-[var(--dash-border)]/40 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
+              {category ? 'Edit Category' : 'New Category'}
+            </h2>
           </div>
+          {onDelete && (
+            <button 
+              onClick={onDelete}
+              className="w-10 h-10 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center justify-center transition-colors cursor-pointer"
+              title="Delete Category"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
 
-          <div className="flex flex-col gap-2 mt-2">
-            <label className="text-sm font-medium text-gray-400">Icon (optional)</label>
-            <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-4 min-h-[160px] flex items-start justify-start relative">
-              {icon ? (
-                <div className="relative inline-block">
-                  <img src={icon} alt="Preview" className="w-24 h-24 object-cover rounded-lg bg-white" />
-                  <button 
-                    onClick={() => setIcon('')}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-[#ff4d6d] rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md"
-                  >
-                    <X size={14} />
-                  </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-[#fafafa] text-[var(--dash-bg)] text-[10px] font-bold text-center py-1 rounded-b-lg">
-                    - 97% = 1.57 KB
-                  </div>
-                </div>
-              ) : (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-24 h-24 border-2 border-dashed border-[var(--dash-border)] rounded-lg flex flex-col items-center justify-center text-gray-500 hover:text-[#fafafa] hover:border-[#fafafa] transition-colors"
-                >
-                  <ImageIcon size={24} className="mb-1" />
-                  <span className="text-xs">Upload</span>
-                </button>
-              )}
+        <div 
+          className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4 max-w-xl mx-auto w-full overscroll-y-contain pb-28"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-2xl p-4 md:p-5 shadow-xl space-y-4">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">Category Title *</label>
               <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*"
-                onChange={handleImageUpload}
+                type="text" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Traditional Jewelry"
+                className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl px-3.5 py-3 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
               />
+              <div className="text-[11px] text-slate-500 mt-1.5 font-mono truncate">
+                https://paikarix.com/c/{name.toLowerCase().replace(/\s+/g, '-')}
+              </div>
             </div>
-          </div>
 
-          <button 
-            onClick={handleSave}
-            disabled={!name.trim()}
-            style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-            className="w-full py-3 mt-4 rounded-lg font-bold text-base md:text-lg hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
-          >
-            {category ? 'Update' : 'Add'}
-          </button>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">Icon / Thumbnail</label>
+              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 flex items-center justify-start gap-4">
+                {icon ? (
+                  <div className="relative inline-block">
+                    <img src={icon} alt="Preview" className="w-20 h-20 object-cover rounded-xl bg-white/5 border border-[var(--dash-border)]" />
+                    <button 
+                      onClick={() => setIcon('')}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-20 h-20 border-2 border-dashed border-[var(--dash-border)] hover:border-indigo-500 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <ImageIcon size={20} className="mb-1" />
+                    <span className="text-[10px] font-bold">Upload</span>
+                  </button>
+                )}
+                <div className="text-xs text-slate-400">
+                  <p className="font-semibold text-white">Category Image</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Recommended 400x400 JPG or PNG</p>
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleSave}
+              disabled={!name.trim()}
+              className="w-full py-3 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25 cursor-pointer"
+            >
+              {category ? 'Save Changes' : 'Create Category'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -3144,7 +3304,6 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // 16:5 aspect ratio
         const targetRatio = 16 / 5;
         let width = img.width;
         let height = img.height;
@@ -3156,7 +3315,6 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
           height = width / targetRatio;
         }
 
-        // Max width 1600px for performance
         if (width > 1600) {
           width = 1600;
           height = 1600 / targetRatio;
@@ -3165,8 +3323,6 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        
-        // Center crop
         const srcX = (img.width - width) / 2;
         const srcY = (img.height - height) / 2;
         
@@ -3223,183 +3379,141 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
     }));
   };
 
+  const themeColor = '#6366F1';
+
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-bg)]">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-white absolute left-1/2 -translate-x-1/2">Website</h1>
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <Globe size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Storefront & Layout</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Customize banners, branding, stock sections, and delivery fees</p>
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={handleSave}
           disabled={isSaving}
-          style={{ backgroundColor: draftSettings.themeColors?.primary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs md:text-sm hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 shadow-md cursor-pointer"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
         >
-          {saved ? <Check size={16} /> : <Save size={16} />}
           {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 md:p-8 max-w-4xl mx-auto w-full">
-        {/* Stock Out Control */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">Stock Out Section</h2>
-            <button 
-              onClick={() => setDraftSettings(prev => ({ 
-                ...prev, 
-                stockOutFeature: { 
-                  enabled: !prev.stockOutFeature?.enabled, 
-                  minOrdersRequired: prev.stockOutFeature?.minOrdersRequired || 0 
-                } 
-              }))}
-              className={cn("w-12 h-6 rounded-full transition-colors relative group", draftSettings.stockOutFeature?.enabled ? "bg-[#fafafa]" : "bg-gray-600")}
-            >
-              <div className={cn("w-5 h-5 rounded-full absolute top-0.5 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm", draftSettings.stockOutFeature?.enabled ? "bg-[var(--dash-card)] translate-x-6 group-active:w-7 group-active:translate-x-4" : "bg-white translate-x-0.5 group-active:w-7")} />
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Minimum Orders Required to Access</label>
-              <input 
-                type="number"
-                value={draftSettings.stockOutFeature?.minOrdersRequired || 0}
-                onChange={(e) => setDraftSettings(prev => ({
-                  ...prev,
-                  stockOutFeature: {
-                    enabled: prev.stockOutFeature?.enabled ?? true,
-                    minOrdersRequired: parseInt(e.target.value) || 0
-                  }
-                }))}
-                min="0"
-                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[#fafafa]"
-              />
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed">Customers must complete this many orders to view the stock-out section. Set to 0 to allow everyone.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Pixel Event Batching Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-          <h2 className="text-lg font-bold text-white mb-4">Pixel Event Batching</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Batching Interval (Seconds)</label>
-            <input 
-              type="number"
-              value={draftSettings.eventBatchingInterval || 35}
-              onChange={(e) => setDraftSettings(prev => ({ ...prev, eventBatchingInterval: parseInt(e.target.value) || 35 }))}
-              min="5"
-              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[#fafafa]"
-              placeholder="e.g. 35"
-            />
-            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-              Groups all Meta/TikTok Pixel events and sends them together every X seconds. Reduces Cloudflare requests. Events are instantly flushed on checkout, purchase, or exit.
-            </p>
-          </div>
-        </div>
-
-        {/* Smart Product Display Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {/* Banner Section */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-white mb-1">Smart Product Display</h2>
-              <p className="text-xs text-gray-400">Automatically arrange products: Top Selling ➔ New ➔ Lowest Selling</p>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Hero Promotional Banners</h2>
+              <p className="text-xs text-slate-400">High-converting carousel slides displayed on the homepage (16:5 ratio).</p>
             </div>
-            <button 
-              onClick={() => setDraftSettings(prev => ({ ...prev, smartProductDisplay: !prev.smartProductDisplay }))}
-              className={cn("w-12 h-6 rounded-full transition-colors relative group", draftSettings.smartProductDisplay ? "bg-[#fafafa]" : "bg-gray-600")}
-            >
-              <div className={cn("w-5 h-5 rounded-full absolute top-0.5 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm", draftSettings.smartProductDisplay ? "bg-[var(--dash-card)] translate-x-6 group-active:w-7 group-active:translate-x-4" : "bg-white translate-x-0.5 group-active:w-7")} />
-            </button>
-          </div>
-        </div>
-
-        {/* Banner Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">Banner</h2>
             <button 
               onClick={() => setDraftSettings(prev => ({ ...prev, bannerEnabled: !prev.bannerEnabled }))}
-              className={cn("w-12 h-6 rounded-full transition-colors relative group", draftSettings.bannerEnabled ? "bg-[#fafafa]" : "bg-gray-600")}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                draftSettings.bannerEnabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
             >
-              <div className={cn("w-5 h-5 rounded-full absolute top-0.5 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm", draftSettings.bannerEnabled ? "bg-[var(--dash-card)] translate-x-6 group-active:w-7 group-active:translate-x-4" : "bg-white translate-x-0.5 group-active:w-7")} />
+              <div
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  draftSettings.bannerEnabled ? "translate-x-5.5" : "translate-x-0"
+                )}
+              />
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-4 mb-4">
-            {(draftSettings.banners || []).map((banner, idx) => (
-              <div key={idx} className="relative w-32 h-32 rounded-lg overflow-hidden border border-[var(--dash-border)]">
-                <img src={banner} alt={`Banner ${idx}`} className="w-full h-full object-cover" />
-                <button 
-                  onClick={() => removeBanner(idx)}
-                  className="absolute top-1 right-1 w-6 h-6 bg-[#ff4d6d] rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10"
-                >
-                  <X size={14} />
-                </button>
+          {draftSettings.bannerEnabled && (
+            <div className="space-y-4 pt-2 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {(draftSettings.banners || []).map((banner, idx) => (
+                  <div key={idx} className="relative aspect-[16/5] rounded-xl overflow-hidden border border-[var(--dash-border)] group shadow-inner">
+                    <img src={banner} alt={`Banner ${idx}`} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => removeBanner(idx)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10 opacity-80 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div 
-            className={cn(
-              "border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors cursor-pointer",
-              isDragging ? "border-[#fafafa] text-[#fafafa] bg-[#fafafa]/10" : "border-[var(--dash-border)] text-gray-400 hover:text-[#fafafa] hover:border-[#fafafa]"
-            )}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <ImageIcon size={32} className="mb-2" />
-            <span className="text-sm">Click to upload</span>
-            <span className="text-xs">or drag and drop</span>
-            <div className="mt-4 pt-4 border-t border-[var(--dash-border)] w-full text-center text-xs">
-              Image Urls
+              <div 
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-colors cursor-pointer",
+                  isDragging ? "border-indigo-400 bg-indigo-500/10 text-indigo-300" : "border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <ImageIcon size={28} className="mb-1 text-indigo-400" />
+                <span className="text-xs font-bold text-white">Click or drag banner here to upload</span>
+                <span className="text-[11px] text-slate-500 mt-0.5">Recommended 1600x500 JPG/PNG</span>
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Banner Corner Radius</label>
+                  <input 
+                    type="text"
+                    value={draftSettings.bannerBorderRadius || '16px'}
+                    onChange={(e) => setDraftSettings(prev => ({ ...prev, bannerBorderRadius: e.target.value }))}
+                    placeholder="e.g. 16px, 1rem"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept="image/*"
-            onChange={handleImageUpload}
-          />
-          
-          <div className="mt-4 pt-4 border-t border-[var(--dash-border)]">
-            <label className="block text-sm font-medium text-gray-400 mb-1">Banner Corner Radius</label>
-            <input 
-              type="text"
-              value={draftSettings.bannerBorderRadius || '16px'}
-              onChange={(e) => setDraftSettings(prev => ({ ...prev, bannerBorderRadius: e.target.value }))}
-              placeholder="e.g. 12px, 1rem, 50%"
-              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[#fafafa]"
-            />
-            <p className="text-xs text-gray-500 mt-2">Set the corner radius for banners on the website.</p>
-          </div>
+          )}
         </div>
 
         {/* Logo Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">Logo</h2>
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div>
+            <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Header Store Logo</h2>
+            <p className="text-xs text-slate-400">Primary brand identity shown on desktop and mobile navbar.</p>
           </div>
-          <div className="flex flex-col gap-4">
+          <div>
             {draftSettings.logoUrl ? (
-              <div className="relative w-full max-w-[200px] h-20 rounded-lg overflow-hidden border border-[var(--dash-border)] bg-white flex items-center justify-center">
+              <div className="relative w-48 h-16 rounded-xl overflow-hidden border border-[var(--dash-border)] bg-white/5 flex items-center justify-center p-2">
                 <img src={draftSettings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
                 <button 
                   onClick={() => setDraftSettings(prev => ({ ...prev, logoUrl: undefined }))}
-                  className="absolute top-1 right-1 w-6 h-6 bg-[#ff4d6d] rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10"
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10 cursor-pointer"
                 >
-                  <X size={14} />
+                  <X size={12} />
                 </button>
               </div>
             ) : (
               <div 
-                className="border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors cursor-pointer border-[var(--dash-border)] text-gray-400 hover:text-[#fafafa] hover:border-[#fafafa]"
+                className="border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-colors cursor-pointer border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50"
                 onClick={() => {
                   const input = document.createElement('input');
                   input.type = 'file';
@@ -3423,49 +3537,144 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
                   input.click();
                 }}
               >
-                <ImageIcon size={32} className="mb-2" />
-                <span className="text-sm">Click to upload logo</span>
-                <span className="text-xs">PNG, JPG, SVG</span>
+                <ImageIcon size={24} className="mb-1 text-indigo-400" />
+                <span className="text-xs font-bold text-white">Click to upload store logo</span>
+                <span className="text-[10px] text-slate-500 mt-0.5">PNG, SVG transparent background recommended</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Receipt Settings Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
+        {/* Stock Out Control */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-white">Receipt Settings</h2>
-              <p className="text-xs text-gray-400 font-normal">Used in generated receipt images/PDFs</p>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Stock Out Section</h2>
+              <p className="text-xs text-slate-400">Control who can browse out-of-stock and historical catalog items.</p>
+            </div>
+            <button 
+              onClick={() => setDraftSettings(prev => ({ 
+                ...prev, 
+                stockOutFeature: { 
+                  enabled: !prev.stockOutFeature?.enabled, 
+                  minOrdersRequired: prev.stockOutFeature?.minOrdersRequired || 0 
+                } 
+              }))}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                draftSettings.stockOutFeature?.enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  draftSettings.stockOutFeature?.enabled ? "translate-x-5.5" : "translate-x-0"
+                )}
+              />
+            </button>
+          </div>
+          
+          {draftSettings.stockOutFeature?.enabled && (
+            <div className="pt-2 border-t border-[var(--dash-border)]/40">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Minimum Completed Orders Required</label>
+              <input 
+                type="number"
+                value={draftSettings.stockOutFeature?.minOrdersRequired || 0}
+                onChange={(e) => setDraftSettings(prev => ({
+                  ...prev,
+                  stockOutFeature: {
+                    enabled: prev.stockOutFeature?.enabled ?? true,
+                    minOrdersRequired: parseInt(e.target.value) || 0
+                  }
+                }))}
+                min="0"
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors font-bold"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Set to 0 to let all visitors view stock-out items.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Pixel Event Batching & Smart Display */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Smart Product Display</h2>
+              <p className="text-xs text-slate-400">Order products automatically: Top Selling ➔ New Arrival ➔ Lowest Selling</p>
+            </div>
+            <button 
+              onClick={() => setDraftSettings(prev => ({ ...prev, smartProductDisplay: !prev.smartProductDisplay }))}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                draftSettings.smartProductDisplay ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  draftSettings.smartProductDisplay ? "translate-x-5.5" : "translate-x-0"
+                )}
+              />
+            </button>
+          </div>
+
+          <div className="pt-3 border-t border-[var(--dash-border)]/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Product Image Hover Effect</h2>
+                <p className="text-xs text-slate-400">Show secondary image on desktop mouse hover</p>
+              </div>
+              <button 
+                onClick={() => setDraftSettings(prev => ({ ...prev, productImageHover: !prev.productImageHover }))}
+                className={cn(
+                  "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                  draftSettings.productImageHover ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                    draftSettings.productImageHover ? "translate-x-5.5" : "translate-x-0"
+                  )}
+                />
+              </button>
             </div>
           </div>
-          <div className="flex flex-col gap-4">
+        </div>
+
+        {/* Receipt Settings Section */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div>
+            <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Receipt & Invoice Branding</h2>
+            <p className="text-xs text-slate-400">Phone hotline and QR codes printed on thermal and PDF invoices.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Receipt Hotline (e.g., 09658133593)</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Customer Service Hotline</label>
               <input
                 type="text"
                 value={draftSettings.shopPhone || ''}
                 onChange={(e) => setDraftSettings(prev => ({ ...prev, shopPhone: e.target.value }))}
-                className="w-full bg-[var(--dash-card)] text-white border border-[var(--dash-border)] rounded-lg px-4 py-2 focus:outline-none focus:border-[#fafafa] text-sm"
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
                 placeholder="09658133593"
               />
             </div>
             
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-2">Receipt QR Code</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Receipt QR Code</label>
               {draftSettings.receiptQrCodeUrl ? (
-                <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-[var(--dash-border)] bg-white flex items-center justify-center">
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-[var(--dash-border)] bg-white flex items-center justify-center">
                   <img src={draftSettings.receiptQrCodeUrl} alt="QR Code" className="max-w-full max-h-full object-contain" />
                   <button 
                     onClick={() => setDraftSettings(prev => ({ ...prev, receiptQrCodeUrl: undefined }))}
-                    className="absolute top-1 right-1 w-6 h-6 bg-[#ff4d6d] rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10"
+                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md cursor-pointer"
                   >
-                    <X size={14} />
+                    <X size={10} />
                   </button>
                 </div>
               ) : (
-                <div 
-                  className="border-2 border-dashed w-full max-w-[200px] h-24 rounded-xl p-4 flex flex-col items-center justify-center transition-colors cursor-pointer border-[var(--dash-border)] text-gray-400 hover:text-[#fafafa] hover:border-[#fafafa]"
+                <button 
+                  className="border-2 border-dashed w-full h-16 rounded-xl p-2 flex items-center justify-center gap-2 border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50 cursor-pointer"
                   onClick={() => {
                     const input = document.createElement('input');
                     input.type = 'file';
@@ -3489,72 +3698,62 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
                     input.click();
                   }}
                 >
-                  <ImageIcon size={24} className="mb-2" />
-                  <span className="text-xs">Upload QR</span>
-                </div>
+                  <ImageIcon size={18} className="text-indigo-400" />
+                  <span className="text-xs font-bold">Upload QR Image</span>
+                </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Product Image Hover Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
+        {/* Delivery Charge Section */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-white">Product Image Hover</h2>
-              <p className="text-sm text-gray-400 mt-1">Show second image on hover in website</p>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Delivery Charges & Zones</h2>
+              <p className="text-xs text-slate-400">Shipping rates calculated at checkout by customer area.</p>
             </div>
             <button 
-              onClick={() => setDraftSettings(prev => ({ ...prev, productImageHover: !prev.productImageHover }))}
-              className={cn("w-12 h-6 rounded-full transition-colors relative group", draftSettings.productImageHover ? "bg-[#fafafa]" : "bg-gray-600")}
-            >
-              <div className={cn("w-5 h-5 rounded-full absolute top-0.5 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm", draftSettings.productImageHover ? "bg-[var(--dash-card)] translate-x-6 group-active:w-7 group-active:translate-x-4" : "bg-white translate-x-0.5 group-active:w-7")} />
-            </button>
-          </div>
-        </div>
-
-        {/* Delivery Charge Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">Delivery Charge</h2>
-            <button 
               onClick={addDeliveryCharge}
-              className="bg-transparent border border-[var(--dash-border)] text-white px-3 py-1.5 rounded-lg font-medium text-sm flex items-center gap-1 hover:bg-[var(--dash-border)] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-all cursor-pointer"
             >
-              <Plus size={16} /> Add More
+              <Plus size={14} /> Add Zone
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {(draftSettings.deliveryCharges || []).map(dc => (
-              <div key={dc.id} className="space-y-2">
+              <div key={dc.id} className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
                 <input 
                   type="text" 
                   value={dc.area}
                   onChange={(e) => updateDeliveryCharge(dc.id, 'area', e.target.value)}
-                  placeholder="Area Name (e.g. Inside Dhaka)"
-                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
+                  placeholder="Zone / Area Name (e.g. Inside Dhaka)"
+                  className="flex-1 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
                 />
-                <div className="flex gap-2">
-                  <input 
-                    type="number" 
-                    value={dc.price || ''}
-                    onChange={(e) => updateDeliveryCharge(dc.id, 'price', Math.floor(Number(e.target.value)))}
-                    placeholder="Price"
-                    className="w-20 shrink-0 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-                  />
+                <div className="flex gap-2 items-center">
+                  <div className="relative w-24">
+                    <input 
+                      type="number" 
+                      value={dc.price || ''}
+                      onChange={(e) => updateDeliveryCharge(dc.id, 'price', Math.floor(Number(e.target.value)))}
+                      placeholder="Price"
+                      className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-lg pl-3 pr-6 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">৳</span>
+                  </div>
                   <input 
                     type="text" 
                     value={dc.time}
                     onChange={(e) => updateDeliveryCharge(dc.id, 'time', e.target.value)}
-                    placeholder="Time (e.g. 1/2 Days)"
-                    className="flex-1 min-w-0 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
+                    placeholder="Est. Time (e.g. 1-2 Days)"
+                    className="w-28 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
                   />
                   <button 
                     onClick={() => removeDeliveryCharge(dc.id)}
-                    className="w-[50px] shrink-0 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg flex items-center justify-center text-red-500 hover:bg-red-500/10 transition-colors"
+                    className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -3631,334 +3830,269 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
     }));
   };
 
+  const themeColor = '#6366F1';
+
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-[var(--dash-border)] bg-[var(--dash-bg)] relative z-10 shrink-0">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors shrink-0" id="marketing_back_btn">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex flex-col items-center text-center absolute left-1/2 -translate-x-1/2">
-          <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Marketing</h1>
-          <p className="text-[10px] md:text-xs text-slate-400 mt-0.5 font-normal">Manage your tracking pixels and analytics</p>
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer" 
+            id="marketing_back_btn"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <BarChart2 size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Marketing & Pixel Tracking</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Meta Pixel, TikTok Pixel & Google Analytics 4 Conversions API</p>
+            </div>
+          </div>
         </div>
+
         <button
           onClick={handleSave}
           disabled={isSaving}
-          style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs md:text-sm hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 shadow-md cursor-pointer shrink-0"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
         >
-          {saved ? <Check size={16} /> : <Save size={16} />}
           {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-4.5 pb-20 md:p-6 md:space-y-5 max-w-xl mx-auto w-full">
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Meta Pixel Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-xl overflow-hidden shadow-md shadow-black/5" id="meta_pixel_card">
-          <div className="flex items-center justify-between p-3.5 md:p-4.5 border-b border-[var(--dash-border)]/40">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="meta_pixel_card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-[#0064e0] flex items-center justify-center shrink-0">
-                <svg className="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <div className="w-10 h-10 rounded-xl bg-[#0064e0]/10 border border-[#0064e0]/20 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-[#0064e0]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.417 6c-1.897 0-3.398 1.054-4.417 2.378-1.02-1.324-2.52-2.378-4.417-2.378C4.545 6 2 8.442 2 11.455c0 3.013 2.545 5.455 5.583 5.455 1.897 0 3.398-1.054 4.417-2.378 1.02 1.324 2.52 2.378 4.417 2.378C19.455 16.91 22 14.468 22 11.455 22 8.442 19.455 6 16.417 6zm-8.834 9.1c-1.928 0-3.5-1.572-3.5-3.5s1.572-3.5 3.5-3.5c1.173 0 2.215.582 2.854 1.48C9.563 11.104 8.52 12.87 7.583 15.1zm8.834 0c-.937-2.23-1.98-3.996-2.854-5.52.64-.898 1.68-1.48 2.854-1.48 1.928 0 3.5 1.572 3.5 3.5s-1.572 3.5-3.5 3.5z"/>
                 </svg>
               </div>
               <div>
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-wide">Meta Pixel</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 mt-0.5">Track conversions and optimize your ads</p>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Meta (Facebook) Pixel & CAPI</h2>
+                <p className="text-xs text-slate-400">Track browser events and server-side Conversions API.</p>
               </div>
             </div>
             
             <button 
               onClick={() => updateMetaPixel('enabled', !draftSettings.metaPixel.enabled)}
               className={cn(
-                "w-10 h-5.5 rounded-full transition-colors relative duration-200 outline-none shrink-0",
-                draftSettings.metaPixel.enabled ? "bg-blue-500" : "bg-[#1e293b] border border-slate-700/60"
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                draftSettings.metaPixel.enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
               )}
               id="meta_pixel_toggle"
             >
               <div 
                 className={cn(
-                  "w-4.5 h-4.5 rounded-full bg-white absolute top-0.5 transition-all duration-200 shadow-sm",
-                  draftSettings.metaPixel.enabled ? "translate-x-4.5" : "translate-x-0.5"
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  draftSettings.metaPixel.enabled ? "translate-x-5.5" : "translate-x-0"
                 )} 
               />
             </button>
           </div>
 
-          <div className="p-3.5 md:p-4.5 space-y-3.5">
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Pixel ID</span>
-                <span className="text-red-500 font-bold text-xs">*</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Meta Pixel ID for conversion tracking">
-                  <Info size={11} className="ml-0.5" />
-                </span>
-              </div>
-              <div className="relative flex items-center">
-                <input 
-                  type="text" 
-                  value={draftSettings.metaPixel.pixelId}
-                  onChange={(e) => updateMetaPixel('pixelId', e.target.value)}
-                  placeholder="Enter Meta Pixel ID"
-                  className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
-                />
-                <button 
-                  type="button"
-                  onClick={() => handleCopy(draftSettings.metaPixel.pixelId, 'meta_pixelId')}
-                  className="absolute right-1 top-1 bottom-1 px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                  title="Copy Pixel ID"
-                  id="meta_pixel_id_copy"
-                >
-                  {copiedField === 'meta_pixelId' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {draftSettings.metaPixel.enabled && (
+            <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
               <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Access Token (optional)</span>
-                  <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Conversions API access token">
-                    <Info size={11} className="ml-0.5" />
-                  </span>
-                </div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Pixel ID *</label>
                 <div className="relative flex items-center">
                   <input 
-                    type={showMetaToken ? "text" : "password"}
-                    value={draftSettings.metaPixel.accessToken}
-                    onChange={(e) => updateMetaPixel('accessToken', e.target.value)}
-                    placeholder="Enter access token (optional)"
-                    className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 pr-18 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
+                    type="text" 
+                    value={draftSettings.metaPixel.pixelId}
+                    onChange={(e) => updateMetaPixel('pixelId', e.target.value)}
+                    placeholder="e.g. 182938472918"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
                   />
-                  <div className="absolute right-1 top-1 bottom-1 flex items-center gap-1">
+                  <button 
+                    type="button"
+                    onClick={() => handleCopy(draftSettings.metaPixel.pixelId, 'meta_pixelId')}
+                    className="absolute right-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs cursor-pointer"
+                    title="Copy Pixel ID"
+                    id="meta_pixel_id_copy"
+                  >
+                    {copiedField === 'meta_pixelId' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Conversions API Access Token</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type={showMetaToken ? "text" : "password"}
+                      value={draftSettings.metaPixel.accessToken}
+                      onChange={(e) => updateMetaPixel('accessToken', e.target.value)}
+                      placeholder="EAA..."
+                      className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-16 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                    <div className="absolute right-2 flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => setShowMetaToken(!showMetaToken)}
+                        className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {showMetaToken ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleCopy(draftSettings.metaPixel.accessToken, 'meta_accessToken')}
+                        className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {copiedField === 'meta_accessToken' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Test Event Code (Optional)</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type="text" 
+                      value={draftSettings.metaPixel.testCode}
+                      onChange={(e) => updateMetaPixel('testCode', e.target.value)}
+                      placeholder="TEST49835"
+                      className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    />
                     <button 
                       type="button"
-                      onClick={() => setShowMetaToken(!showMetaToken)}
-                      className="h-full px-1.5 text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                      id="meta_token_visibility_toggle"
+                      onClick={() => handleCopy(draftSettings.metaPixel.testCode, 'meta_testCode')}
+                      className="absolute right-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs cursor-pointer"
                     >
-                      {showMetaToken ? <EyeOff size={13} /> : <Eye size={13} />}
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleCopy(draftSettings.metaPixel.accessToken, 'meta_accessToken')}
-                      className="h-full px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                      title="Copy Access Token"
-                      id="meta_access_token_copy"
-                    >
-                      {copiedField === 'meta_accessToken' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                      {copiedField === 'meta_testCode' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
               </div>
-
-              <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Test Code (optional)</span>
-                  <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Test event code for Conversions API payloads">
-                    <Info size={11} className="ml-0.5" />
-                  </span>
-                </div>
-                <div className="relative flex items-center">
-                  <input 
-                    type="text" 
-                    value={draftSettings.metaPixel.testCode}
-                    onChange={(e) => updateMetaPixel('testCode', e.target.value)}
-                    placeholder="TEST49835"
-                    className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 pr-10 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => handleCopy(draftSettings.metaPixel.testCode, 'meta_testCode')}
-                    className="absolute right-1 top-1 bottom-1 px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                    title="Copy Test Code"
-                    id="meta_test_code_copy"
-                  >
-                    {copiedField === 'meta_testCode' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                  </button>
-                </div>
-              </div>
             </div>
-
-            <div className="border-t border-[var(--dash-border)]/30 mt-4 pt-3 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] md:text-xs font-medium">
-                <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <svg className="w-2.5 h-2.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <span>Ready to use</span>
-              </div>
-              <a 
-                href="https://www.facebook.com/business/help/952192354843755" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-[11px] md:text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 hover:underline transition-colors"
-                id="meta_learn_more"
-              >
-                <span>Learn how to set up</span>
-                <ExternalLink size={11} strokeWidth={2.25} />
-              </a>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* TikTok Pixel Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-xl overflow-hidden shadow-md shadow-black/5" id="tiktok_pixel_card">
-          <div className="flex items-center justify-between p-3.5 md:p-4.5 border-b border-[var(--dash-border)]/40">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="tiktok_pixel_card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-black flex items-center justify-center shrink-0 border border-slate-800">
-                <svg className="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-indigo-400" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.61 4.18.92 1.09 2.22 1.83 3.58 2.13l-.01 3.69c-1.32-.01-2.61-.35-3.74-1.05-.72-.45-1.34-1.05-1.81-1.76l-.04 6.8c.02 1.93-.54 3.86-1.63 5.39-1.2 1.7-3.13 2.86-5.21 3.19-2.13.34-4.36-.14-6.07-1.42C1.4 20.01.44 17.78.41 15.4c-.03-2.38.93-4.66 2.63-6.23 1.77-1.62 4.22-2.39 6.55-2.02l-.01 3.7c-1.34-.17-2.73.18-3.76 1.09-.85.76-1.31 1.88-1.26 3.02.04 1.13.59 2.19 1.48 2.88 1.02.79 2.39 1.02 3.58.62.97-.33 1.77-1.11 2.13-2.09.24-.63.31-1.3.29-1.97V.02h.01Z" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-wide">TikTok Pixel</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 mt-0.5">Track events and measure performance</p>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">TikTok Pixel & Events API</h2>
+                <p className="text-xs text-slate-400">Measure video ad campaign conversions and ROI.</p>
               </div>
             </div>
             
             <button 
               onClick={() => updateTikTokPixel('enabled', !draftSettings.tiktokPixel?.enabled)}
               className={cn(
-                "w-10 h-5.5 rounded-full transition-colors relative duration-200 outline-none shrink-0",
-                draftSettings.tiktokPixel?.enabled ? "bg-blue-500" : "bg-[#1e293b] border border-slate-700/60"
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                draftSettings.tiktokPixel?.enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
               )}
               id="tiktok_pixel_toggle"
             >
               <div 
                 className={cn(
-                  "w-4.5 h-4.5 rounded-full bg-white absolute top-0.5 transition-all duration-200 shadow-sm",
-                  draftSettings.tiktokPixel?.enabled ? "translate-x-4.5" : "translate-x-0.5"
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  draftSettings.tiktokPixel?.enabled ? "translate-x-5.5" : "translate-x-0"
                 )} 
               />
             </button>
           </div>
 
-          <div className="p-3.5 md:p-4.5 space-y-3.5">
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Pixel ID</span>
-                <span className="text-red-500 font-bold text-xs">*</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="TikTok Pixel ID for conversion tracking">
-                  <Info size={11} className="ml-0.5" />
-                </span>
-              </div>
-              <div className="relative flex items-center">
-                <input 
-                  type="text" 
-                  value={draftSettings.tiktokPixel?.pixelId || ''}
-                  onChange={(e) => updateTikTokPixel('pixelId', e.target.value)}
-                  placeholder="Enter TikTok Pixel ID"
-                  className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
-                />
-                <button 
-                  type="button"
-                  onClick={() => handleCopy(draftSettings.tiktokPixel?.pixelId || '', 'tiktok_pixelId')}
-                  className="absolute right-1 top-1 bottom-1 px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                  title="Copy Pixel ID"
-                  id="tiktok_pixel_id_copy"
-                >
-                  {copiedField === 'tiktok_pixelId' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {draftSettings.tiktokPixel?.enabled && (
+            <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
               <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Access Token (optional)</span>
-                  <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="TikTok Events API access token">
-                    <Info size={11} className="ml-0.5" />
-                  </span>
-                </div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Pixel ID *</label>
                 <div className="relative flex items-center">
                   <input 
-                    type={showTikTokToken ? "text" : "password"}
-                    value={draftSettings.tiktokPixel?.accessToken || ''}
-                    onChange={(e) => updateTikTokPixel('accessToken', e.target.value)}
-                    placeholder="Enter access token (optional)"
-                    className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 pr-18 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
+                    type="text" 
+                    value={draftSettings.tiktokPixel?.pixelId || ''}
+                    onChange={(e) => updateTikTokPixel('pixelId', e.target.value)}
+                    placeholder="Enter TikTok Pixel ID"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
                   />
-                  <div className="absolute right-1 top-1 bottom-1 flex items-center gap-1">
+                  <button 
+                    type="button"
+                    onClick={() => handleCopy(draftSettings.tiktokPixel?.pixelId || '', 'tiktok_pixelId')}
+                    className="absolute right-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs cursor-pointer"
+                    title="Copy Pixel ID"
+                  >
+                    {copiedField === 'tiktok_pixelId' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Events API Access Token</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type={showTikTokToken ? "text" : "password"}
+                      value={draftSettings.tiktokPixel?.accessToken || ''}
+                      onChange={(e) => updateTikTokPixel('accessToken', e.target.value)}
+                      placeholder="Access token"
+                      className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-16 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                    <div className="absolute right-2 flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => setShowTikTokToken(!showTikTokToken)}
+                        className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {showTikTokToken ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleCopy(draftSettings.tiktokPixel?.accessToken || '', 'tiktok_accessToken')}
+                        className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {copiedField === 'tiktok_accessToken' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Test Event Code (Optional)</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type="text" 
+                      value={draftSettings.tiktokPixel?.testCode || ''}
+                      onChange={(e) => updateTikTokPixel('testCode', e.target.value)}
+                      placeholder="TEST83864"
+                      className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    />
                     <button 
                       type="button"
-                      onClick={() => setShowTikTokToken(!showTikTokToken)}
-                      className="h-full px-1.5 text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                      id="tiktok_token_visibility_toggle"
+                      onClick={() => handleCopy(draftSettings.tiktokPixel?.testCode || '', 'tiktok_testCode')}
+                      className="absolute right-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs cursor-pointer"
                     >
-                      {showTikTokToken ? <EyeOff size={13} /> : <Eye size={13} />}
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleCopy(draftSettings.tiktokPixel?.accessToken || '', 'tiktok_accessToken')}
-                      className="h-full px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                      title="Copy Access Token"
-                      id="tiktok_access_token_copy"
-                    >
-                      {copiedField === 'tiktok_accessToken' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                      {copiedField === 'tiktok_testCode' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
               </div>
-
-              <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Test Code (optional)</span>
-                  <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Test event code for TikTok Conversions API">
-                    <Info size={11} className="ml-0.5" />
-                  </span>
-                </div>
-                <div className="relative flex items-center">
-                  <input 
-                    type="text" 
-                    value={draftSettings.tiktokPixel?.testCode || ''}
-                    onChange={(e) => updateTikTokPixel('testCode', e.target.value)}
-                    placeholder="TEST83864"
-                    className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 pr-10 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => handleCopy(draftSettings.tiktokPixel?.testCode || '', 'tiktok_testCode')}
-                    className="absolute right-1 top-1 bottom-1 px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                    title="Copy Test Code"
-                    id="tiktok_test_code_copy"
-                  >
-                    {copiedField === 'tiktok_testCode' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                  </button>
-                </div>
-              </div>
             </div>
-
-            <div className="border-t border-[var(--dash-border)]/30 mt-4 pt-3 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] md:text-xs font-medium">
-                <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <svg className="w-2.5 h-2.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <span>Ready to use</span>
-              </div>
-              <a 
-                href="https://ads.tiktok.com/help/article/tiktok-pixel" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-[11px] md:text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 hover:underline transition-colors"
-                id="tiktok_learn_more"
-              >
-                <span>Learn how to set up</span>
-                <ExternalLink size={11} strokeWidth={2.25} />
-              </a>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Google Analytics 4 Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-xl overflow-hidden shadow-md shadow-black/5" id="ga4_pixel_card">
-          <div className="flex items-center justify-between p-3.5 md:p-4.5 border-b border-[var(--dash-border)]/40">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="ga4_pixel_card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-100 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
                   <rect x="5" y="13" width="3.5" height="6" rx="1" fill="#F9AB00" />
                   <rect x="10.25" y="9" width="3.5" height="10" rx="1" fill="#F25C05" />
@@ -3966,126 +4100,81 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
                 </svg>
               </div>
               <div>
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-wide">Google Analytics 4 (GA4)</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 mt-0.5">Track website traffic and user behavior</p>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Google Analytics 4 (GA4)</h2>
+                <p className="text-xs text-slate-400">Track web engagement, traffic origins, and user retention.</p>
               </div>
             </div>
             
             <button 
               onClick={() => updateGA4('enabled', !draftSettings.ga4?.enabled)}
               className={cn(
-                "w-10 h-5.5 rounded-full transition-colors relative duration-200 outline-none shrink-0",
-                draftSettings.ga4?.enabled ? "bg-blue-500" : "bg-[#1e293b] border border-slate-700/60"
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                draftSettings.ga4?.enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
               )}
               id="ga4_toggle"
             >
               <div 
                 className={cn(
-                  "w-4.5 h-4.5 rounded-full bg-white absolute top-0.5 transition-all duration-200 shadow-sm",
-                  draftSettings.ga4?.enabled ? "translate-x-4.5" : "translate-x-0.5"
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  draftSettings.ga4?.enabled ? "translate-x-5.5" : "translate-x-0"
                 )} 
               />
             </button>
           </div>
 
-          <div className="p-3.5 md:p-4.5 space-y-3.5">
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Measurement ID (G-XXXXXXXXXX)</span>
-                <span className="text-red-500 font-bold text-xs">*</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Google Analytics 4 measurement ID">
-                  <Info size={11} className="ml-0.5" />
-                </span>
-              </div>
-              <div className="relative flex items-center">
-                <input 
-                  type="text" 
-                  value={draftSettings.ga4?.measurementId || ''}
-                  onChange={(e) => updateGA4('measurementId', e.target.value)}
-                  placeholder="G-XXXXXX"
-                  className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
-                />
-                <button 
-                  type="button"
-                  onClick={() => handleCopy(draftSettings.ga4?.measurementId || '', 'ga4_measurementId')}
-                  className="absolute right-1 top-1 bottom-1 px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                  title="Copy Measurement ID"
-                  id="ga4_measurement_id_copy"
-                >
-                  {copiedField === 'ga4_measurementId' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Info Notice Box */}
-            <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-2.5 flex items-start gap-2.5 text-slate-300" id="ga4_info_notice">
-              <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-              <p className="text-[10px] md:text-xs text-slate-400 leading-relaxed font-normal">
-                Required for both browser and server-side tracking.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <span className="text-[11px] md:text-[12px] font-semibold text-slate-300 tracking-wide">Measurement Protocol API Secret (optional)</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Measurement Protocol API Secret for server-side events">
-                  <Info size={11} className="ml-0.5" />
-                </span>
-              </div>
-              <div className="relative flex items-center">
-                <input 
-                  type={showGA4Secret ? "text" : "password"}
-                  value={draftSettings.ga4?.apiSecret || ''}
-                  onChange={(e) => updateGA4('apiSecret', e.target.value)}
-                  placeholder="Enter API secret for server-side events"
-                  className="w-full bg-[#0d1527]/40 border border-[var(--dash-border)]/70 rounded-lg px-3 py-2 pr-18 text-xs md:text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 transition-colors font-mono tracking-wide"
-                />
-                <div className="absolute right-1 top-1 bottom-1 flex items-center gap-1">
+          {draftSettings.ga4?.enabled && (
+            <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Measurement ID (G-XXXXXXXXXX) *</label>
+                <div className="relative flex items-center">
+                  <input 
+                    type="text" 
+                    value={draftSettings.ga4?.measurementId || ''}
+                    onChange={(e) => updateGA4('measurementId', e.target.value)}
+                    placeholder="G-XXXXXX"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
                   <button 
                     type="button"
-                    onClick={() => setShowGA4Secret(!showGA4Secret)}
-                    className="h-full px-1.5 text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                    id="ga4_secret_visibility_toggle"
+                    onClick={() => handleCopy(draftSettings.ga4?.measurementId || '', 'ga4_measurementId')}
+                    className="absolute right-2 px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs cursor-pointer"
+                    title="Copy Measurement ID"
                   >
-                    {showGA4Secret ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => handleCopy(draftSettings.ga4?.apiSecret || '', 'ga4_apiSecret')}
-                    className="h-full px-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] rounded-md text-slate-400 hover:text-white transition-colors flex items-center justify-center"
-                    title="Copy API Secret"
-                    id="ga4_api_secret_copy"
-                  >
-                    {copiedField === 'ga4_apiSecret' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    {copiedField === 'ga4_measurementId' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                   </button>
                 </div>
               </div>
-              <p className="text-[10px] md:text-xs text-slate-500 mt-1.5 leading-relaxed font-normal">
-                Enter your API Secret to enable server-side tracking for purchase events (highly recommended for better accuracy).
-              </p>
-            </div>
 
-            <div className="border-t border-[var(--dash-border)]/30 mt-4 pt-3 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] md:text-xs font-medium">
-                <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <svg className="w-2.5 h-2.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Measurement Protocol API Secret (Optional)</label>
+                <div className="relative flex items-center">
+                  <input 
+                    type={showGA4Secret ? "text" : "password"}
+                    value={draftSettings.ga4?.apiSecret || ''}
+                    onChange={(e) => updateGA4('apiSecret', e.target.value)}
+                    placeholder="API Secret for server-side purchase tracking"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-16 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                  <div className="absolute right-2 flex items-center gap-1">
+                    <button 
+                      type="button"
+                      onClick={() => setShowGA4Secret(!showGA4Secret)}
+                      className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {showGA4Secret ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleCopy(draftSettings.ga4?.apiSecret || '', 'ga4_apiSecret')}
+                      className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {copiedField === 'ga4_apiSecret' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    </button>
+                  </div>
                 </div>
-                <span>Ready to use</span>
               </div>
-              <a 
-                href="https://support.google.com/analytics/answer/9304153" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-[11px] md:text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 hover:underline transition-colors"
-                id="ga4_learn_more"
-              >
-                <span>Learn how to set up</span>
-                <ExternalLink size={11} strokeWidth={2.25} />
-              </a>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -4159,94 +4248,98 @@ function CourierManager({ settings, setSettings, onClose, themePrimary }: { sett
     });
   };
 
+  const themeColor = '#6366F1';
+
   return (
-    <div className="fixed inset-0 bg-[var(--dash-bg)] z-50 flex flex-col md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-bg)] sticky top-0 z-10">
-        <button onClick={onClose} className="p-2 -ml-2 mr-4 text-gray-400 hover:text-white transition-colors">
-          <ChevronLeft size={24} />
-        </button>
-        <div className="flex flex-col flex-1">
-           <h1 className="text-xl font-bold text-white">Courier</h1>
-           <p className="text-[13px] text-gray-400">Manage your courier API integrations</p>
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <Truck size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Courier & Delivery Integration</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automated parcel dispatch & fraud screening APIs</p>
+            </div>
+          </div>
         </div>
+
         <button
           onClick={handleSave}
           disabled={isSaving}
-          style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs md:text-sm hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 shadow-md cursor-pointer whitespace-nowrap"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
         >
-          {saved ? <Check size={16} /> : <Save size={16} />}
           {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 md:p-8 max-w-4xl mx-auto w-full">
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Steadfast Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-[14px] p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-6 h-6 flex items-center justify-center">
-                 <div className="flex flex-col gap-1 items-end">
-                     <div className="h-[2px] w-3 bg-[#fafafa] rounded-full"></div>
-                     <div className="h-[2px] w-5 bg-[#fafafa] rounded-full"></div>
-                     <div className="h-[2px] w-3 bg-[#fafafa] rounded-full"></div>
-                 </div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                <Truck size={20} />
               </div>
-              <h2 className="text-base font-bold text-white tracking-wide">Steadfast</h2>
-              <span className="bg-[#fafafa]/10 border border-[#fafafa]/20 text-[#fafafa] text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Active</span>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Steadfast Courier API</h2>
+                <p className="text-xs text-slate-400">One-click parcel booking and consignment label generation.</p>
+              </div>
             </div>
-            <button className="w-8 h-8 border border-[var(--dash-border)] rounded-[10px] flex items-center justify-center text-gray-400 hover:text-white hover:bg-[var(--dash-border)] transition-colors">
-              <RefreshCw size={14} />
-            </button>
+            <span className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Active</span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40">
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-white">API Key <span className="text-red-500">*</span></label>
-                <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                  <Shield size={10} /> Encrypted & secure
-                </div>
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">API Key *</label>
               <div className="relative flex items-center">
                 <input 
                   type={showSteadfastApi ? "text" : "password"}
                   value={draftSettings.steadfast.apiKey}
                   onChange={(e) => updateSteadfast('apiKey', e.target.value)}
-                  className={cn("w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-[10px] pl-3 pr-[80px] py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors text-sm", !showSteadfastApi && "tracking-[0.2em] font-mono")}
-                  placeholder="•••••••••••••••"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-20 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  placeholder="Enter Steadfast API Key"
                 />
-                <div className="absolute right-1.5 flex items-center gap-1">
-                   <button onClick={() => setShowSteadfastApi(!showSteadfastApi)} className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md">
-                      {showSteadfastApi ? <EyeOff size={16} /> : <Eye size={16} />}
-                   </button>
-                   <button onClick={() => navigator.clipboard.writeText(draftSettings.steadfast.apiKey)} className="p-1.5 text-gray-400 hover:text-white border border-[var(--dash-border)] rounded-md transition-colors bg-[var(--dash-card)]">
-                      <Copy size={14} />
-                   </button>
+                <div className="absolute right-2 flex items-center gap-1">
+                  <button onClick={() => setShowSteadfastApi(!showSteadfastApi)} className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                    {showSteadfastApi ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button onClick={() => navigator.clipboard.writeText(draftSettings.steadfast.apiKey)} className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                    <Copy size={14} />
+                  </button>
                 </div>
               </div>
             </div>
             
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                 <label className="text-xs font-semibold text-white">Secret Key <span className="text-red-500">*</span></label>
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Secret Key *</label>
               <div className="relative flex items-center">
                 <input 
                   type={showSteadfastSecret ? "text" : "password"}
                   value={draftSettings.steadfast.secretKey}
                   onChange={(e) => updateSteadfast('secretKey', e.target.value)}
-                  className={cn("w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-[10px] pl-3 pr-[80px] py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors text-sm", !showSteadfastSecret && "tracking-[0.2em] font-mono")}
-                  placeholder="•••••••••••••••"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-20 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  placeholder="Enter Steadfast Secret Key"
                 />
-                <div className="absolute right-1.5 flex items-center gap-1">
-                   <button onClick={() => setShowSteadfastSecret(!showSteadfastSecret)} className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md">
-                      {showSteadfastSecret ? <EyeOff size={16} /> : <Eye size={16} />}
-                   </button>
-                   <button onClick={() => navigator.clipboard.writeText(draftSettings.steadfast.secretKey)} className="p-1.5 text-gray-400 hover:text-white border border-[var(--dash-border)] rounded-md transition-colors bg-[var(--dash-card)]">
-                      <Copy size={14} />
-                   </button>
+                <div className="absolute right-2 flex items-center gap-1">
+                  <button onClick={() => setShowSteadfastSecret(!showSteadfastSecret)} className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                    {showSteadfastSecret ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button onClick={() => navigator.clipboard.writeText(draftSettings.steadfast.secretKey)} className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                    <Copy size={14} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -4254,71 +4347,84 @@ function CourierManager({ settings, setSettings, onClose, themePrimary }: { sett
         </div>
 
         {/* BD COURIER API Section */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-[14px] p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 flex items-center justify-center text-[#fafafa]">
-                  <Layers size={18} />
-                </div>
-                <h2 className="text-base font-bold text-white tracking-wide uppercase">BD COURIER API</h2>
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                <Layers size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">BD Courier Fraud Screening API</h2>
+                <p className="text-xs text-slate-400">Check customer delivery success rate before shipping.</p>
+              </div>
             </div>
             <button 
               onClick={addBdCourierApi}
-              className="flex items-center gap-1 text-xs font-medium text-[#fafafa] hover:text-[#fafafa]/80 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-all cursor-pointer"
             >
-              <Plus size={14} strokeWidth={2.5} />
-              Add API
+              <Plus size={14} /> Add API Key
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40">
             {(!draftSettings.bdCourierApis || draftSettings.bdCourierApis.length === 0) ? (
-              <div className="text-center py-6 text-gray-500 text-sm bg-[var(--dash-bg)] rounded-[10px] border border-[var(--dash-border)] border-dashed">
-                No BD Courier APIs configured. Click "Add API" to add one.
+              <div className="text-center py-8 text-slate-500 text-xs bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)] border-dashed">
+                No BD Courier APIs configured. Click "Add API Key" to enable customer fraud checking.
               </div>
             ) : (
               draftSettings.bdCourierApis.map((api, index) => (
-                <div key={api.id} className="relative">
-                  <div className="flex items-center justify-between mb-3">
-                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-[#fafafa] bg-[#fafafa]/10 px-1.5 py-[2px] rounded uppercase border border-[#fafafa]/20">API #{index + 1}</span>
-                        <span className="text-xs text-gray-100">{api.name || 'Primary Check API'} <span className="text-gray-500">(Optional)</span></span>
-                     </div>
-                     <div className="flex items-center gap-3">
-                        <button
-                           onClick={() => updateBdCourierApi(api.id, 'enabled', !api.enabled)}
-                           className={cn("w-[36px] h-5 rounded-full relative flex items-center px-[2px] transition-colors", api.enabled ? "bg-[#fafafa]" : "bg-[var(--dash-border)]")}
-                         >
-                           <div className={cn("w-4 h-4 rounded-full transition-transform shadow-sm", api.enabled ? "bg-[var(--dash-card)] translate-x-[16px]" : "bg-white translate-x-0")}></div>
-                         </button>
-                         <button 
-                           onClick={() => removeBdCourierApi(api.id)}
-                           className="text-red-400 hover:text-red-300 transition-colors p-[5px] border border-[var(--dash-border)] rounded-md bg-[var(--dash-bg)]"
-                         >
-                           <Trash2 size={14} strokeWidth={2} />
-                         </button>
-                     </div>
+                <div key={api.id} className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase border border-indigo-500/20">API #{index + 1}</span>
+                      <input 
+                        type="text" 
+                        value={api.name || ''}
+                        onChange={(e) => updateBdCourierApi(api.id, 'name', e.target.value)}
+                        placeholder="Label / Key Note (Optional)"
+                        className="bg-transparent text-xs text-slate-300 focus:outline-none border-b border-transparent focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updateBdCourierApi(api.id, 'enabled', !api.enabled)}
+                        className={cn(
+                          "w-10 h-5.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                          api.enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "w-4.5 h-4.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                            api.enabled ? "translate-x-4.5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                      <button 
+                        onClick={() => removeBdCourierApi(api.id)}
+                        className="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                   
-                  <div>
-                     <label className="text-xs font-semibold text-white mb-1.5 block">API Key <span className="text-red-500">*</span></label>
-                     <div className="relative flex items-center">
-                       <input 
-                          type={showBdCourierApi[api.id] ? "text" : "password"}
-                          value={api.apiKey}
-                          onChange={(e) => updateBdCourierApi(api.id, 'apiKey', e.target.value)}
-                          className={cn("w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-[10px] pl-3 pr-[80px] py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors text-sm", !showBdCourierApi[api.id] && "tracking-[0.2em] font-mono")}
-                          placeholder="•••••••••••••••••••••••••"
-                        />
-                        <div className="absolute right-1.5 flex items-center gap-1">
-                           <button onClick={() => toggleBdCourierApiVisibility(api.id)} className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md">
-                              {showBdCourierApi[api.id] ? <EyeOff size={16} /> : <Eye size={16} />}
-                           </button>
-                           <button onClick={() => navigator.clipboard.writeText(api.apiKey)} className="p-1.5 text-gray-400 hover:text-white border border-[var(--dash-border)] rounded-md transition-colors bg-[var(--dash-card)]">
-                              <Copy size={14} />
-                           </button>
-                        </div>
-                     </div>
+                  <div className="relative flex items-center">
+                    <input 
+                      type={showBdCourierApi[api.id] ? "text" : "password"}
+                      value={api.apiKey}
+                      onChange={(e) => updateBdCourierApi(api.id, 'apiKey', e.target.value)}
+                      className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2 pr-20 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                      placeholder="Paste BD Courier API Key"
+                    />
+                    <div className="absolute right-2 flex items-center gap-1">
+                      <button onClick={() => toggleBdCourierApiVisibility(api.id)} className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                        {showBdCourierApi[api.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button onClick={() => navigator.clipboard.writeText(api.apiKey)} className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                        <Copy size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -4359,55 +4465,75 @@ function PriceCalculatorManager({ settings, setSettings, onClose, themePrimary }
     }
   };
 
+  const themeColor = '#6366F1';
+
   return (
-    <div className="fixed inset-0 bg-[var(--dash-bg)] z-50 flex flex-col md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-bg)] sticky top-0 z-10">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors">
-          <ChevronLeft size={24} />
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <Calculator size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Import Price Calculator</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automate CNY to BDT landed cost and wholesale margin</p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+        >
+          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
-        <h1 className="text-xl font-bold text-white">Price Calculator</h1>
-        <div className="w-10" /> {/* Spacer for centering */}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 md:p-8 max-w-4xl mx-auto w-full">
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 space-y-4">
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-2xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#ff4d6d] mb-1.5">Yuan Rate *</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Yuan (CNY) Exchange Rate (৳) *</label>
             <input 
               type="number" 
               value={yuanRate}
               onChange={(e) => setYuanRate(e.target.value)}
-              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
+              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
             />
+            <p className="text-[11px] text-slate-500 mt-1">Exchange rate applied to Chinese supplier factory prices.</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#ff4d6d] mb-1.5">Additional Cost *</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Shipping & Landed Surcharge per Unit (৳) *</label>
             <input 
               type="number" 
               value={additionalCost}
               onChange={(e) => setAdditionalCost(e.target.value)}
-              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
+              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
             />
+            <p className="text-[11px] text-slate-500 mt-1">Freight, customs, and port clearance handling cost per piece.</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#ff4d6d] mb-1.5">Profit *</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Target Wholesale Profit Margin (৳) *</label>
             <input 
               type="number" 
               value={profit}
               onChange={(e) => setProfit(e.target.value)}
-              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-3 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
+              className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
             />
+            <p className="text-[11px] text-slate-500 mt-1">Default target markup automatically added to suggested selling price.</p>
           </div>
-          <button 
-            onClick={handleSave}
-            disabled={isSaving}
-            style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-            className="w-full py-3 mt-4 rounded-lg font-bold text-base md:text-lg hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 shadow-md cursor-pointer flex items-center justify-center gap-2"
-          >
-            {saved ? <Check size={20} /> : <Save size={20} />}
-            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-          </button>
         </div>
       </div>
     </div>
@@ -4565,6 +4691,8 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
   const [logoutMsg, setLogoutMsg] = useState({ type: '', text: '' });
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    password: false,
+    email: false,
     autoLogout: true
   });
   const [userTab, setUserTab] = useState<'pending' | 'active' | 'blocked'>('pending');
@@ -4667,232 +4795,289 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
   const activeUsers = adminUsers.filter(u => u.isApproved && !u.isBlocked && u.id !== currentAdmin.id);
   const blockedUsers = adminUsers.filter(u => u.isBlocked);
 
+  const themeColor = '#6366F1';
+
   return (
-    <div className="fixed inset-0 bg-[var(--dash-bg)] z-50 flex flex-col md:left-[240px]">
-      <div className="flex items-center justify-between p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-bg)] sticky top-0 z-10">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-white">Account Control</h1>
-        <div className="w-10" />
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <Shield size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Account & Team Access</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Security credentials, team member roles & auto logout</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20 md:p-8 md:pb-20 max-w-4xl mx-auto w-full">
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Profile Card */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-5 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#fafafa]/10 flex items-center justify-center text-[#fafafa]">
-                <User size={24} />
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-lg shadow-inner">
+                {currentAdmin.email ? currentAdmin.email[0].toUpperCase() : 'A'}
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Current User</h2>
-                <p className="text-sm text-gray-400">{currentAdmin.email}</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm md:text-base font-bold text-white">{currentAdmin.email}</h2>
+                  <span className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                    {currentAdmin.id === 'default-admin' ? 'Owner / Superadmin' : 'Staff Admin'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">Signed in on current device</p>
               </div>
             </div>
             <button 
               onClick={handleLogout}
-              className="px-4 py-2 bg-[#ff4d6d]/10 text-[#ff4d6d] rounded-lg font-medium hover:bg-[#ff4d6d]/20 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs md:text-sm font-bold hover:bg-red-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <LogOut size={16} /> Logout
+              <LogOut size={16} /> Sign Out
             </button>
           </div>
         </div>
 
         {/* Change Password Card */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl shadow-xl overflow-hidden">
           <div 
-            className="flex items-center justify-between p-5 cursor-pointer hover:bg-[var(--dash-border)]/50 transition-colors"
+            className="flex items-center justify-between p-4 md:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors"
             onClick={() => toggleSection('password')}
           >
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-medium text-white">Change Password</h2>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Lock size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white">Change Admin Password</h2>
+                <p className="text-xs text-slate-400">Update your dashboard login password</p>
+              </div>
             </div>
-            {expandedSections.password ? <ChevronUp size={20} className="text-[#fafafa]" /> : <ChevronDown size={20} className="text-[#fafafa]" />}
+            {expandedSections.password ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
           </div>
           {expandedSections.password && (
-          <form onSubmit={handleChangePassword} className="space-y-4 p-5 pt-0 border-t border-[var(--dash-border)]/50 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1.5">Current Password</label>
-              <input 
-                type="password" 
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1.5">New Password</label>
-              <input 
-                type="password" 
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1.5">Confirm New Password</label>
-              <input 
-                type="password" 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-              />
-            </div>
-            
-            {pwdMsg.text && (
-              <div className={cn("text-sm p-3 rounded-lg", pwdMsg.type === 'success' ? "bg-[#fafafa]/10 text-[#fafafa]" : "bg-[#ff4d6d]/10 text-[#ff4d6d]")}>
-                {pwdMsg.text}
+            <form onSubmit={handleChangePassword} className="space-y-3.5 p-4 md:p-5 pt-0 border-t border-[var(--dash-border)]/40 mt-2">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Current Password *</label>
+                <input 
+                  type="password" 
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  placeholder="Enter current password"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
               </div>
-            )}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">New Password *</label>
+                <input 
+                  type="password" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  placeholder="Min 4 characters"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Confirm New Password *</label>
+                <input 
+                  type="password" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Repeat new password"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              
+              {pwdMsg.text && (
+                <div className={cn("text-xs p-3 rounded-xl font-medium", pwdMsg.type === 'success' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20")}>
+                  {pwdMsg.text}
+                </div>
+              )}
 
-            <button 
-              type="submit"
-              style={{ backgroundColor: websiteSettings.themeColors?.primary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-              className="w-full py-3 rounded-lg font-bold text-sm md:text-base hover:brightness-95 active:scale-98 transition-all shadow-md cursor-pointer"
-            >
-              Update Password
-            </button>
-          </form>
+              <button 
+                type="submit"
+                className="w-full py-2.5 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-98 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
+              >
+                Update Password
+              </button>
+            </form>
           )}
         </div>
 
         {/* Change Email Card */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl shadow-xl overflow-hidden">
           <div 
-            className="flex items-center justify-between p-5 cursor-pointer hover:bg-[var(--dash-border)]/50 transition-colors"
+            className="flex items-center justify-between p-4 md:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors"
             onClick={() => toggleSection('email')}
           >
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-medium text-white">Change Email</h2>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Mail size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white">Change Email Address</h2>
+                <p className="text-xs text-slate-400">Update account communication email</p>
+              </div>
             </div>
-            {expandedSections.email ? <ChevronUp size={20} className="text-[#fafafa]" /> : <ChevronDown size={20} className="text-[#fafafa]" />}
+            {expandedSections.email ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
           </div>
           {expandedSections.email && (
-          <form onSubmit={handleChangeEmail} className="space-y-4 p-5 pt-0 border-t border-[var(--dash-border)]/50 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1.5">New Email</label>
-              <input 
-                type="email" 
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                required
-                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-              />
-            </div>
-            {emailMsg.text && (
-              <div className={cn("text-sm p-3 rounded-lg", emailMsg.type === 'success' ? "bg-[#fafafa]/10 text-[#fafafa]" : "bg-[#ff4d6d]/10 text-[#ff4d6d]")}>
-                {emailMsg.text}
+            <form onSubmit={handleChangeEmail} className="space-y-3.5 p-4 md:p-5 pt-0 border-t border-[var(--dash-border)]/40 mt-2">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">New Email Address *</label>
+                <input 
+                  type="email" 
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                  placeholder="admin@yourdomain.com"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
               </div>
-            )}
-            <button 
-              type="submit"
-              style={{ backgroundColor: websiteSettings.themeColors?.primary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-              className="w-full py-3 rounded-lg font-bold text-sm md:text-base hover:brightness-95 active:scale-98 transition-all shadow-md cursor-pointer"
-            >
-              Update Email
-            </button>
-          </form>
+              {emailMsg.text && (
+                <div className={cn("text-xs p-3 rounded-xl font-medium", emailMsg.type === 'success' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20")}>
+                  {emailMsg.text}
+                </div>
+              )}
+              <button 
+                type="submit"
+                className="w-full py-2.5 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-98 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
+              >
+                Update Email
+              </button>
+            </form>
           )}
         </div>
 
         {/* Auto Logout Card */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl shadow-xl overflow-hidden">
           <div 
-            className="flex items-center justify-between p-5 cursor-pointer hover:bg-[var(--dash-border)]/50 transition-colors"
+            className="flex items-center justify-between p-4 md:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors"
             onClick={() => toggleSection('autoLogout')}
           >
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-medium text-white">Auto Logout System</h2>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Clock size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white">Auto Logout Expiry</h2>
+                <p className="text-xs text-slate-400">Security session duration before requiring re-login</p>
+              </div>
             </div>
-            {expandedSections.autoLogout ? <ChevronUp size={20} className="text-[#fafafa]" /> : <ChevronDown size={20} className="text-[#fafafa]" />}
+            {expandedSections.autoLogout ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
           </div>
           {expandedSections.autoLogout && (
-          <form onSubmit={handleUpdateLogout} className="space-y-4 p-5 pt-0 border-t border-[var(--dash-border)]/50">
-            <div className="flex flex-col sm:flex-row gap-4 items-end mt-4">
-              <div className="flex-1 w-full">
-                <label className="block text-sm font-medium text-gray-400 mb-1.5">Auto Logout Time (days)</label>
-                <input 
-                  type="number" 
-                  min="1"
-                  value={autoLogoutDays}
-                  onChange={(e) => setAutoLogoutDays(e.target.value)}
-                  required
-                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-                />
+            <form onSubmit={handleUpdateLogout} className="space-y-3.5 p-4 md:p-5 pt-0 border-t border-[var(--dash-border)]/40 mt-2">
+              <div className="flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex-1 w-full">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Session Expiry (Days) *</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={autoLogoutDays}
+                    onChange={(e) => setAutoLogoutDays(e.target.value)}
+                    required
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
+                >
+                  Save
+                </button>
               </div>
-              <button 
-                type="submit"
-                style={{ backgroundColor: websiteSettings.themeColors?.primary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-bold text-xs md:text-sm hover:brightness-95 active:scale-98 transition-all shadow-md cursor-pointer flex-[1.5]"
-              >
-                Update Auto Logout
-              </button>
-            </div>
-            {logoutMsg.text && (
-              <div className={cn("text-sm p-3 rounded-lg", logoutMsg.type === 'success' ? "bg-[#fafafa]/10 text-[#fafafa]" : "bg-[#ff4d6d]/10 text-[#ff4d6d]")}>
-                {logoutMsg.text}
-              </div>
-            )}
-          </form>
+              {logoutMsg.text && (
+                <div className={cn("text-xs p-3 rounded-xl font-medium", logoutMsg.type === 'success' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20")}>
+                  {logoutMsg.text}
+                </div>
+              )}
+            </form>
           )}
         </div>
 
         {/* Admin Management Section */}
         {currentAdmin.id === 'default-admin' && (
-          <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-lg p-5">
-            <h2 className="text-lg font-medium text-white mb-4">User Management</h2>
+          <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+            <div>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Staff & Team Account Permissions</h2>
+              <p className="text-xs text-slate-400">Review pending registrations and grant or revoke access.</p>
+            </div>
             
-            <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-[var(--dash-border)] pb-4">
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--dash-border)]/60 pb-3">
               <button
                 onClick={() => setUserTab('pending')}
-                className={cn("px-4 py-2 rounded-full text-sm font-medium transition-colors border", userTab === 'pending' ? "border-[#fafafa] text-[#fafafa] bg-[#fafafa]/10" : "border-transparent text-gray-400 hover:text-white")}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                  userTab === 'pending' ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-white/5 text-slate-400 hover:text-white"
+                )}
               >
                 Pending Approvals ({pendingUsers.length})
               </button>
               <button
                 onClick={() => setUserTab('active')}
-                className={cn("px-4 py-2 rounded-full text-sm font-medium transition-colors border", userTab === 'active' ? "border-[#fafafa] text-[#fafafa] bg-[#fafafa]/10" : "border-transparent text-gray-400 hover:text-white")}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                  userTab === 'active' ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-white/5 text-slate-400 hover:text-white"
+                )}
               >
-                Active Accounts ({activeUsers.length})
+                Active Staff ({activeUsers.length})
               </button>
               <button
                 onClick={() => setUserTab('blocked')}
-                className={cn("px-4 py-2 rounded-full text-sm font-medium transition-colors border", userTab === 'blocked' ? "border-[#fafafa] text-[#fafafa] bg-[#fafafa]/10" : "border-transparent text-gray-400 hover:text-white")}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                  userTab === 'blocked' ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-white/5 text-slate-400 hover:text-white"
+                )}
               >
-                Blocked Accounts ({blockedUsers.length})
+                Blocked ({blockedUsers.length})
               </button>
             </div>
 
-            <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg p-4">
+            <div className="space-y-2.5">
               {userTab === 'pending' && (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {pendingUsers.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No pending approvals.</p>
+                    <div className="text-center py-8 text-slate-500 text-xs bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)] border-dashed">
+                      No pending team registrations.
+                    </div>
                   ) : (
                     pendingUsers.map(user => (
-                      <div key={user.id} className="flex items-center justify-between p-3 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)]">
+                      <div key={user.id} className="flex items-center justify-between p-3.5 bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)]">
                         <div>
-                          <p className="text-white font-medium">{user.email}</p>
-                          <p className="text-xs text-gray-500">Joined: {new Date(user.createdAt).toLocaleDateString()}</p>
+                          <p className="text-white text-xs md:text-sm font-bold">{user.email}</p>
+                          <p className="text-[10px] text-slate-500">Registered: {new Date(user.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => handleApprove(user.id)}
-                            className="p-2 bg-[#fafafa]/10 text-[#fafafa] rounded-lg hover:bg-[#fafafa]/20 transition-colors"
-                            title="Approve"
+                            className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl hover:bg-emerald-500/20 transition-all cursor-pointer"
+                            title="Approve Account"
                           >
-                            <Check size={18} />
+                            <Check size={16} />
                           </button>
                           <button 
                             onClick={() => handleReject(user.id)}
-                            className="p-2 bg-[#ff4d6d]/10 text-[#ff4d6d] rounded-lg hover:bg-[#ff4d6d]/20 transition-colors"
+                            className="p-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-all cursor-pointer"
                             title="Reject"
                           >
-                            <X size={18} />
+                            <X size={16} />
                           </button>
                         </div>
                       </div>
@@ -4902,21 +5087,23 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
               )}
               
               {userTab === 'active' && (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {activeUsers.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No other active accounts.</p>
+                    <div className="text-center py-8 text-slate-500 text-xs bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)] border-dashed">
+                      No other active staff accounts.
+                    </div>
                   ) : (
                     activeUsers.map(user => (
-                      <div key={user.id} className="flex items-center justify-between p-3 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)]">
+                      <div key={user.id} className="flex items-center justify-between p-3.5 bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)]">
                         <div>
-                          <p className="text-white font-medium">{user.email}</p>
-                          <p className="text-xs text-[#fafafa]">Approved</p>
+                          <p className="text-white text-xs md:text-sm font-bold">{user.email}</p>
+                          <span className="text-[10px] text-emerald-400 font-semibold">Active Member</span>
                         </div>
                         <button 
                           onClick={() => handleBlock(user.id)}
-                          className="px-3 py-1.5 bg-[#ff4d6d]/10 text-[#ff4d6d] rounded-lg hover:bg-[#ff4d6d]/20 transition-colors flex items-center gap-1.5 text-sm font-medium"
+                          className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/20 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
                         >
-                          <ShieldAlert size={16} /> Block
+                          <ShieldAlert size={14} /> Block
                         </button>
                       </div>
                     ))
@@ -4925,21 +5112,23 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
               )}
 
               {userTab === 'blocked' && (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {blockedUsers.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No blocked accounts.</p>
+                    <div className="text-center py-8 text-slate-500 text-xs bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)] border-dashed">
+                      No blocked accounts.
+                    </div>
                   ) : (
                     blockedUsers.map(user => (
-                      <div key={user.id} className="flex items-center justify-between p-3 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] opacity-75">
+                      <div key={user.id} className="flex items-center justify-between p-3.5 bg-[var(--dash-bg)] rounded-xl border border-[var(--dash-border)] opacity-80">
                         <div>
-                          <p className="text-gray-400 font-medium line-through">{user.email}</p>
-                          <p className="text-xs text-[#ff4d6d]">Blocked</p>
+                          <p className="text-slate-400 text-xs md:text-sm line-through">{user.email}</p>
+                          <span className="text-[10px] text-red-400 font-semibold">Blocked</span>
                         </div>
                         <button 
                           onClick={() => handleUnblock(user.id)}
-                          className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500/20 transition-colors flex items-center gap-1.5 text-sm font-medium"
+                          className="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
                         >
-                          <Unlock size={16} /> Unblock
+                          <Unlock size={14} /> Unblock
                         </button>
                       </div>
                     ))
@@ -4986,89 +5175,109 @@ function QtyRulesManager({ settings, setSettings, onClose, themePrimary }: { set
     }
   };
 
+  const themeColor = '#6366F1';
+
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
-      <div className="flex items-center justify-between p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-card)]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white"><ChevronLeft size={24} /></button>
-          <h1 className="text-xl font-bold text-white">Qty Rules</h1>
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <PackagePlus size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Quantity Pricing Rules</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automated tiered bulk discount for large orders</p>
+            </div>
+          </div>
         </div>
+
         <button 
           onClick={handleSave} 
           disabled={isSaving}
-          style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs md:text-sm hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 shadow-md cursor-pointer"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
         >
-          {saved ? <Check size={18} /> : <Save size={18} />}
           {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-3xl mx-auto w-full">
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl p-4 sm:p-6 shadow-lg">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1 pr-4">
-              <h2 className="text-lg sm:text-xl font-bold text-white mb-1">Quantity Pricing System</h2>
-              <p className="text-xs sm:text-sm text-gray-400">Automate quantity-based discounts across your store.</p>
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-2xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Quantity-Based Pricing Engine</h2>
+              <p className="text-xs text-slate-400">Offer automated per-piece discounts when customers purchase wholesale volume.</p>
             </div>
-            <div 
-              className={cn("w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out flex items-center shrink-0 mt-1 group",
-                enabled ? "bg-[#fafafa]" : "bg-gray-600"
-              )}
+            <button 
               onClick={() => setEnabled(!enabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
             >
-              <div className={cn("w-4 h-4 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm group-active:w-6", enabled ? "translate-x-6 group-active:translate-x-4" : "translate-x-0")} />
-            </div>
+              <div 
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  enabled ? "translate-x-5.5" : "translate-x-0"
+                )} 
+              />
+            </button>
           </div>
 
-          <div className={cn("transition-all duration-300 overflow-hidden", enabled ? "opacity-100 max-h-[1000px] mt-6" : "opacity-0 max-h-0")}>
-             <div className="pt-6 border-t border-[var(--dash-border)] space-y-6">
+          {enabled && (
+            <div className="space-y-4 pt-4 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <h3 className="text-lg font-bold text-white mb-4">Global Default Rule</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-400">Apply discount when Qty &ge;</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          value={minQuantity} 
-                          onChange={e => setMinQuantity(e.target.value)} 
-                          placeholder="e.g. 6"
-                          className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 pl-4 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">pcs</span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-400">Discount per piece</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          value={discountPerPiece} 
-                          onChange={e => setDiscountPerPiece(e.target.value)} 
-                          placeholder="e.g. 5"
-                          className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 pl-4 text-white focus:outline-none focus:border-[#fafafa] transition-colors"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">৳</span>
-                      </div>
-                    </div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Minimum Pieces (Qty &ge;) *</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type="number" 
+                      value={minQuantity} 
+                      onChange={e => setMinQuantity(e.target.value)} 
+                      placeholder="6"
+                      className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-12 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    />
+                    <span className="absolute right-3 text-xs text-slate-500 font-bold">pcs</span>
                   </div>
                 </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Discount per Piece (৳) *</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type="number" 
+                      value={discountPerPiece} 
+                      onChange={e => setDiscountPerPiece(e.target.value)} 
+                      placeholder="5"
+                      className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-12 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    />
+                    <span className="absolute right-3 text-xs text-slate-500 font-bold">৳</span>
+                  </div>
+                </div>
+              </div>
 
-                <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-5 flex gap-4 mt-6">
-                  <div className="text-[#fafafa] shrink-0 pt-1">
-                    <PackagePlus size={24} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white text-base mb-1">How rules are applied</h4>
-                    <ul className="space-y-2 text-sm text-gray-400 list-disc list-inside">
-                      <li>Purchasing <strong className="text-[#fafafa]">&ge;{minQuantity || 0} items</strong> of a single product grants a <strong className="text-[#fafafa]">{discountPerPiece || 0}৳</strong> discount per piece.</li>
-                      <li>Custom rules configured on individual products will <strong className="text-white">override</strong> this global rule.</li>
-                    </ul>
-                  </div>
+              <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3.5 flex gap-3 items-start">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                  <PackagePlus size={16} />
                 </div>
-             </div>
-          </div>
+                <div className="text-xs text-slate-400 space-y-1">
+                  <p className="font-bold text-white">Rule Execution Summary:</p>
+                  <p>Purchasing <strong className="text-indigo-400">&ge;{minQuantity || 0} pieces</strong> grants a <strong className="text-indigo-400">{discountPerPiece || 0}৳</strong> discount per item at checkout.</p>
+                  <p className="text-[11px] text-slate-500">Note: Custom tier rules configured inside individual products will override this default store rule.</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -5106,7 +5315,6 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
         setSeo({ ...seo, [fieldName]: url });
       } catch (err) {
         console.error("Upload failed", err);
-        // Fallback to dataURL
         const reader = new FileReader();
         reader.onload = (event) => {
           setSeo({ ...seo, [fieldName]: event.target?.result as string });
@@ -5118,296 +5326,223 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
     }
   };
 
+  const themeColor = '#6366F1';
+
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3 md:px-8 border-b border-[var(--dash-border)] bg-[var(--dash-card)] relative z-10 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="flex items-center gap-3">
           <button 
             onClick={onClose} 
-            className="w-10 h-10 rounded-full border border-[var(--dash-border)] bg-[var(--dash-card)]/50 hover:bg-[var(--dash-card)] flex items-center justify-center text-slate-400 hover:text-white transition-all shrink-0"
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
             id="seo_back_btn"
             title="Go back"
           >
             <ChevronLeft size={20} />
           </button>
-          <div className="flex flex-col">
-            <h1 className="text-sm md:text-base font-bold text-white flex items-center gap-2 tracking-tight">
-              <Globe size={18} className="text-purple-400" /> SEO & Branding
-            </h1>
-            <p className="text-[10px] md:text-xs text-slate-400 font-normal hidden sm:block">
-              Optimize how your store looks on search engines and social platforms.
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <Globe size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">SEO, OpenGraph & Favicon</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Search engine indexing, WhatsApp link previews and branding</p>
+            </div>
           </div>
         </div>
 
         <button
           onClick={handleSave}
           disabled={isSaving}
-          style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs md:text-sm hover:brightness-95 active:scale-98 transition-all disabled:opacity-50 shrink-0 shadow-md cursor-pointer"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
           id="seo_save_btn"
         >
-          {saved ? <Check size={16} /> : <Save size={16} />}
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save Changes'}
+          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24 md:p-8 md:space-y-6 max-w-2xl mx-auto w-full">
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Basic SEO Controls (Box 1) */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col p-4.5 md:p-6 space-y-4" id="seo_basic_card">
-          <div className="flex items-start justify-between border-b border-[var(--dash-border)]/40 pb-4.5">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="seo_basic_card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[var(--dash-border)]/50 text-indigo-400 flex items-center justify-center shrink-0 font-bold text-sm border border-[var(--dash-border)]">
-                1
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                <Tag size={20} />
               </div>
-              <div className="flex flex-col">
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-wide">Basic SEO Controls (Google Search)</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 mt-0.5 font-normal">Improve your store's visibility in Google Search results.</p>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Google Search Meta Tags</h2>
+                <p className="text-xs text-slate-400">Search title and meta snippet shown in Google, Bing & Yahoo results.</p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 rounded-full text-xs font-semibold select-none shrink-0" id="seo_status_good">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <Check size={12} className="stroke-[3]" />
-              <span>Good</span>
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider" id="seo_status_good">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Optimized</span>
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40">
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Store Meta Title</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Enter the main heading that appears in Google Search results.">
-                  <Info size={11} />
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0" id="meta_title_icon_box">
-                  <Tag size={16} />
-                </div>
-                <input
-                  type="text"
-                  value={seo.metaTitle || ''}
-                  onChange={(e) => setSeo({ ...seo, metaTitle: e.target.value })}
-                  placeholder="e.g. Flixomart - Premium Electronic Goods"
-                  className="flex-1 bg-[var(--dash-bg)]/80 border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--dash-border-light)] transition-colors font-sans"
-                  id="seo_meta_title_input"
-                />
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Store Meta Title *</label>
+              <input
+                type="text"
+                value={seo.metaTitle || ''}
+                onChange={(e) => setSeo({ ...seo, metaTitle: e.target.value })}
+                placeholder="e.g. PaikariX - Wholesale Import & B2B Supply in Bangladesh"
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                id="seo_meta_title_input"
+              />
             </div>
 
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Store Meta Description</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Short description paragraph that appears in Google Search.">
-                  <Info size={11} />
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0 mt-0.5" id="meta_desc_icon_box">
-                  <FileText size={16} />
-                </div>
-                <textarea
-                  value={seo.metaDescription || ''}
-                  onChange={(e) => setSeo({ ...seo, metaDescription: e.target.value })}
-                  placeholder="Short paragraph describing your store..."
-                  rows={2}
-                  className="flex-1 bg-[var(--dash-bg)]/80 border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--dash-border-light)] transition-colors resize-y min-h-[44px]"
-                  id="seo_meta_description_textarea"
-                />
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Store Meta Description</label>
+              <textarea
+                value={seo.metaDescription || ''}
+                onChange={(e) => setSeo({ ...seo, metaDescription: e.target.value })}
+                placeholder="Short paragraph describing your store, wholesale categories, and buyer guarantees..."
+                rows={2}
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 resize-y min-h-[56px]"
+                id="seo_meta_description_textarea"
+              />
             </div>
 
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Meta Keywords</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Comma-separated keywords representing your store.">
-                  <Info size={11} />
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0" id="meta_keywords_icon_box">
-                  <Key size={16} />
-                </div>
-                <input
-                  type="text"
-                  value={seo.metaKeywords || ''}
-                  onChange={(e) => setSeo({ ...seo, metaKeywords: e.target.value })}
-                  placeholder="e.g. electronics, smartphones, gadgets (comma separated)"
-                  className="flex-1 bg-[var(--dash-bg)]/80 border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--dash-border-light)] transition-colors font-sans"
-                  id="seo_meta_keywords_input"
-                />
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Meta Keywords</label>
+              <input
+                type="text"
+                value={seo.metaKeywords || ''}
+                onChange={(e) => setSeo({ ...seo, metaKeywords: e.target.value })}
+                placeholder="e.g. wholesale, electronics, import bd, wholesale gadgets (comma separated)"
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                id="seo_meta_keywords_input"
+              />
             </div>
           </div>
         </div>
 
         {/* Social Media Sharing Controls (Box 2) */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col p-4.5 md:p-6 space-y-4" id="seo_social_card">
-          <div className="flex items-start justify-between border-b border-[var(--dash-border)]/40 pb-4.5">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="seo_social_card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[var(--dash-border)]/50 text-indigo-400 flex items-center justify-center shrink-0 font-bold text-sm border border-[var(--dash-border)]">
-                2
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                <Share2 size={20} />
               </div>
-              <div className="flex flex-col">
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-wide">Social Media Sharing Controls (Open Graph)</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 mt-0.5 font-normal">Control how your store appears when shared on social media.</p>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Social Media OpenGraph Sharing</h2>
+                <p className="text-xs text-slate-400">Preview title, thumbnail, and snippet on Facebook, WhatsApp & Twitter.</p>
               </div>
-            </div>
-            
-            <div className="text-slate-400 shrink-0 p-1 bg-slate-800/20 border border-slate-700/20 rounded-lg" id="seo_social_badge">
-              <Share2 size={16} />
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40">
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Social Share Title</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Custom title when shared on messaging platforms.">
-                  <Info size={11} />
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0" id="social_title_icon_box">
-                  <Type size={16} />
-                </div>
-                <input
-                  type="text"
-                  value={seo.socialShareTitle || ''}
-                  onChange={(e) => setSeo({ ...seo, socialShareTitle: e.target.value })}
-                  placeholder="Enter social share title (optional)"
-                  className="flex-1 bg-[var(--dash-bg)]/80 border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--dash-border-light)] transition-colors font-sans"
-                  id="seo_social_title_input"
-                />
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Social Share Title</label>
+              <input
+                type="text"
+                value={seo.socialShareTitle || ''}
+                onChange={(e) => setSeo({ ...seo, socialShareTitle: e.target.value })}
+                placeholder="Enter social share title (optional)"
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500"
+                id="seo_social_title_input"
+              />
             </div>
 
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Social Share Description</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Custom description shown under the link preview.">
-                  <Info size={11} />
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0 mt-0.5" id="social_desc_icon_box">
-                  <AlignLeft size={16} />
-                </div>
-                <textarea
-                  value={seo.socialShareDescription || ''}
-                  onChange={(e) => setSeo({ ...seo, socialShareDescription: e.target.value })}
-                  placeholder="Text that appears under the link preview..."
-                  rows={2}
-                  className="flex-1 bg-[var(--dash-bg)]/80 border border-[var(--dash-border)] rounded-lg px-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[var(--dash-border-light)] transition-colors resize-y min-h-[44px]"
-                  id="seo_social_description_textarea"
-                />
-              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Social Share Description</label>
+              <textarea
+                value={seo.socialShareDescription || ''}
+                onChange={(e) => setSeo({ ...seo, socialShareDescription: e.target.value })}
+                placeholder="Text that appears under the link preview card..."
+                rows={2}
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 resize-y min-h-[56px]"
+                id="seo_social_description_textarea"
+              />
             </div>
 
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Default Social Share Image</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="Recommended dimension: 1200x630px. Shown when sharing store homepage.">
-                  <Info size={11} />
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0 overflow-hidden" id="social_image_preview_box">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Default Social Share Banner (1200x630px)</label>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3.5">
+                <div className="w-24 h-16 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden" id="social_image_preview_box">
                   {seo.defaultSocialShareImage ? (
                     <img src={seo.defaultSocialShareImage} alt="Social Share Preview" className="w-full h-full object-cover" />
                   ) : (
-                    <ImageIcon size={18} />
+                    <ImageIcon size={20} className="text-slate-500" />
                   )}
                 </div>
                 
-                <div className="flex-1 border border-dashed border-[var(--dash-border)] rounded-lg p-2.5 md:p-3 flex items-center justify-between bg-[var(--dash-bg)]/40 gap-4" id="social_image_upload_zone">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] md:text-xs font-semibold text-slate-300">Upload an image (Recommended: 1200x630px)</span>
-                    <span className="text-[9px] md:text-[10px] text-slate-500">This image will be shown in link previews.</span>
-                  </div>
-                  
-                  <label className={cn(
-                    "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-200 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-all shrink-0",
-                    isUploading.defaultSocialShareImage && "opacity-50 cursor-not-allowed"
-                  )} id="social_image_upload_label">
-                    {isUploading.defaultSocialShareImage ? <RefreshCw className="animate-spin" size={13} /> : <Upload size={13} />}
-                    <span>{isUploading.defaultSocialShareImage ? 'Uploading...' : 'Upload Image'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      id="social_share_image_input"
-                      onChange={(e) => handleImageUpload(e, 'defaultSocialShareImage')}
-                      disabled={isUploading.defaultSocialShareImage}
-                    />
-                  </label>
+                <div className="flex-1 space-y-1">
+                  <p className="text-xs text-slate-300 font-bold">Upload OpenGraph Card Image</p>
+                  <p className="text-[11px] text-slate-500">Displayed whenever your store domain is pasted in chat or social feeds.</p>
                 </div>
+                
+                <label className={cn(
+                  "bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all shrink-0 active:scale-95",
+                  isUploading.defaultSocialShareImage && "opacity-50 cursor-not-allowed"
+                )} id="social_image_upload_label">
+                  {isUploading.defaultSocialShareImage ? <RefreshCw className="animate-spin" size={14} /> : <Upload size={14} />}
+                  <span>{isUploading.defaultSocialShareImage ? 'Uploading...' : 'Upload Image'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="social_share_image_input"
+                    onChange={(e) => handleImageUpload(e, 'defaultSocialShareImage')}
+                    disabled={isUploading.defaultSocialShareImage}
+                  />
+                </label>
               </div>
             </div>
           </div>
         </div>
 
         {/* Branding & Appearance (Box 3) */}
-        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col p-4.5 md:p-6 space-y-4" id="seo_branding_card">
-          <div className="flex items-start justify-between border-b border-[var(--dash-border)]/40 pb-4.5">
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="seo_branding_card">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[var(--dash-border)]/50 text-indigo-400 flex items-center justify-center shrink-0 font-bold text-sm border border-[var(--dash-border)]">
-                3
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                <Palette size={20} />
               </div>
-              <div className="flex flex-col">
-                <h2 className="text-xs md:text-sm font-bold text-white tracking-wide">Branding & Appearance</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 mt-0.5 font-normal">Customize your store's identity and appearance.</p>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Favicon & Browser Icon</h2>
+                <p className="text-xs text-slate-400">Tiny tab icon shown on browser tabs and bookmarks.</p>
               </div>
-            </div>
-            
-            <div className="text-slate-400 shrink-0 p-1 bg-slate-800/20 border border-slate-700/20 rounded-lg" id="seo_branding_badge">
-              <Palette size={16} />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11px] md:text-xs font-semibold text-slate-300 tracking-wide">Favicon Upload</span>
-                <span className="inline-flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-help" title="The tiny icon shown in browser tabs next to your website title.">
-                  <Info size={11} />
-                </span>
+          <div className="pt-2 border-t border-[var(--dash-border)]/40">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3.5">
+              <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden" id="favicon_preview_box">
+                {seo.favicon ? (
+                  <img src={seo.favicon} alt="Favicon Preview" className="w-8 h-8 object-contain" />
+                ) : (
+                  <Star size={20} className="text-indigo-400" />
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-lg bg-[var(--dash-border)]/30 text-indigo-400 border border-[var(--dash-border)]/50 flex items-center justify-center shrink-0 overflow-hidden bg-white/5" id="favicon_preview_box">
-                  {seo.favicon ? (
-                    <img src={seo.favicon} alt="Favicon Preview" className="w-6 h-6 object-contain" />
-                  ) : (
-                    <Star size={18} className="text-amber-400" />
-                  )}
-                </div>
-                
-                <div className="flex-1 border border-dashed border-[var(--dash-border)] rounded-lg p-2.5 md:p-3 flex items-center justify-between bg-[var(--dash-bg)]/40 gap-4" id="favicon_upload_zone">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] md:text-xs font-semibold text-slate-300">Upload Favicon</span>
-                    <span className="text-[9px] md:text-[10px] text-slate-500">The tiny icon that shows up in the browser tab.</span>
-                  </div>
-                  
-                  <label className={cn(
-                    "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-200 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-all shrink-0",
-                    isUploading.favicon && "opacity-50 cursor-not-allowed"
-                  )} id="favicon_upload_label">
-                    {isUploading.favicon ? <RefreshCw className="animate-spin" size={13} /> : <Upload size={13} />}
-                    <span>{isUploading.favicon ? 'Uploading...' : 'Upload Favicon'}</span>
-                    <input
-                      type="file"
-                      accept="image/png, image/x-icon, image/jpeg, image/svg+xml"
-                      className="hidden"
-                      id="favicon_image_input"
-                      onChange={(e) => handleImageUpload(e, 'favicon')}
-                      disabled={isUploading.favicon}
-                    />
-                  </label>
-                </div>
+              
+              <div className="flex-1 space-y-1">
+                <p className="text-xs text-slate-300 font-bold">Store Browser Favicon (.ico, .png, .svg)</p>
+                <p className="text-[11px] text-slate-500">Recommended dimension: 64x64px square image with transparent background.</p>
               </div>
+              
+              <label className={cn(
+                "bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all shrink-0 active:scale-95",
+                isUploading.favicon && "opacity-50 cursor-not-allowed"
+              )} id="favicon_upload_label">
+                {isUploading.favicon ? <RefreshCw className="animate-spin" size={14} /> : <Upload size={14} />}
+                <span>{isUploading.favicon ? 'Uploading...' : 'Upload Favicon'}</span>
+                <input
+                  type="file"
+                  accept="image/png, image/x-icon, image/jpeg, image/svg+xml"
+                  className="hidden"
+                  id="favicon_image_input"
+                  onChange={(e) => handleImageUpload(e, 'favicon')}
+                  disabled={isUploading.favicon}
+                />
+              </label>
             </div>
           </div>
         </div>
@@ -5439,102 +5574,129 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const themeColor = '#6366F1';
+
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
-      <div className="flex items-center justify-between p-4 bg-[var(--dash-card)] border-b border-[var(--dash-border)] md:px-8 md:py-5">
-        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-white flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
-          <ImageIcon size={22} className="text-sky-400" /> Image Settings
-        </h1>
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <ImageIcon size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Image Processing & Optimization</h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Real-time WebP compression, thumbnail sizing & asset delivery</p>
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={handleSave}
-          style={{ backgroundColor: themePrimary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm hover:brightness-95 active:scale-95 transition-all shadow-md cursor-pointer"
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
         >
-          {saved ? <Check size={18} className="text-white" /> : <Save size={18} />}
           {saved ? 'Saved' : 'Save'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-24 max-w-3xl mx-auto w-full">
-          <div className="space-y-6">
-            
-            {/* Auto Optimization */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-bold text-lg text-white">Auto Optimization</h3>
-                  <p className="text-sm text-gray-400 mt-1">Automatically compress and resize main product images upon upload.</p>
-                </div>
-                <button 
-                  onClick={() => setEnabled(!enabled)}
-                  className={cn("w-12 h-6 rounded-full relative flex items-center px-1 transition-colors group shrink-0", enabled ? "bg-[#fafafa]" : "bg-[var(--dash-border)]")}
-                >
-                  <div className={cn("w-4 h-4 rounded-full transition-all duration-300", enabled  ? "bg-[var(--dash-card)] translate-x-6" : "bg-white translate-x-0")}></div>
-                </button>
-              </div>
-
-              {enabled && (
-                <div className="space-y-6 pt-4 border-t border-[var(--dash-border)]">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2 text-white">
-                      <span>Image Quality</span>
-                      <span className="font-bold">{quality}%</span>
-                    </div>
-                    <input 
-                      type="range" min="1" max="100" value={quality} onChange={e => setQuality(Number(e.target.value))}
-                      className="w-full h-1 bg-[var(--dash-border)] rounded-full appearance-none cursor-pointer custom-range"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2 text-white">
-                      <span>Image Scale (Resolution)</span>
-                      <span className="font-bold">{scale}%</span>
-                    </div>
-                    <input 
-                      type="range" min="10" max="100" value={scale} onChange={e => setScale(Number(e.target.value))}
-                      className="w-full h-1 bg-[var(--dash-border)] rounded-full appearance-none cursor-pointer custom-range"
-                    />
-                  </div>
-                </div>
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-3xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {/* Auto Optimization */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm md:text-base font-bold text-white mb-0.5">Automated Client-Side Image Compression</h3>
+              <p className="text-xs text-slate-400">Compress uploaded product photos before uploading to Cloudflare R2 storage.</p>
+            </div>
+            <button 
+              onClick={() => setEnabled(!enabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
               )}
-            </div>
+            >
+              <div 
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  enabled ? "translate-x-5.5" : "translate-x-0"
+                )} 
+              />
+            </button>
+          </div>
 
-            {/* Thumbnail Settings */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-5">
-              <h3 className="font-bold text-lg text-white mb-1">Thumbnail Generation</h3>
-              <p className="text-sm text-gray-400 mb-5">Thumbnails are automatically generated to reduce loading times on grids. Adjusting these will ONLY affect newly uploaded products or zip imports.</p>
+          {enabled && (
+            <div className="space-y-5 pt-4 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
+              <div>
+                <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                  <span className="text-slate-300">Compression Quality</span>
+                  <span className="text-indigo-400 font-mono text-sm">{quality}%</span>
+                </div>
+                <input 
+                  type="range" min="1" max="100" value={quality} onChange={e => setQuality(Number(e.target.value))}
+                  className="w-full h-1.5 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-full appearance-none cursor-pointer accent-indigo-500"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Recommended: 80%. Balances sharp product visuals with sub-second page loads.</p>
+              </div>
 
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between text-sm mb-2 text-white">
-                    <span>Thumbnail Width (px)</span>
-                    <span className="font-bold text-sky-400">{thumbnailWidth}px</span>
-                  </div>
-                  <input 
-                    type="range" min="100" max="1080" step="10" value={thumbnailWidth} onChange={e => setThumbnailWidth(Number(e.target.value))}
-                    className="w-full h-1 bg-[var(--dash-border)] rounded-full appearance-none cursor-pointer custom-range"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">Recommended: 300px - 600px. High values increase clarity but make homepage slower.</p>
+              <div>
+                <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                  <span className="text-slate-300">Maximum Resolution Scale</span>
+                  <span className="text-indigo-400 font-mono text-sm">{scale}%</span>
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-2 text-white">
-                    <span>Thumbnail Quality</span>
-                    <span className="font-bold text-sky-400">{thumbnailQuality}%</span>
-                  </div>
-                  <input 
-                    type="range" min="10" max="100" value={thumbnailQuality} onChange={e => setThumbnailQuality(Number(e.target.value))}
-                    className="w-full h-1 bg-[var(--dash-border)] rounded-full appearance-none cursor-pointer custom-range"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">Recommended: 60% - 80%.</p>
-                </div>
+                <input 
+                  type="range" min="10" max="100" value={scale} onChange={e => setScale(Number(e.target.value))}
+                  className="w-full h-1.5 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-full appearance-none cursor-pointer accent-indigo-500"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Scales down excessive 4K/8K images from supplier cameras to web-friendly bounds.</p>
               </div>
             </div>
+          )}
+        </div>
 
+        {/* Thumbnail Settings */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div>
+            <h3 className="text-sm md:text-base font-bold text-white mb-0.5">High-Speed Grid Thumbnail Generator</h3>
+            <p className="text-xs text-slate-400">Creates lightweight thumbnail variants for fast grid scrolling and instant mobile catalog browsing.</p>
+          </div>
+
+          <div className="space-y-5 pt-3 border-t border-[var(--dash-border)]/40">
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                <span className="text-slate-300">Thumbnail Target Width</span>
+                <span className="text-indigo-400 font-mono text-sm">{thumbnailWidth}px</span>
+              </div>
+              <input 
+                type="range" min="100" max="1080" step="10" value={thumbnailWidth} onChange={e => setThumbnailWidth(Number(e.target.value))}
+                className="w-full h-1.5 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-full appearance-none cursor-pointer accent-indigo-500"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Recommended: 350px - 500px for retina mobile displays.</p>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                <span className="text-slate-300">Thumbnail Compression Quality</span>
+                <span className="text-indigo-400 font-mono text-sm">{thumbnailQuality}%</span>
+              </div>
+              <input 
+                type="range" min="10" max="100" value={thumbnailQuality} onChange={e => setThumbnailQuality(Number(e.target.value))}
+                className="w-full h-1.5 bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-full appearance-none cursor-pointer accent-indigo-500"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Recommended: 60% - 75% for optimum grid performance.</p>
+            </div>
           </div>
         </div>
+      </div>
     </div>
   );
 }

@@ -61,9 +61,5 @@ html.scroll-locked, body.scroll-locked {
   transform: scale(0.98);
 }
 
-.content-visibility-auto {
-  content-visibility: auto;
-  contain-intrinsic-size: 85px;
-}
 
 

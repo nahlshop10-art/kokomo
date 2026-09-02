@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+.wrangler/
+.vscode/
+.cursor/
+.agents/
+*.out
+pkx.v1-main/
+
+

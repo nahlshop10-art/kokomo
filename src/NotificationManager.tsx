@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Save, Bell, Key, MessageSquare, AlertCircle, ArrowLeft, Settings, Copy, Check } from 'lucide-react';
+import { Save, Bell, Key, MessageSquare, AlertCircle, ChevronLeft, Settings, Copy, Check, Send } from 'lucide-react';
 import { WebsiteSettings } from './types';
 import { cloudStore } from './lib/cloudStore';
+import { cn } from './lib/utils';
 
 interface NotificationManagerProps {
   websiteSettings: WebsiteSettings;
@@ -15,9 +15,11 @@ export default function NotificationManager({ websiteSettings, setWebsiteSetting
   const [chatId, setChatId] = useState(websiteSettings?.telegramNotification?.chatId || '');
   const [enabled, setEnabled] = useState(websiteSettings?.telegramNotification?.enabled || false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  const [saved, setSaved] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedChatId, setCopiedChatId] = useState(false);
+
+  const themeColor = '#6366F1';
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -26,17 +28,19 @@ export default function NotificationManager({ websiteSettings, setWebsiteSetting
         ...websiteSettings,
         telegramNotification: {
           enabled,
-          botToken,
-          chatId,
+          botToken: botToken.trim(),
+          chatId: chatId.trim(),
         }
       };
       setWebsiteSettings(updatedSettings);
       await cloudStore.saveSetting('websiteSettings', updatedSettings);
-      setSaveMessage('Settings saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        onClose();
+      }, 600);
     } catch (error) {
       console.error('Failed to save settings:', error);
-      setSaveMessage('Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -58,174 +62,151 @@ export default function NotificationManager({ websiteSettings, setWebsiteSetting
 
   return (
     <div className="fixed inset-0 z-[110] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
-      {/* Header Row matched to high fidelity design */}
-      <div className="flex items-center justify-between p-3 border-b border-[var(--dash-border)] bg-[var(--dash-bg)]">
-        <div className="flex items-center gap-2">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-[var(--dash-border)] rounded-full transition-colors"
+            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
           >
-            <ArrowLeft size={18} className="text-[#e2e8f0]" />
+            <ChevronLeft size={20} />
           </button>
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-blue-500 fill-blue-500/20 animate-pulse" />
-            <h1 className="text-base font-semibold text-white tracking-tight">
-              Notification Settings
-            </h1>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+              <Bell size={20} />
+            </div>
+            <div>
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                Order Notifications
+              </h1>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+                Instant Telegram bot alerts when customers place new orders
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <AnimatePresence>
-            {saveMessage && (
-              <motion.p 
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className={`text-xs font-medium ${saveMessage.includes('Failed') ? 'text-red-400' : 'text-green-400'}`}
-              >
-                {saveMessage}
-              </motion.p>
-            )}
-          </AnimatePresence>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            style={{ backgroundColor: websiteSettings?.themeColors?.primary || 'var(--theme-primary, #ff4d6d)', color: '#ffffff' }}
-            className="hover:brightness-95 active:scale-95 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
-          >
-            {isSaving ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            Save Changes
-          </button>
-        </div>
+        <button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+        >
+          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-        <div className="max-w-4xl mx-auto space-y-4 pb-12">
-          
-          {/* Main settings card matching structure of image */}
-          <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 md:p-5 shadow-sm space-y-4">
-            
-            {/* Top Telegram Switch Box */}
-            <div className="flex items-center justify-between pb-4 border-b border-[var(--dash-border)]">
-              <div className="flex items-center gap-3">
-                {/* Custom highly polished Telegram Logo circle */}
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/10 border border-blue-500/20 shadow-sm flex-shrink-0">
-                  <svg className="w-5 h-5 text-blue-400 fill-current translate-x-[-0.5px] translate-y-[0.5px]" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.24-5.54 3.65-.52.36-.99.53-1.41.52-.46-.01-1.35-.26-2.01-.48-.81-.27-1.46-.42-1.4-.88.03-.24.37-.49 1.02-.75 3.99-1.74 6.66-2.88 7.99-3.44 3.81-1.58 4.6-.18 4.5 1.08z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-white">Enable Telegram Notifications</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Receive a message on Telegram whenever a new order is placed</p>
-                </div>
+      {/* Main Content */}
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-3xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {/* Telegram Enable Toggle */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Send size={20} className="translate-x-[-1px] translate-y-[1px]" />
               </div>
-
-              <button
-                onClick={() => setEnabled(!enabled)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-[var(--dash-bg)] cursor-pointer ${enabled ? 'bg-blue-500' : 'bg-gray-600'}`}
-              >
-                <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-all ${
-                    enabled ? 'translate-x-4.5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white">Telegram Instant Order Alerts</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Receive immediate ping with order details, items, address, and total</p>
+              </div>
             </div>
 
-            {/* Config title & form section */}
-            <div className={`space-y-4 transition-all duration-300 ${!enabled ? 'opacity-40 pointer-events-none' : ''}`}>
-              
-              <div className="flex items-center gap-1.5 text-white">
-                <Settings className="w-4 h-4 text-blue-400" />
-                <h3 className="text-xs font-semibold tracking-wide uppercase text-gray-300">Telegram Configuration</h3>
-              </div>
-
-              {/* Two Column Grid layout same to same as image */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Bot Token input with search/key icon and copy button */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-gray-400">
-                    Telegram Bot Token
-                  </label>
-                  <div className="relative flex items-center bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg focus-within:border-blue-500 transition-colors">
-                    <div className="pl-3 flex items-center pointer-events-none text-gray-400">
-                      <Key className="h-4 w-4 text-blue-400/80" />
-                    </div>
-                    <input
-                      type="text"
-                      value={botToken}
-                      onChange={(e) => setBotToken(e.target.value)}
-                      placeholder="e.g. 8642328760:AAH3b9ijXcDTf0e5..."
-                      className="w-full pl-2.5 pr-10 py-1.5 bg-transparent text-white placeholder-gray-600 focus:outline-none text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCopyToken}
-                      className="absolute right-2.5 p-1 text-gray-500 hover:text-white hover:bg-[var(--dash-border)] rounded transition-colors"
-                      title="Copy Token"
-                    >
-                      {copiedToken ? (
-                        <Check className="w-3.5 h-3.5 text-green-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Chat ID input with message icon and copy button */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-gray-400">
-                    Chat ID
-                  </label>
-                  <div className="relative flex items-center bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg focus-within:border-blue-500 transition-colors">
-                    <div className="pl-3 flex items-center pointer-events-none text-gray-400">
-                      <MessageSquare className="h-4 w-4 text-blue-400/80" />
-                    </div>
-                    <input
-                      type="text"
-                      value={chatId}
-                      onChange={(e) => setChatId(e.target.value)}
-                      placeholder="e.g. 6805318773"
-                      className="w-full pl-2.5 pr-10 py-1.5 bg-transparent text-white placeholder-gray-600 focus:outline-none text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCopyChatId}
-                      className="absolute right-2.5 p-1 text-gray-500 hover:text-white hover:bg-[var(--dash-border)] rounded transition-colors"
-                      title="Copy Chat ID"
-                    >
-                      {copiedChatId ? (
-                        <Check className="w-3.5 h-3.5 text-green-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Polish Alert Box for better setup UX */}
-              <div className="bg-blue-500/5 border border-blue-500/10 p-3 rounded-lg flex gap-2.5 text-blue-400/90 text-xs">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-400" />
-                <div className="leading-relaxed">
-                  <strong>Quick Setup Guide:</strong> Start a conversation with your bot in Telegram by searching for its username and clicking <strong>/start</strong> before saving settings. Use <span className="font-mono text-[10px] bg-blue-500/10 px-1 py-0.5 rounded text-blue-300">@userinfobot</span> or similar tools to fetch your personal <strong>Chat ID</strong>.
-                </div>
-              </div>
-
-            </div>
-
+            <button
+              onClick={() => setEnabled(!enabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                enabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  enabled ? "translate-x-5.5" : "translate-x-0"
+                )}
+              />
+            </button>
           </div>
         </div>
+
+        {/* Telegram Credentials Card */}
+        {enabled && (
+          <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--dash-border)]/40">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">Bot Credentials</h2>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                Encrypted Delivery
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Key size={13} className="text-indigo-400" /> Telegram Bot Token</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={botToken}
+                    onChange={(e) => setBotToken(e.target.value)}
+                    placeholder="e.g. 8642328760:AAH3b9ij..."
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl pl-4 pr-11 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyToken}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                    title="Copy Token"
+                  >
+                    {copiedToken ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><MessageSquare size={13} className="text-indigo-400" /> Telegram Chat ID</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={chatId}
+                    onChange={(e) => setChatId(e.target.value)}
+                    placeholder="e.g. 6805318773"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl pl-4 pr-11 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyChatId}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                    title="Copy Chat ID"
+                  >
+                    {copiedChatId ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Setup Help Guide */}
+            <div className="bg-indigo-500/5 border border-indigo-500/20 p-4 rounded-xl flex gap-3 text-slate-300 text-xs">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-indigo-400 mt-0.5" />
+              <div className="space-y-1 leading-relaxed">
+                <span className="font-bold text-white block">How to connect your bot:</span>
+                <p className="text-slate-400 text-[11px]">
+                  1. Create a bot using <strong className="text-indigo-300">@BotFather</strong> on Telegram to get your <strong>Bot Token</strong>.
+                  <br />
+                  2. Open a chat with your bot and send <strong className="text-indigo-300">/start</strong>.
+                  <br />
+                  3. Use <strong className="text-indigo-300">@userinfobot</strong> to get your numeric <strong>Chat ID</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
