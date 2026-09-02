@@ -1,4 +1,4 @@
-name = "pkx-max"
+name = "kokomo"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-03-20"
 compatibility_flags = ["nodejs_compat"]
@@ -6,20 +6,20 @@ compatibility_flags = ["nodejs_compat"]
 [placement]
 mode = "smart"
 
-# D1 Database binding - NEW max-db
+# D1 Database binding - NEW kokomo
 [[d1_databases]]
 binding = "DB"
-database_name = "max-db"
-database_id = "a785d61d-8c9a-477e-b2df-e738082c9f72"
+database_name = "kokomo"
+database_id = "a15fa67b-bd47-4a39-b673-10718d166edd"
 
-# R2 Bucket binding - NEW max-images
+# R2 Bucket binding - NEW kokomo
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "max-images"
+bucket_name = "kokomo"
 
 [vars]
 ENVIRONMENT = "production"
-# R2 Public Development URL for max-images
-R2_PUBLIC_DOMAIN = "pub-e5254e3b24604306b8ea63f93412de76.r2.dev"
+# R2 Public Development URL for kokomo
+R2_PUBLIC_DOMAIN = "pub-2e2791afa81c4719bc403edfa89dacb7.r2.dev"
 # Secure JWT Secret key for admin authentication
-JWT_SECRET = "pkx_sec_9f8b1c4e7d2a50638194b7e2d0a1f5c83e7b9a4d6f021c5e8b3a7d9f2c4e6a8b"
+JWT_SECRET = "kokomo_sec_8f9c2d1b5e3a70461984c6e1d0a2f4c93e6b8a5d7f012c4e9b2a6d8f1c3e5a7b"
