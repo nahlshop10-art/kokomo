@@ -15,11 +15,19 @@ export function useScrollLock(isLocked: boolean) {
 
     // Cleanup
     return () => {
-      lockCount--;
+      lockCount = Math.max(0, lockCount - 1);
       if (lockCount === 0) {
         document.body.classList.remove('scroll-locked');
         document.documentElement.classList.remove('scroll-locked');
       }
     };
   }, [isLocked]);
+}
+
+export function forceUnlockAllScroll() {
+  lockCount = 0;
+  if (typeof document !== 'undefined') {
+    document.body.classList.remove('scroll-locked');
+    document.documentElement.classList.remove('scroll-locked');
+  }
 }

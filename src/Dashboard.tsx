@@ -238,9 +238,18 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    let timeoutId: any = null;
+    const handleResize = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setWindowWidth(window.innerWidth);
+      }, 150);
+    };
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   const [settingsView, setSettingsView] = useState<'main' | 'categories' | 'website' | 'marketing' | 'courier' | 'priceCalculator' | 'account' | 'accountControl' | 'discounts' | 'customers' | 'suppliers' | 'customise' | 'qtyRules' | 'incompleteOrders' | 'antiSpam' | 'minOrder' | 'bulkPrice' | 'socialMedia' | 'preOrder' | 'imageSettings' | 'seoSettings' | 'apiSync' | 'notification' | 'fbZipExport'>('main');

@@ -31,9 +31,130 @@ import { downloadReceiptAsJPG, downloadReceiptAsPDF } from './lib/downloadReceip
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import ActionBtn from './components/ActionBtn';
 import FloatingSocialButtons from './components/FloatingSocialButtons';
-import { useScrollLock } from './hooks/useScrollLock';
+import { useScrollLock, forceUnlockAllScroll } from './hooks/useScrollLock';
 import { useHistoryModal } from './hooks/useHistoryModal';
 import { DEFAULT_ACTION_BUTTONS } from './types';
+
+interface StorefrontProductCardProps {
+  product: Product;
+  cartItem?: CartItem;
+  addingToOrderId: string | null;
+  productImageHover?: boolean;
+  onSelect: (p: Product) => void;
+  onAdd: (p: Product) => void;
+  onUpdate: (id: string, val: number, isDelta?: boolean) => void;
+  onRemove: (id: string) => void;
+}
+
+const StorefrontProductCard = React.memo(function StorefrontProductCard({
+  product,
+  cartItem,
+  addingToOrderId,
+  productImageHover,
+  onSelect,
+  onAdd,
+  onUpdate,
+  onRemove,
+}: StorefrontProductCardProps) {
+  return (
+    <div 
+      className="product-card-contain bg-[var(--theme-white)] rounded-lg overflow-hidden shadow-sm border border-gray-100 flex flex-col group cursor-pointer"
+      onClick={() => onSelect(product)}
+    >
+      <div className="relative aspect-square w-full overflow-hidden bg-gray-100 group">
+        <img 
+          src={product.thumbnail || product.image} 
+          alt={product.title} 
+          loading="lazy"
+          decoding="async"
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
+            productImageHover && product.images && product.images.length > 1 ? "group-hover:opacity-0" : ""
+          )}
+        />
+        {productImageHover && product.images && product.images.length > 1 && (
+          <img 
+            src={product.thumbnails?.[1] || product.images[1]} 
+            alt={`${product.title} hover`} 
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+          />
+        )}
+        
+        {product.colors && (
+          <div className="absolute bottom-2 right-2 flex -space-x-1">
+            {product.colors.map(c => (
+              <img key={c.name} src={c.image} className="w-6 h-6 rounded-full border border-[var(--theme-white)] shadow-sm object-cover" />
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="p-[2px] flex flex-col flex-grow gap-[2px]">
+        {product.material && product.material !== 'Unknown' && (
+          <div className="text-xs text-yellow-600 font-medium">{product.material}</div>
+        )}
+        <div 
+          className="text-xs lg:text-sm line-clamp-2 font-semibold leading-tight text-[var(--theme-black)] h-[30px] lg:h-[36px] break-words [overflow-wrap:anywhere] [word-break:break-word]"
+          style={{ color: 'var(--theme-black)' }}
+          title={product.title}
+        >
+          {product.title}
+        </div>
+        <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
+
+        {cartItem && (!product.hasVariants || !product.variants?.length) ? (
+          <div className="flex items-center justify-between w-full h-[36px] lg:h-[40px]" onClick={(e) => e.stopPropagation()}>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(cartItem.id); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-red-500 border border-red-200 rounded-full bg-red-50 cursor-pointer">
+              <Trash2 size={16} />
+            </button>
+            <div className="flex items-center border border-gray-200 rounded-full h-full bg-[var(--theme-white)]" onClick={(e) => e.stopPropagation()}>
+              <button onClick={(e) => { e.stopPropagation(); onUpdate(cartItem.id, -1); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-l-full cursor-pointer">
+                <Minus size={16} />
+              </button>
+              <input 
+                type="number" 
+                className="w-10 text-center font-medium text-sm appearance-none border-none outline-none focus:outline-none bg-transparent p-0 m-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                value={cartItem.quantity === 0 ? '' : (cartItem.quantity || '')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    onUpdate(cartItem.id, 0, false);
+                    return;
+                  }
+                  const num = parseInt(val);
+                  if (!isNaN(num)) {
+                    onUpdate(cartItem.id, num, false);
+                  }
+                }}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (isNaN(val) || val < 1) {
+                    onUpdate(cartItem.id, 1, false);
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button onClick={(e) => { e.stopPropagation(); onUpdate(cartItem.id, 1); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-r-full cursor-pointer">
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd(product);
+            }}
+            className="btn-gradient w-full h-9 xl:h-10 rounded-full gap-1.5 cursor-pointer"
+          >
+            {addingToOrderId ? (cartItem ? <><Plus size={15} /> Add more</> : <><Plus size={15} /> Add to Order</>) : (cartItem ? "Add more" : "Add to cart")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
 
 export default function App() {
   const [isCloudLoading, setIsCloudLoading] = useState(true);
@@ -386,6 +507,14 @@ export default function App() {
   // Smooth scroll restore for main storefront
   useWindowScrollRestore('app-main', !selectedProductForDetails && !isCartOpen && !isCheckoutOpen && !isDashboardOpen);
 
+  // Guarantee body scroll lock is released whenever modals are closed
+  useEffect(() => {
+    const isAnyModalOpen = isSidebarOpen || isSearchOpen || selectedProductForDetails || isCartOpen || isCheckoutOpen || isDashboardOpen || variantModalProduct || colorModalProduct;
+    if (!isAnyModalOpen) {
+      forceUnlockAllScroll();
+    }
+  }, [isSidebarOpen, isSearchOpen, selectedProductForDetails, isCartOpen, isCheckoutOpen, isDashboardOpen, variantModalProduct, colorModalProduct]);
+
   const isUpdatingFromUrl = useRef(false);
 
   // Sync URL -> State (Back/Forward buttons & manual URL entry)
@@ -548,19 +677,42 @@ export default function App() {
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    let timeoutId: any = null;
+    const handleResize = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setWindowWidth(window.innerWidth);
+      }, 150);
+    };
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   const cols = windowWidth >= 1024 ? 4 : (windowWidth >= 768 ? 3 : 2);
   const rowCount = Math.ceil(filteredProducts.length / cols);
   
+  const estimateRowHeight = React.useCallback(() => {
+    return windowWidth >= 1024 ? 380 : windowWidth >= 768 ? 320 : 250;
+  }, [windowWidth]);
+
   const virtualizer = useWindowVirtualizer({
     count: rowCount,
-    estimateSize: () => 350,
-    overscan: 5,
+    estimateSize: estimateRowHeight,
+    overscan: 4,
+    scrollMargin: listRef.current?.offsetTop ?? 0,
   });
+
+  const cartMap = React.useMemo(() => {
+    const map = new Map<string | number, CartItem>();
+    const source = addingToOrderId ? addingToOrderItems : cart;
+    for (const item of source) {
+      map.set(item.product.id, item);
+    }
+    return map;
+  }, [addingToOrderId, addingToOrderItems, cart]);
 
   const cartTotalItems = React.useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const { total: cartTotalPrice, itemDiscounts: cartItemDiscounts } = React.useMemo(
@@ -1490,174 +1642,68 @@ export default function App() {
                   const product = filteredProducts[productIndex];
                   if (!product) return <div key={`empty-${i}`} />;
 
-                  // Find if product is in cart (any color)
-              const cartItem = addingToOrderId 
-                ? addingToOrderItems.find(item => item.product.id === product.id)
-                : cart.find(item => item.product.id === product.id);
+                  const cartItem = cartMap.get(product.id);
 
-              const handleRemove = (id: string) => addingToOrderId ? removeFromOrderTemp(id) : removeFromCart(id);
-              const handleUpdate = (id: string, val: number, isDelta: boolean = true) => addingToOrderId ? updateToOrderTempQuantity(id, val, isDelta) : updateQuantity(id, val, isDelta);
-              const handleAdd = (p: Product) => {
-                if (p.hasVariants && p.variants && p.variants.length > 0) {
-                  setVariantModalProduct(p);
-                } else if (p.colors && p.colors.length > 0) {
-                  setColorModalProduct(p);
-                } else if (addingToOrderId) {
-                   handleAddToOrderTemp(p);
-                } else {
-                   addToCart(p);
-                }
-              };
-              
-              return (
-                <div 
-                  key={product.id} 
-                  className="bg-[var(--theme-white)] rounded-lg overflow-hidden shadow-sm border border-gray-100 flex flex-col group cursor-pointer"
-                  onClick={() => {
-                    if (preventClick) return;
-                    setSelectedProductForDetails(product);
+                  const handleRemove = (id: string) => addingToOrderId ? removeFromOrderTemp(id) : removeFromCart(id);
+                  const handleUpdate = (id: string, val: number, isDelta: boolean = true) => addingToOrderId ? updateToOrderTempQuantity(id, val, isDelta) : updateQuantity(id, val, isDelta);
+                  const handleAdd = (p: Product) => {
+                    if (p.hasVariants && p.variants && p.variants.length > 0) {
+                      setVariantModalProduct(p);
+                    } else if (p.colors && p.colors.length > 0) {
+                      setColorModalProduct(p);
+                    } else if (addingToOrderId) {
+                      handleAddToOrderTemp(p);
+                    } else {
+                      addToCart(p);
+                    }
+                  };
+
+                  const handleSelect = (p: Product) => {
+                    setSelectedProductForDetails(p);
                     trackMetaEvent('ViewContent', {
-                      content_ids: [product.id],
-                      contents: [{ id: product.id, quantity: 1 }],
+                      content_ids: [p.id],
+                      contents: [{ id: p.id, quantity: 1 }],
                       content_type: 'product',
-                      value: product.price,
+                      value: p.price,
                       currency: 'BDT'
                     }, marketingSettings.metaPixel);
 
                     trackTikTokEvent('ViewContent', {
                       contents: [{
-                        content_id: product.id,
+                        content_id: p.id,
                         content_type: 'product',
-                        price: product.price,
+                        price: p.price,
                         quantity: 1
                       }],
-                      value: product.price,
+                      value: p.price,
                       currency: 'BDT'
                     }, marketingSettings.tiktokPixel);
 
                     trackGA4Event('view_item', {
                       currency: 'BDT',
-                      value: product.price,
+                      value: p.price,
                       items: [{
-                        item_id: product.id,
-                        item_name: product.title,
-                        price: product.price,
+                        item_id: p.id,
+                        item_name: p.title,
+                        price: p.price,
                         quantity: 1
                       }]
                     }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
-                  }}
-                >
-                  <div 
-                    className="relative aspect-square w-full overflow-hidden bg-gray-100 group"
-                    onTouchStart={() => {
-                      touchStartTimeRef.current = Date.now();
-                      setHoveredProductId(product.id);
-                    }}
-                    onTouchEnd={() => {
-                      setHoveredProductId(null);
-                      if (Date.now() - touchStartTimeRef.current > 200) {
-                        setPreventClick(true);
-                        setTimeout(() => setPreventClick(false), 50);
-                      }
-                    }}
-                    onTouchCancel={() => setHoveredProductId(null)}
-                  >
-                      <img 
-                        src={product.thumbnail || product.image} 
-                        alt={product.title} 
-                        loading="lazy"
-                        decoding="async"
-                        className={cn(
-                          "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-                          websiteSettings.productImageHover && product.images && product.images.length > 1 ? "group-hover:opacity-0" : "",
-                          websiteSettings.productImageHover && product.images && product.images.length > 1 && hoveredProductId === product.id ? "opacity-0" : ""
-                        )}
-                      />
-                      {websiteSettings.productImageHover && product.images && product.images.length > 1 && (
-                        <img 
-                          src={product.thumbnails?.[1] || product.images[1]} 
-                          alt={`${product.title} hover`} 
-                          loading="lazy"
-                          decoding="async"
-                          className={cn(
-                            "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-                            hoveredProductId === product.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                          )}
-                        />
-                      )}
-                      
-                    {product.colors && (
-                      <div className="absolute bottom-2 right-2 flex -space-x-1">
-                        {product.colors.map(c => (
-                          <img key={c.name} src={c.image} className="w-6 h-6 rounded-full border border-[var(--theme-white)] shadow-sm object-cover" />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-[2px] flex flex-col flex-grow gap-[2px]">
-                    {product.material && product.material !== 'Unknown' && (
-                      <div className="text-xs text-yellow-600 font-medium">{product.material}</div>
-                    )}
-                    <div 
-                      className="text-xs lg:text-sm line-clamp-2 font-semibold leading-tight text-[var(--theme-black)] h-[30px] lg:h-[36px] break-words [overflow-wrap:anywhere] [word-break:break-word]"
-                      style={{ color: 'var(--theme-black)' }}
-                      title={product.title}
-                    >
-                      {product.title}
-                    </div>
-                    <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
+                  };
 
-                    {cartItem && (!product.hasVariants || !product.variants?.length) ? (
-                      <div className="flex items-center justify-between w-full h-[36px] lg:h-[40px]" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={(e) => { e.stopPropagation(); handleRemove(cartItem.id); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-red-500 border border-red-200 rounded-full bg-red-50">
-                          <Trash2 size={16} />
-                        </button>
-                        <div className="flex items-center border border-gray-200 rounded-full h-full bg-[var(--theme-white)]" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={(e) => { e.stopPropagation(); handleUpdate(cartItem.id, -1); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-l-full">
-                            <Minus size={16} />
-                          </button>
-                          <input 
-                            type="number" 
-                            className="w-10 text-center font-medium text-sm appearance-none border-none outline-none focus:outline-none bg-transparent p-0 m-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            value={cartItem.quantity === 0 ? '' : (cartItem.quantity || '')}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '') {
-                                handleUpdate(cartItem.id, 0, false);
-                                return;
-                              }
-                              const num = parseInt(val);
-                              if (!isNaN(num)) {
-                                handleUpdate(cartItem.id, num, false);
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (isNaN(val) || val < 1) {
-                                handleUpdate(cartItem.id, 1, false);
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <button onClick={(e) => { e.stopPropagation(); handleUpdate(cartItem.id, 1); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-r-full">
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAdd(product);
-                        }}
-                        className="btn-gradient w-full h-9 xl:h-10 rounded-full gap-1.5"
-                      >
-                        {addingToOrderId ? (cartItem ? <><Plus size={15} /> Add more</> : <><Plus size={15} /> Add to Order</>) : (cartItem ? "Add more" : "Add to cart")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
+                  return (
+                    <StorefrontProductCard
+                      key={product.id}
+                      product={product}
+                      cartItem={cartItem}
+                      addingToOrderId={addingToOrderId}
+                      productImageHover={websiteSettings.productImageHover}
+                      onSelect={handleSelect}
+                      onAdd={handleAdd}
+                      onUpdate={handleUpdate}
+                      onRemove={handleRemove}
+                    />
+                  );
                 })}
               </div>
             ))}

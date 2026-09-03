@@ -50,36 +50,28 @@ const scrollMemory: Record<string, number> = {};
 
 export function useScrollRestore(id: string) {
   const ref = React.useRef<HTMLDivElement>(null);
-  
-  React.useLayoutEffect(() => {
-    let isRestoring = true;
+  const hasRestoredRef = React.useRef(false);
 
-    if (ref.current && scrollMemory[id] !== undefined) {
-      ref.current.scrollTop = scrollMemory[id]; // Synchronous restore before paint
-      
-      requestAnimationFrame(() => {
-        if (ref.current) {
-          ref.current.scrollTop = scrollMemory[id];
-        }
-        setTimeout(() => {
-          if (ref.current) {
-             ref.current.scrollTop = scrollMemory[id];
-          }
-          setTimeout(() => {
-            isRestoring = false;
-          }, 50);
-        }, 50);
-      });
-    } else {
-      isRestoring = false;
+  React.useLayoutEffect(() => {
+    if (!hasRestoredRef.current && ref.current && scrollMemory[id] !== undefined) {
+      ref.current.scrollTop = scrollMemory[id];
+      hasRestoredRef.current = true;
     }
-    
+
+    let ticking = false;
     const handleScroll = (e: Event) => {
-      if (isRestoring) return;
-      const target = e.target as HTMLDivElement;
-      scrollMemory[id] = target.scrollTop;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const target = e.target as HTMLDivElement;
+          if (target) {
+            scrollMemory[id] = target.scrollTop;
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-    
+
     const el = ref.current;
     if (el) el.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
@@ -91,34 +83,29 @@ export function useScrollRestore(id: string) {
 }
 
 export function useWindowScrollRestore(id: string, enabled: boolean = true) {
-  React.useLayoutEffect(() => {
-    if (!enabled) return;
-    
-    let isRestoring = true;
+  const prevEnabledRef = React.useRef(false);
 
-    // Restore window scroll
-    if (scrollMemory[id] !== undefined) {
-      window.scrollTo(0, scrollMemory[id]); // Synchronous restore before paint
-      
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollMemory[id]);
-        // Also do a slightly delayed restore in case of images or virtualized lists pushing the bounds
-        setTimeout(() => {
-          window.scrollTo(0, scrollMemory[id]);
-          setTimeout(() => {
-            isRestoring = false;
-          }, 50);
-        }, 50);
-      });
-    } else {
-      isRestoring = false;
+  React.useLayoutEffect(() => {
+    const justEnabled = enabled && !prevEnabledRef.current;
+    prevEnabledRef.current = enabled;
+
+    if (!enabled) return;
+
+    if (justEnabled && scrollMemory[id] !== undefined) {
+      window.scrollTo(0, scrollMemory[id]);
     }
-    
+
+    let ticking = false;
     const handleScroll = () => {
-      if (isRestoring) return;
-      scrollMemory[id] = window.scrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          scrollMemory[id] = window.scrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-    
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
