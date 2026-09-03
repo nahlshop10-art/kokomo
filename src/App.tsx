@@ -702,7 +702,6 @@ export default function App() {
     count: rowCount,
     estimateSize: estimateRowHeight,
     overscan: 4,
-    scrollMargin: listRef.current?.offsetTop ?? 0,
   });
 
   const cartMap = React.useMemo(() => {

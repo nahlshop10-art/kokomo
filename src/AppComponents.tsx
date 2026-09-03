@@ -489,7 +489,7 @@ export const MemoizedCheckoutOrderList = React.memo(function MemoizedCheckoutOrd
           Items: <span className="font-bold text-[var(--theme-black)]">{cart.length}</span> Quantity: <span className="font-bold text-[var(--theme-black)]">{totalQty}</span>
         </span>
       </h3>
-      <div className="space-y-1 lg:space-y-2 flex-1 overflow-y-auto min-h-0 overscroll-contain p-1 lg:p-4 lg:pt-0">
+      <div className="space-y-1 lg:space-y-2 flex-1 overflow-visible lg:overflow-y-auto lg:min-h-0 p-1 lg:p-4 lg:pt-0 touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
         {cart.map((item: CartItem) => (
           <MemoizedCartRow
             key={item.id}
@@ -1211,7 +1211,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
   return (
     <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-center bg-[var(--theme-black)]/50 lg:bg-[var(--store-bg)] lg:p-6 lg:overflow-hidden">
       <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-[calc(100vh-3rem)] lg:max-h-[850px] flex flex-col lg:flex-row lg:gap-6 relative">
-        <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--theme-white)] lg:rounded-2xl lg:overflow-hidden h-full lg:shadow-md lg:border lg:border-gray-100">
+        <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--theme-white)] lg:rounded-2xl lg:overflow-hidden h-full lg:shadow-md lg:border lg:border-gray-100 min-h-0">
           <div className="flex items-center p-2 lg:p-4 bg-[var(--theme-white)] border-b border-gray-100 relative lg:shrink-0 lg:py-5 lg:px-6">
           <div className="flex items-center z-10">
             <button onClick={handleClose} className="p-2 -ml-2 text-gray-600">
@@ -1260,7 +1260,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain p-2.5 lg:p-4 space-y-2.5 lg:space-y-4">
+        <div className="flex-1 overflow-y-auto min-h-0 p-2.5 lg:p-4 space-y-2.5 lg:space-y-4 touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="bg-[var(--theme-white)] rounded-2xl p-4 shadow-sm border border-gray-100">
             <h3 className="text-sm font-bold text-[var(--theme-black)] mb-4 flex items-center gap-1">আপনার নাম <span className="text-red-500">*</span></h3>
             <div className="space-y-3">
