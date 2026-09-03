@@ -1272,7 +1272,7 @@ export default function App() {
       )}
       <div className="flex w-full min-h-screen bg-[var(--store-bg)] text-[var(--theme-black)] relative">
         {/* Main Content Area */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col lg:mr-[320px] xl:mr-[360px]">
           {selectedProductForDetails ? (
             <ProductDetails 
               key={selectedProductForDetails.id}

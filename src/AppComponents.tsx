@@ -481,14 +481,14 @@ export const MemoizedCheckoutOrderList = React.memo(function MemoizedCheckoutOrd
   const totalQty = React.useMemo(() => cart.reduce((s: number, i: CartItem) => s + i.quantity, 0), [cart]);
 
   return (
-    <div className="mt-6 pb-6 lg:mt-0 lg:pb-0 lg:h-full lg:flex lg:flex-col lg:bg-[var(--store-bg)] lg:rounded-xl">
-      <h3 className="text-lg font-bold text-[var(--theme-black)] mb-4 flex items-center justify-between lg:shrink-0 lg:p-4 lg:pb-2">
+    <div className="mt-6 pb-6 lg:mt-0 lg:pb-0 h-full flex flex-col lg:bg-[var(--store-bg)] lg:rounded-xl">
+      <h3 className="text-lg font-bold text-[var(--theme-black)] mb-4 flex items-center justify-between shrink-0 lg:p-4 lg:pb-2">
         Your order
         <span className="text-sm font-normal text-gray-500">
           Items: <span className="font-bold text-[var(--theme-black)]">{cart.length}</span> Quantity: <span className="font-bold text-[var(--theme-black)]">{totalQty}</span>
         </span>
       </h3>
-      <div className="space-y-1 lg:space-y-2 lg:flex-grow lg:overflow-y-auto lg:p-4 lg:pt-0">
+      <div className="space-y-1 lg:space-y-2 flex-1 overflow-y-auto min-h-0 overscroll-contain p-1 lg:p-4 lg:pt-0">
         {cart.map((item: CartItem) => (
           <MemoizedCartRow
             key={item.id}
@@ -722,7 +722,7 @@ export function DesktopRightSidebar({
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-76 xl:w-86 2xl:w-90 border-l border-gray-100 bg-[var(--theme-white)] h-screen sticky top-0 shrink-0 z-30 select-none">
+    <aside className="hidden lg:flex flex-col w-[320px] xl:w-[360px] border-l border-gray-100 bg-[var(--theme-white)] h-screen h-[100dvh] fixed top-0 right-0 z-30 select-none">
       {/* Top Segmented Header */}
       <div className="h-16 lg:h-18 px-4 flex items-center justify-center border-b border-gray-100 shrink-0">
         <div className="flex w-full max-w-[240px] bg-gray-100 rounded-full p-1">
@@ -1208,9 +1208,9 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-start bg-[var(--theme-black)]/50 lg:bg-[var(--store-bg)] lg:p-6 lg:overflow-y-auto">
-      <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-auto flex flex-col lg:flex-row lg:gap-6 relative lg:my-auto">
-        <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--theme-white)] lg:rounded-2xl lg:overflow-hidden h-full lg:h-auto lg:shadow-md lg:border lg:border-gray-100">
+    <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-center bg-[var(--theme-black)]/50 lg:bg-[var(--store-bg)] lg:p-6 lg:overflow-hidden">
+      <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-[calc(100vh-3rem)] lg:max-h-[850px] flex flex-col lg:flex-row lg:gap-6 relative">
+        <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--theme-white)] lg:rounded-2xl lg:overflow-hidden h-full lg:shadow-md lg:border lg:border-gray-100">
           <div className="flex items-center p-2 lg:p-4 bg-[var(--theme-white)] border-b border-gray-100 relative lg:shrink-0 lg:py-5 lg:px-6">
           <div className="flex items-center z-10">
             <button onClick={handleClose} className="p-2 -ml-2 text-gray-600">
@@ -1259,7 +1259,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
           </div>
         )}
 
-        <div className="flex-grow overflow-y-auto p-2.5 lg:p-4 space-y-2.5 lg:space-y-4">
+        <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain p-2.5 lg:p-4 space-y-2.5 lg:space-y-4">
           <div className="bg-[var(--theme-white)] rounded-2xl p-4 shadow-sm border border-gray-100">
             <h3 className="text-sm font-bold text-[var(--theme-black)] mb-4 flex items-center gap-1">আপনার নাম <span className="text-red-500">*</span></h3>
             <div className="space-y-3">
@@ -1496,7 +1496,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
         </div>
       </div>
       
-      <div className="hidden lg:flex flex-col lg:w-[45%] h-auto bg-[var(--theme-white)] rounded-2xl overflow-hidden shadow-md border border-gray-100 p-4">
+      <div className="hidden lg:flex flex-col lg:w-[45%] h-full bg-[var(--theme-white)] rounded-2xl overflow-hidden shadow-md border border-gray-100 p-4">
         {orderListElem}
       </div>
     </div>
