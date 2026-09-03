@@ -208,23 +208,24 @@ export function SearchModal({ onClose, products, onProductClick }: { onClose: ()
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col pointer-events-none lg:bg-transparent lg:items-end lg:pr-14 lg:pt-2">
+    <div className="fixed inset-0 z-50 flex flex-col pointer-events-none lg:right-[320px] xl:right-[360px] lg:items-center lg:pt-3">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onClick={onClose}
-        className="absolute inset-0 bg-white/60 lg:bg-[#09090b]/10 backdrop-blur-md lg:backdrop-blur-sm pointer-events-auto cursor-pointer touch-none"
+        className="absolute inset-0 bg-white/60 lg:bg-[#09090b]/20 backdrop-blur-md pointer-events-auto cursor-pointer touch-none"
       />
       
-      <div className="pt-4 px-4 pb-3 relative z-10 pointer-events-none lg:w-[320px] lg:p-0">
+      <div className="pt-4 px-4 pb-3 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:p-0">
         <motion.div 
           layoutId="search-bar-morph"
           style={{ borderRadius: 9999 }}
           transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
-          className="w-full h-12 lg:h-11 flex items-center bg-[var(--theme-white)] border-[1.5px] border-[var(--theme-primary)] overflow-hidden pointer-events-auto shadow-sm pr-1 lg:rounded-full"
+          className="w-full h-12 flex items-center bg-[var(--theme-white)] border-[1.5px] border-[var(--theme-primary)] overflow-hidden pointer-events-auto shadow-lg pr-2 rounded-full"
         >
+          <Search size={20} className="ml-4 text-gray-400 shrink-0 hidden sm:block" />
           <motion.input
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -242,7 +243,7 @@ export function SearchModal({ onClose, products, onProductClick }: { onClose: ()
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-[#09090b] transition-colors shrink-0"
+            className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-[#09090b] transition-colors shrink-0 cursor-pointer"
           >
             <X size={18} />
           </motion.button>
@@ -254,20 +255,20 @@ export function SearchModal({ onClose, products, onProductClick }: { onClose: ()
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 10 }}
         transition={{ duration: 0.2 }}
-        className="flex-grow lg:flex-grow-0 overflow-y-auto lg:overflow-visible px-4 pb-4 lg:p-0 relative z-10 pointer-events-none lg:w-[320px] lg:mt-2 lg:max-h-[70vh] custom-scroll"
+        className="flex-grow lg:flex-grow-0 overflow-y-auto lg:overflow-visible px-4 pb-4 lg:p-0 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:mt-2 lg:max-h-[70vh] custom-scroll"
       >
         {query && results.length > 0 && (
-          <div className="bg-white/80 lg:bg-white backdrop-blur-xl lg:backdrop-blur-none rounded-[20px] lg:rounded-xl overflow-hidden shadow-sm lg:shadow-xl pointer-events-auto pb-1 border border-white/50 lg:border-gray-100 lg:max-h-[70vh] lg:overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur-xl rounded-[20px] lg:rounded-2xl overflow-hidden shadow-2xl pointer-events-auto pb-1 border border-gray-100 lg:max-h-[70vh] lg:overflow-y-auto">
             {results.map((product, idx) => (
               <div 
                 key={product.id} 
                 onClick={() => { onProductClick(product); }}
-                className="flex items-center gap-3 p-2 lg:p-3 bg-transparent cursor-pointer hover:bg-white/40 lg:hover:bg-gray-50 transition-colors"
-                style={{ borderBottom: idx !== results.length - 1 ? '1px solid rgba(243, 244, 246, 0.4)' : 'none' }}
+                className="flex items-center gap-3 p-2.5 lg:p-3 bg-transparent cursor-pointer hover:bg-gray-50 transition-colors"
+                style={{ borderBottom: idx !== results.length - 1 ? '1px solid rgba(243, 244, 246, 0.8)' : 'none' }}
               >
-                <img src={product.thumbnail || product.image} className="w-16 h-16 lg:w-12 lg:h-12 rounded-xl lg:rounded-lg object-cover bg-white lg:bg-gray-50 shrink-0 shadow-sm lg:shadow-none" />
+                <img src={product.thumbnail || product.image} className="w-14 h-14 lg:w-12 lg:h-12 rounded-xl lg:rounded-lg object-cover bg-gray-50 shrink-0 shadow-sm" />
                 <div className="flex-grow min-w-0 pr-2">
-                  <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-2 lg:line-clamp-1 h-[2.5rem] lg:h-auto leading-[1.25rem] lg:leading-tight mb-1 lg:mb-0.5 items-start">{product.title}</h4>
+                  <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-1 mb-0.5">{product.title}</h4>
                   <div className="flex items-center justify-between mt-1">
                     <span className="font-bold text-[14px] lg:text-[13px] text-[var(--theme-primary)]">{formatPrice(product.price)}</span>
                     <span className="text-[10px] font-semibold text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded uppercase shrink-0 ml-2">{product.category}</span>

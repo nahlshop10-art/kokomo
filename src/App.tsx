@@ -1292,6 +1292,7 @@ export default function App() {
                 }
               }}
               onSearch={() => setSearchOpen(true)}
+              isSearchOpen={isSearchOpen}
               onMenu={() => setSidebarOpen(true)}
               websiteSettings={websiteSettings}
               isAddingToOrder={!!addingToOrderId}
@@ -1356,13 +1357,15 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 z-10 relative">
-                  <button 
-                    onClick={() => setSearchOpen(true)} 
-                    className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-500 px-4 h-10 rounded-full w-64 hover:bg-gray-100 transition-colors mr-2"
-                  >
-                    <Search size={18} />
-                    <span className="text-sm">Search...</span>
-                  </button>
+                  {!isSearchOpen && (
+                    <button 
+                      onClick={() => setSearchOpen(true)} 
+                      className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-500 px-4 h-10 rounded-full w-64 hover:bg-gray-100 transition-colors mr-2 cursor-pointer"
+                    >
+                      <Search size={18} />
+                      <span className="text-sm">Search...</span>
+                    </button>
+                  )}
 
                   <div className="w-10 h-10 flex justify-center items-center lg:hidden relative">
                     <AnimatePresence>

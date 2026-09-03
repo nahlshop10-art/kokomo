@@ -22,6 +22,7 @@ interface ProductDetailsProps {
   removeFromCart: (cartItemId: string) => void;
   onViewCart: () => void;
   onSearch: () => void;
+  isSearchOpen?: boolean;
   onMenu: () => void;
   websiteSettings?: WebsiteSettings;
   isAddingToOrder?: boolean;
@@ -31,7 +32,7 @@ interface ProductDetailsProps {
 }
 
 export default function ProductDetails({ 
-  product, products = [], onBack, cart, addToCart, updateQuantity, removeFromCart, onViewCart, onSearch, onMenu, websiteSettings, isAddingToOrder, cancelAddingToOrder, onAddToOrder, onProductSelect
+  product, products = [], onBack, cart, addToCart, updateQuantity, removeFromCart, onViewCart, onSearch, isSearchOpen, onMenu, websiteSettings, isAddingToOrder, cancelAddingToOrder, onAddToOrder, onProductSelect
 }: ProductDetailsProps) {
 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
@@ -302,13 +303,15 @@ export default function ProductDetails({
         </div>
 
         <div className="flex items-center gap-2 z-10">
-          <button 
-             onClick={onSearch} 
-             className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200 text-gray-500 px-4 py-2 rounded-full w-64 hover:bg-gray-100 transition-colors"
-          >
-             <Search size={18} />
-             <span className="text-sm">Search...</span>
-          </button>
+          {!isSearchOpen && (
+            <button 
+               onClick={onSearch} 
+               className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200 text-gray-500 px-4 py-2 rounded-full w-64 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+               <Search size={18} />
+               <span className="text-sm">Search...</span>
+            </button>
+          )}
           <div className="w-10 h-10 bg-transparent flex items-center justify-center relative lg:hidden">
             <motion.button 
               layoutId="search-bar-morph" 
