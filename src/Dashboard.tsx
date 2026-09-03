@@ -1867,29 +1867,35 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <SlidersHorizontal size={18} />
             </button>
             {showPresetDropdown && (
-              <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-xl z-50 py-2">
-                {['Today', 'Yesterday', 'This month', 'Last month', 'Last 7 days', 'Last 30 days', 'Last 60 days'].map(preset => (
-                  <button 
-                    key={preset}
-                    onClick={() => handlePresetSelect(preset)}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--dash-border)] flex items-center justify-between text-gray-300"
-                  >
-                    {preset}
-                    {dateRangePreset === preset && <Check size={16} className="text-indigo-400" />}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowPresetDropdown(false)} />
+                <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-xl z-50 py-2">
+                  {['Today', 'Yesterday', 'This month', 'Last month', 'Last 7 days', 'Last 30 days', 'Last 60 days'].map(preset => (
+                    <button 
+                      key={preset}
+                      onClick={() => {
+                        handlePresetSelect(preset);
+                        setShowPresetDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--dash-border)] flex items-center justify-between text-gray-300"
+                    >
+                      {preset}
+                      {dateRangePreset === preset && <Check size={16} className="text-indigo-400" />}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
-          <div className="relative flex items-center gap-2 max-w-md ml-auto">
+          <div className="relative flex items-center gap-2 flex-1 min-w-0 md:flex-none md:max-w-md md:ml-auto">
             <button 
               onClick={() => setShowCalendar(!showCalendar)} 
               style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
-              className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white min-h-[40px] cursor-pointer shadow-sm"
+              className="flex-1 min-w-0 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white min-h-[40px] cursor-pointer shadow-sm"
             >
               <CalendarIcon size={16} className="text-indigo-400 shrink-0" />
-              <span className="text-xs md:text-sm font-medium whitespace-nowrap">{dateRange}</span>
+              <span className="text-xs md:text-sm font-medium whitespace-nowrap truncate">{dateRange}</span>
             </button>
             <button 
               onClick={handleApplyDateRange}
@@ -1900,37 +1906,43 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             </button>
             
             {showCalendar && (
-              <div className="absolute top-full left-0 mt-2 w-[320px] bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-xl z-50 p-5 animate-in fade-in slide-in-from-top-2 duration-200">
-                <h3 className="text-white font-medium mb-4 flex items-center gap-2">
-                  <CalendarIcon size={16} className="text-[#fafafa]" />
-                  Custom Date Range
-                </h3>
-                <div className="flex flex-col gap-4">
-                  <DatePicker 
-                    label="From Date" 
-                    value={calStart} 
-                    onChange={(d) => {
-                      setCalStart(d);
-                      if (calEnd && d > calEnd) setCalEnd(d);
-                    }} 
-                  />
-                  <DatePicker 
-                    label="To Date" 
-                    value={calEnd} 
-                    onChange={(d) => {
-                      setCalEnd(d);
-                      if (calStart && d < calStart) setCalStart(d);
-                    }} 
-                  />
-                  <button 
-                    onClick={handleApplyDateRange}
-                    style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
-                    className="w-full mt-2 py-3 bg-[#fafafa] text-[var(--dash-bg)] font-bold hover:bg-[#e4e4e7] transition-colors shadow-lg shadow-[#fafafa]/20"
-                  >
-                    Apply Range
-                  </button>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCalendar(false)} />
+                <div className="absolute top-full right-0 mt-2 w-[320px] max-w-[calc(100vw-24px)] bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-xl z-50 p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+                    <CalendarIcon size={16} className="text-[#fafafa]" />
+                    Custom Date Range
+                  </h3>
+                  <div className="flex flex-col gap-4">
+                    <DatePicker 
+                      label="From Date" 
+                      value={calStart} 
+                      onChange={(d) => {
+                        setCalStart(d);
+                        if (calEnd && d > calEnd) setCalEnd(d);
+                      }} 
+                    />
+                    <DatePicker 
+                      label="To Date" 
+                      value={calEnd} 
+                      onChange={(d) => {
+                        setCalEnd(d);
+                        if (calStart && d < calStart) setCalStart(d);
+                      }} 
+                    />
+                    <button 
+                      onClick={() => {
+                        handleApplyDateRange();
+                        setShowCalendar(false);
+                      }}
+                      style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
+                      className="w-full mt-2 py-3 bg-[#fafafa] text-[var(--dash-bg)] font-bold hover:bg-[#e4e4e7] transition-colors shadow-lg shadow-[#fafafa]/20"
+                    >
+                      Apply Range
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -2434,7 +2446,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
         {/* Settings Tab */}
         {activeTab === 'Settings' && perms.sections.settings && (
-          <div className="md:hidden max-w-6xl mx-auto w-full flex flex-col gap-4 px-1.5 py-2 pb-36">
+          <div className="md:hidden max-w-6xl mx-auto w-full flex flex-col gap-4 px-1.5 py-2 pb-2">
             {/* Header */}
             <div className="mb-1 md:mb-2">
               <h1 className="text-xl md:text-3xl font-extrabold text-white tracking-tight">Settings Hub</h1>
