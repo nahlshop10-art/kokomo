@@ -545,55 +545,68 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }} 
           exit={{ opacity: 0, y: 20 }} 
-          className="fixed inset-0 z-[110] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]"
+          className="fixed inset-0 z-[110] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]"
         >
           {/* Top Bar */}
-          <div className="flex items-center justify-between p-4 md:px-8 border-b border-[var(--dash-border)] bg-[var(--dash-bg)] z-10 shrink-0">
-            <button onClick={onClose} className="p-2 text-gray-400 hover:text-white"><X size={24} /></button>
-            <h1 className="text-lg font-bold">{initialProduct ? `Edit / ${initialProduct.id}` : 'Add Product'}</h1>
-            <div className="flex gap-2 items-center">
-              {/* Manual Visibility Toggle */}
-              {initialProduct && (
-                <div 
-                  className={cn(
-                    "w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out mr-2 flex items-center group",
-                    (stock === '' || Number(stock) === 0) ? "bg-gray-700 opacity-50 cursor-not-allowed" : 
-                    isVisible ? "bg-[#fafafa]" : "bg-gray-600"
-                  )}
-                  onClick={() => {
-                    if (stock !== '' && Number(stock) > 0) {
-                      setIsVisible(!isVisible);
-                    }
-                  }}
-                >
-                  <div className={cn(
-                    "w-4 h-4 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm group-active:w-6",
-                    isVisible ? "translate-x-6 group-active:translate-x-4" : "translate-x-0"
-                  )} />
-                </div>
-              )}
-              {initialProduct && onDelete && (
-                <button 
-                  onClick={() => {
-                    onDelete(initialProduct.id);
-                  }} 
-                  className="p-2 bg-red-900/20 text-red-500 rounded-lg border border-red-900/50 hover:bg-red-900/40"
-                >
-                  <Trash2 size={20} />
-                </button>
-              )}
-              <button 
-                onClick={() => setIsNew(!isNew)}
-                className={cn(
-                  "text-xs font-bold px-4 py-1.5 border transition-colors shrink-0 min-w-[70px]",
-                  isNew 
-                    ? "bg-[#fafafa] text-[var(--dash-bg)] border-[#fafafa]" 
-                    : "bg-[var(--dash-card)] text-gray-400 border-[var(--dash-border)] hover:text-white hover:border-gray-400"
+          <div className="border-b border-[var(--dash-border)] bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+            <div className="max-w-4xl mx-auto w-full flex items-center justify-between p-4 md:px-8">
+              <div className="flex items-center gap-3">
+                <button onClick={onClose} className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"><X size={22} /></button>
+                <h1 className="text-base md:text-lg font-bold text-white">{initialProduct ? `Edit / ${initialProduct.id}` : 'Add Product'}</h1>
+              </div>
+              <div className="flex gap-2 items-center">
+                {/* Manual Visibility Toggle */}
+                {initialProduct && (
+                  <div 
+                    className={cn(
+                      "w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out mr-2 flex items-center group",
+                      (stock === '' || Number(stock) === 0) ? "bg-gray-700 opacity-50 cursor-not-allowed" : 
+                      isVisible ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-gray-600"
+                    )}
+                    onClick={() => {
+                      if (stock !== '' && Number(stock) > 0) {
+                        setIsVisible(!isVisible);
+                      }
+                    }}
+                    title={isVisible ? "Product is visible in storefront" : "Product is hidden"}
+                  >
+                    <div className={cn(
+                      "w-4 h-4 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-sm group-active:w-6",
+                      isVisible ? "translate-x-6 group-active:translate-x-4" : "translate-x-0"
+                    )} />
+                  </div>
                 )}
-                style={inputBorderRadiusStyle}
-              >
-                NEW
-              </button>
+                {initialProduct && onDelete && (
+                  <button 
+                    onClick={() => {
+                      onDelete(initialProduct.id);
+                    }} 
+                    className="p-2 bg-red-900/20 text-red-400 rounded-xl border border-red-900/50 hover:bg-red-900/40 transition-colors cursor-pointer"
+                    title="Delete Product"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsNew(!isNew)}
+                  className={cn(
+                    "text-xs font-bold px-3 py-1.5 border transition-colors shrink-0 rounded-xl cursor-pointer",
+                    isNew 
+                      ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/25" 
+                      : "bg-[var(--dash-card)] text-gray-400 border-[var(--dash-border)] hover:text-white hover:border-gray-400"
+                  )}
+                  style={inputBorderRadiusStyle}
+                >
+                  NEW
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="hidden md:flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer ml-1"
+                >
+                  <Save size={14} />
+                  <span>{initialProduct ? 'Save' : 'Add'}</span>
+                </button>
+              </div>
             </div>
           </div>
 

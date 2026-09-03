@@ -970,7 +970,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const totalSell = displayProducts.reduce((acc, p) => acc + (p.price * (p.stock || 1)), 0);
   const totalProfit = totalSell - totalBuy;
 
-  const cols = windowWidth >= 1280 ? 5 : (windowWidth >= 1024 ? 4 : (windowWidth >= 768 ? 3 : 2));
+  const cols = windowWidth >= 1536 ? 6 : (windowWidth >= 1280 ? 5 : (windowWidth >= 1024 ? 4 : (windowWidth >= 768 ? 3 : 2)));
   const rowCount = Math.ceil(displayProducts.length / cols);
   
   const listRef = useRef<HTMLDivElement>(null);
@@ -1410,7 +1410,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:pl-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:pl-[260px]">
       <AdminLoadingScreen />
       {/* Toast */}
       <AnimatePresence>
@@ -1670,22 +1670,36 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
             <button 
               onClick={() => { setActiveTab('Settings'); setSettingsView('fbZipExport'); }}
-              className="ml-auto px-3 py-2 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2 cursor-pointer"
+              className="ml-auto px-3 py-2 bg-[var(--dash-card)] rounded-xl border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2 cursor-pointer shadow-sm text-xs sm:text-sm"
               title="Download FB Auto-Sender In-Stock Dataset"
             >
-              <Download size={18} className="text-blue-400" />
+              <Download size={16} className="text-indigo-400" />
               <span className="hidden sm:inline">Download Fb Zip</span>
             </button>
 
             <button 
               onClick={() => setShowZipImport(true)}
-              className="px-3 py-2 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2"
+              className="px-3 py-2 bg-[var(--dash-card)] rounded-xl border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white font-medium flex items-center gap-2 cursor-pointer shadow-sm text-xs sm:text-sm"
             >
-              <FileArchive size={18} className="text-[#fafafa]" />
+              <FileArchive size={16} className="text-indigo-400" />
               <span className="hidden sm:inline">Import ZIP</span>
             </button>
 
-            <button onClick={onClose} className="p-2 bg-[var(--dash-card)] rounded-lg border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-[#fafafa]"><Globe size={20} /></button>
+            <button
+              onClick={() => setIsAddingProduct(true)}
+              className="hidden md:flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-md shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Add Product</span>
+            </button>
+
+            <button 
+              onClick={onClose} 
+              className="p-2 bg-[var(--dash-card)] rounded-xl border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-slate-300 hover:text-white cursor-pointer"
+              title="View Live Store"
+            >
+              <Globe size={18} className="text-indigo-400" />
+            </button>
           </>
         )}
       </div>
@@ -1764,14 +1778,33 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       )}
 
       {activeTab === 'Dashboard' && perms.sections.dashboard && (
-        <div className="flex items-stretch gap-2 sm:gap-3 p-3 sm:p-4 border-b border-[var(--dash-border)] relative z-50 bg-[var(--dash-bg)] w-full">
-          <div className="relative shrink-0 flex items-stretch">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 p-3 md:px-8 md:py-4 border-b border-[var(--dash-border)] relative z-50 bg-[var(--dash-bg)] w-full">
+          {/* Desktop Quick Presets */}
+          <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {['Today', 'Yesterday', 'Last 7 days', 'Last 30 days', 'This month'].map(preset => (
+              <button
+                key={preset}
+                onClick={() => handlePresetSelect(preset)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap border",
+                  dateRangePreset === preset
+                    ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-500/25"
+                    : "bg-[var(--dash-card)] border-[var(--dash-border)] text-slate-300 hover:bg-[var(--dash-border)] hover:text-white"
+                )}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          {/* Mobile Presets Dropdown */}
+          <div className="relative shrink-0 flex items-stretch md:hidden">
             <button 
               onClick={() => setShowPresetDropdown(!showPresetDropdown)} 
               style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
-              className="px-3.5 flex items-center justify-center bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-gray-400 min-h-[40px] sm:min-h-[44px]"
+              className="px-3.5 flex items-center justify-center bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-gray-400 min-h-[40px]"
             >
-              <SlidersHorizontal size={18} className="sm:w-5 sm:h-5" />
+              <SlidersHorizontal size={18} />
             </button>
             {showPresetDropdown && (
               <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-xl z-50 py-2">
@@ -1782,26 +1815,26 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                     className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--dash-border)] flex items-center justify-between text-gray-300"
                   >
                     {preset}
-                    {dateRangePreset === preset && <Check size={16} className="text-[#fafafa]" />}
+                    {dateRangePreset === preset && <Check size={16} className="text-indigo-400" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="relative flex flex-grow items-stretch gap-2">
+          <div className="relative flex items-center gap-2 max-w-md ml-auto">
             <button 
               onClick={() => setShowCalendar(!showCalendar)} 
               style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
-              className="flex-grow flex items-center justify-center gap-1.5 sm:gap-3 px-2 sm:px-4 bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white min-h-[40px] sm:min-h-[44px]"
+              className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white min-h-[40px] cursor-pointer shadow-sm"
             >
-              <CalendarIcon size={16} className="text-gray-400 shrink-0 sm:w-[18px] sm:h-[18px]" />
-              <span className="text-[11px] sm:text-sm font-medium tracking-tight sm:tracking-wide whitespace-nowrap">{dateRange}</span>
+              <CalendarIcon size={16} className="text-indigo-400 shrink-0" />
+              <span className="text-xs md:text-sm font-medium whitespace-nowrap">{dateRange}</span>
             </button>
             <button 
               onClick={handleApplyDateRange}
               style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
-              className="px-3 sm:px-5 bg-[#fafafa] text-[var(--dash-bg)] font-bold hover:bg-[#e4e4e7] transition-colors flex items-center justify-center min-h-[40px] sm:min-h-[44px] whitespace-nowrap shrink-0 border border-transparent"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center justify-center min-h-[40px] whitespace-nowrap shrink-0 shadow-md shadow-indigo-500/25 active:scale-95 cursor-pointer text-xs md:text-sm"
             >
               Apply
             </button>
@@ -2213,414 +2246,418 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
         {/* Settings Tab */}
         {activeTab === 'Settings' && perms.sections.settings && (
-          <div className="max-w-2xl mx-auto w-full flex flex-col gap-2.5 md:gap-3.5 px-1.5 md:px-4 py-2 pb-36">
+          <div className="max-w-6xl mx-auto w-full flex flex-col gap-4 md:gap-6 px-1.5 md:px-4 py-2 pb-36">
             {/* Header */}
-            <div className="mb-1">
-              <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Settings</h1>
-              <p className="text-[12px] md:text-sm text-slate-400 mt-0.5">Manage your store and preferences</p>
+            <div className="mb-1 md:mb-2">
+              <h1 className="text-xl md:text-3xl font-extrabold text-white tracking-tight">Settings Hub</h1>
+              <p className="text-[12px] md:text-sm text-slate-400 mt-0.5">Manage storefront appearance, marketing pixels, logistics, and store preferences</p>
             </div>
 
-            {/* Group 1: Maintenance */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10">
-              <div className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5">
-                <div className="flex items-center gap-3.5">
-                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <RefreshCw size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Maintenance</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 items-start">
+              {/* Column 1: Storefront & Catalog */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 px-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <Palette size={14} className="text-indigo-400" />
+                  <span>Storefront & Catalog</span>
                 </div>
-                <button 
-                  onClick={() => {
-                    const newVal = !isMaintenanceMode;
-                    setIsMaintenanceMode(newVal);
-                    cloudStore.saveSetting('isMaintenanceMode', newVal).catch(console.error);
-                  }}
-                  className={cn(
-                    "w-10 h-5.5 md:w-11 md:h-6 rounded-full relative flex items-center px-0.5 transition-colors duration-200 outline-none",
-                    isMaintenanceMode ? "bg-[#8b5cf6]" : "bg-slate-800"
-                  )}
-                >
-                  <div className={cn(
-                    "w-4.5 h-4.5 md:w-5 md:h-5 rounded-full bg-white shadow-md transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]",
-                    isMaintenanceMode ? "translate-x-4.5 md:translate-x-5" : "translate-x-0"
-                  )} />
-                </button>
-              </div>
-            </div>
 
-            {/* Group 2: Catalog Settings */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
-              {/* Pre Order */}
-              <div 
-                onClick={() => setSettingsView('preOrder')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Package size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Pre Order</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Categories */}
-              <div 
-                onClick={() => setSettingsView('categories')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-purple-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Tag size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Categories</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Image Settings */}
-              <div 
-                onClick={() => setSettingsView('imageSettings')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-sky-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <ImageIcon size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Image Settings</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* SEO & Branding Settings */}
-              <div 
-                onClick={() => setSettingsView('seoSettings')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Globe size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">SEO & Branding Settings</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-            </div>
-
-            {/* Group 3: Operations */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
-              {/* Suppliers */}
-              <div 
-                onClick={() => setSettingsView('suppliers')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-orange-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Factory size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Suppliers</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Bulk Edit */}
-              <div 
-                onClick={() => setSettingsView('bulkPrice')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Calculator size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Bulk Edit</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Discounts */}
-              <div 
-                onClick={() => setSettingsView('discounts')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <BadgePercent size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Discounts</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Qty Rules */}
-              <div 
-                onClick={() => setSettingsView('qtyRules')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-cyan-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <PackagePlus size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Qty Rules</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-            </div>
-
-            {/* Group 4: Orders & Customers */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
-              {/* Customers */}
-              {perms.sections.customers && (
-                <div 
-                  onClick={() => setSettingsView('customers')}
-                  className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="text-blue-500 shrink-0 flex items-center justify-center w-6 h-6">
-                      <User size={20} strokeWidth={1.75} />
+                {/* Maintenance */}
+                <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10">
+                  <div className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5">
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <RefreshCw size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Maintenance</span>
                     </div>
-                    <span className="text-white text-sm md:text-base font-medium tracking-wide">Customers</span>
+                    <button 
+                      onClick={() => {
+                        const newVal = !isMaintenanceMode;
+                        setIsMaintenanceMode(newVal);
+                        cloudStore.saveSetting('isMaintenanceMode', newVal).catch(console.error);
+                      }}
+                      className={cn(
+                        "w-10 h-5.5 md:w-11 md:h-6 rounded-full relative flex items-center px-0.5 transition-colors duration-200 outline-none cursor-pointer",
+                        isMaintenanceMode ? "bg-[#8b5cf6]" : "bg-slate-800"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-4.5 h-4.5 md:w-5 md:h-5 rounded-full bg-white shadow-md transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]",
+                        isMaintenanceMode ? "translate-x-4.5 md:translate-x-5" : "translate-x-0"
+                      )} />
+                    </button>
                   </div>
-                  <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
                 </div>
-              )}
 
-              {/* Incomplete Orders */}
-              <div 
-                onClick={() => setSettingsView('incompleteOrders')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-orange-500 shrink-0 flex items-center justify-center w-6 h-6">
-                    <AlertCircle size={20} strokeWidth={1.75} />
+                {/* Catalog Group */}
+                <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
+                  {/* Website */}
+                  <div 
+                    onClick={() => setSettingsView('website')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Globe size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Website Layout</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
                   </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Incomplete Orders</span>
+
+                  {/* Customise */}
+                  <div 
+                    onClick={() => setSettingsView('customise')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-pink-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Palette size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Customise Theme</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Categories */}
+                  <div 
+                    onClick={() => setSettingsView('categories')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-purple-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Tag size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Categories</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* SEO & Branding Settings */}
+                  <div 
+                    onClick={() => setSettingsView('seoSettings')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Globe size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">SEO & Branding</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Image Settings */}
+                  <div 
+                    onClick={() => setSettingsView('imageSettings')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-sky-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <ImageIcon size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Image Settings</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Pre Order */}
+                  <div 
+                    onClick={() => setSettingsView('preOrder')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Package size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Pre Order</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
                 </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
               </div>
 
-              {/* Anti Spam */}
-              <div 
-                onClick={() => setSettingsView('antiSpam')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-red-500 shrink-0 flex items-center justify-center w-6 h-6">
-                    <ShieldAlert size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Anti-Spam</span>
+              {/* Column 2: Sales, Marketing & Growth */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 px-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <TrendingUp size={14} className="text-emerald-400" />
+                  <span>Sales & Marketing</span>
                 </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+
+                <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
+                  {/* Discounts */}
+                  <div 
+                    onClick={() => setSettingsView('discounts')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <BadgePercent size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Discounts & Coupons</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Qty Rules */}
+                  <div 
+                    onClick={() => setSettingsView('qtyRules')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-cyan-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <PackagePlus size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Quantity Rules</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Bulk Edit */}
+                  <div 
+                    onClick={() => setSettingsView('bulkPrice')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Calculator size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Bulk Edit Price</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Marketing */}
+                  <div 
+                    onClick={() => setSettingsView('marketing')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Target size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Marketing & Pixels</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Social Media */}
+                  <div 
+                    onClick={() => setSettingsView('socialMedia')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-blue-500 shrink-0 flex items-center justify-center w-6 h-6">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Social Media Links</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Download FB Zip (FB Auto-Sender Dataset) */}
+                  <div 
+                    onClick={() => setSettingsView('fbZipExport')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <FolderArchive size={20} strokeWidth={1.75} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white text-sm md:text-base font-medium tracking-wide">Download Fb Zip</span>
+                        <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-medium">In-Stock</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+                </div>
               </div>
 
-              {/* Minimum Order */}
-              <div 
-                onClick={() => setSettingsView('minOrder')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-rose-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <ShoppingCart size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Minimum Order</span>
+              {/* Column 3: Logistics, Operations & Team */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 px-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <Shield size={14} className="text-amber-400" />
+                  <span>Operations & Security</span>
                 </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+
+                <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
+                  {/* Anti Spam */}
+                  <div 
+                    onClick={() => setSettingsView('antiSpam')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-red-500 shrink-0 flex items-center justify-center w-6 h-6">
+                        <ShieldAlert size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Anti-Spam & Fraud</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Notification */}
+                  <div 
+                    onClick={() => setSettingsView('notification')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-cyan-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Order Notifications</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Incomplete Orders */}
+                  <div 
+                    onClick={() => setSettingsView('incompleteOrders')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-orange-500 shrink-0 flex items-center justify-center w-6 h-6">
+                        <AlertCircle size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Incomplete Orders</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Minimum Order */}
+                  <div 
+                    onClick={() => setSettingsView('minOrder')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-rose-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <ShoppingCart size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Minimum Order</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Courier */}
+                  <div 
+                    onClick={() => setSettingsView('courier')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Truck size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Courier & Delivery</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Suppliers */}
+                  <div 
+                    onClick={() => setSettingsView('suppliers')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-orange-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Factory size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Suppliers</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Price Calculator */}
+                  <div 
+                    onClick={() => setSettingsView('priceCalculator')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-yellow-500 shrink-0 flex items-center justify-center w-6 h-6">
+                        <JapaneseYen size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Price Calculator</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Customers */}
+                  {perms.sections.customers && (
+                    <div 
+                      onClick={() => setSettingsView('customers')}
+                      className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="text-blue-500 shrink-0 flex items-center justify-center w-6 h-6">
+                          <User size={20} strokeWidth={1.75} />
+                        </div>
+                        <span className="text-white text-sm md:text-base font-medium tracking-wide">Customers CRM</span>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                    </div>
+                  )}
+
+                  {/* Store Sync */}
+                  <div 
+                    onClick={() => setSettingsView('apiSync')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Database size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Store API Sync</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Account Settings */}
+                  <div 
+                    onClick={() => setSettingsView('account')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Settings size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Account Settings</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Account Control */}
+                  <div 
+                    onClick={() => setSettingsView('accountControl')}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <Shield size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Team Permissions</span>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                  </div>
+
+                  {/* Logout */}
+                  <div 
+                    onClick={() => {
+                      cloudStore.logoutAdmin().catch(console.error);
+                      setCurrentAdmin(null);
+                      window.location.href = '/';
+                    }}
+                    className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-red-500/[0.05] active:bg-red-500/[0.1] transition-colors group select-none"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-red-400 shrink-0 flex items-center justify-center w-6 h-6">
+                        <LogOut size={20} strokeWidth={1.75} />
+                      </div>
+                      <span className="text-red-400 text-sm md:text-base font-medium tracking-wide">Logout</span>
+                    </div>
+                    <ChevronRight size={16} className="text-red-500/50 group-hover:text-red-400 transition-colors shrink-0" />
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Group 5: Design & Social */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
-              {/* Website */}
-              <div 
-                onClick={() => setSettingsView('website')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Globe size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Website</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Social Media */}
-              <div 
-                onClick={() => setSettingsView('socialMedia')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-blue-500 shrink-0 flex items-center justify-center w-6 h-6">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Social Media</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Notification */}
-              <div 
-                onClick={() => setSettingsView('notification')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-cyan-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Notification</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Customise */}
-              <div 
-                onClick={() => setSettingsView('customise')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Palette size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Customise</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Download FB Zip (FB Auto-Sender Dataset) */}
-              <div 
-                onClick={() => setSettingsView('fbZipExport')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <FolderArchive size={20} strokeWidth={1.75} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white text-sm md:text-base font-medium tracking-wide">Download Fb Zip</span>
-                    <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-medium">In-Stock</span>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-            </div>
-
-            {/* Group 6: System Config */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
-              {/* Account Settings */}
-              <div 
-                onClick={() => setSettingsView('account')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Settings size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Account Settings</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Account Control */}
-              <div 
-                onClick={() => setSettingsView('accountControl')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-indigo-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Settings size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Account Control</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Payment Gateways */}
-              <div className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 select-none">
-                <div className="flex items-center gap-3.5">
-                  <div className="text-purple-500 shrink-0 flex items-center justify-center w-6 h-6">
-                    <CreditCard size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Payment Gateways</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500" />
-              </div>
-
-              {/* Courier */}
-              <div 
-                onClick={() => setSettingsView('courier')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Truck size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Courier</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-            </div>
-
-            {/* Group 7: Calculator, Analytics, & Logout */}
-            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl overflow-hidden shadow-lg shadow-black/10 flex flex-col divide-y divide-[var(--dash-border)]/40">
-              {/* Price Calculator */}
-              <div 
-                onClick={() => setSettingsView('priceCalculator')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-yellow-500 shrink-0 flex items-center justify-center w-6 h-6">
-                    <JapaneseYen size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Price Calculator</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Marketing */}
-              <div 
-                onClick={() => setSettingsView('marketing')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-blue-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Target size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Marketing</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Store Sync */}
-              <div 
-                onClick={() => setSettingsView('apiSync')}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-emerald-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <Database size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-white text-sm md:text-base font-medium tracking-wide">Store API Sync</span>
-                </div>
-                <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              </div>
-
-              {/* Logout */}
-              <div 
-                onClick={() => {
-                  setCurrentAdmin(null);
-                  window.location.href = '/';
-                }}
-                className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-red-500/[0.05] active:bg-red-500/[0.1] transition-colors group select-none"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="text-red-400 shrink-0 flex items-center justify-center w-6 h-6">
-                    <LogOut size={20} strokeWidth={1.75} />
-                  </div>
-                  <span className="text-red-400 text-sm md:text-base font-medium tracking-wide">Logout</span>
-                </div>
-                <ChevronRight size={16} className="text-red-500/50 group-hover:text-red-400 transition-colors shrink-0" />
-              </div>
-            </div>
-
           </div>
         )}
         </div>
@@ -2651,30 +2688,63 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           }
         }
       `}</style>
-      <div className="mobile-dashboard-nav fixed bg-[var(--dash-bg)]/70 border-2 border-[var(--glass-border)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] shadow-black/50 rounded-[32px] flex justify-around items-center px-2 z-40 md:top-0 md:bottom-0 md:left-0 md:right-auto md:w-[240px] md:h-screen md:flex-col md:justify-start md:border-y-0 md:border-l-0 md:border-[var(--dash-border)] md:border-r md:px-4 md:py-8 md:gap-2 md:rounded-none md:bg-[var(--dash-bg)] md:backdrop-blur-none md:transform-none md:saturate-100 md:shadow-none overflow-y-auto">
-        <div className="hidden md:flex items-center gap-3 mb-8 px-4 mt-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#fafafa] to-[#d4d4d8] flex items-center justify-center shadow-lg shadow-[#fafafa]/20">
-             <LayoutDashboard size={18} className="text-[var(--dash-bg)]" fill="currentColor" />
+      <div className="mobile-dashboard-nav fixed bg-[var(--dash-bg)]/70 border-2 border-[var(--glass-border)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] shadow-black/50 rounded-[32px] flex justify-around items-center px-2 z-40 md:top-0 md:bottom-0 md:left-0 md:right-auto md:w-[260px] md:h-screen md:flex-col md:justify-start md:border-y-0 md:border-l-0 md:border-[var(--dash-border)] md:border-r md:px-4 md:py-6 md:gap-2 md:rounded-none md:bg-[var(--dash-bg)] md:backdrop-blur-none md:transform-none md:saturate-100 md:shadow-none overflow-y-auto">
+        <div className="hidden md:flex items-center justify-between w-full mb-6 px-3 pt-1">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner">
+               <LayoutDashboard size={20} />
+            </div>
+            <div>
+              <span className="text-white font-extrabold text-lg tracking-tight block leading-tight">Admin<span className="text-indigo-400">Panel</span></span>
+              <span className="text-[10px] text-slate-400 font-medium font-mono uppercase tracking-wider">Store Control</span>
+            </div>
           </div>
-          <span className="text-white font-bold text-xl tracking-tight">Admin<span className="text-[#fafafa]">Panel</span></span>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="View Live Store"
+          >
+            <Globe size={16} />
+          </button>
         </div>
-        {perms.sections.dashboard && <NavButton icon={LayoutDashboard} label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => handleTabChange('Dashboard')} />}
-        {perms.sections.products && <NavButton icon={Package} label="Products" active={activeTab === 'Products'} onClick={() => handleTabChange('Products')} />}
-        {perms.sections.orders && <NavButton icon={ShoppingCart} label="Orders" active={activeTab === 'Orders'} onClick={() => handleTabChange('Orders')} />}
-        {perms.sections.settings && <NavButton icon={Settings} label="Settings" active={activeTab === 'Settings'} onClick={() => handleTabChange('Settings')} />}
+
+        <div className="w-full flex flex-row md:flex-col gap-1 md:gap-1.5">
+          {perms.sections.dashboard && <NavButton icon={LayoutDashboard} label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => handleTabChange('Dashboard')} />}
+          {perms.sections.products && <NavButton icon={Package} label="Products" active={activeTab === 'Products'} onClick={() => handleTabChange('Products')} />}
+          {perms.sections.orders && <NavButton icon={ShoppingCart} label="Orders" active={activeTab === 'Orders'} onClick={() => handleTabChange('Orders')} />}
+          {perms.sections.settings && <NavButton icon={Settings} label="Settings" active={activeTab === 'Settings'} onClick={() => handleTabChange('Settings')} />}
+        </div>
         
         <div className="hidden md:block flex-1" />
         
-        {!perms.sections.settings && (
-          <NavButton 
-            icon={LogOut} 
-            label="Log Out" 
-            active={false} 
-            onClick={() => {
-              setCurrentAdmin(null);
-            }} 
-          />
-        )}
+        {/* Desktop Sidebar Footer */}
+        <div className="hidden md:flex flex-col gap-2 w-full pt-4 border-t border-[var(--dash-border)]/60">
+          {currentAdmin && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-xs shrink-0">
+                  {currentAdmin.email ? currentAdmin.email[0].toUpperCase() : 'A'}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-white truncate">{currentAdmin.email || 'Admin'}</div>
+                  <div className="text-[10px] text-indigo-400 font-medium tracking-wide uppercase">
+                    {currentAdmin.isSuperAdmin ? 'Super Admin' : (currentAdmin.role || 'Staff')}
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  cloudStore.logoutAdmin().catch(console.error);
+                  setCurrentAdmin(null);
+                }} 
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                title="Logout"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* FABs */}
@@ -3009,14 +3079,14 @@ function StatCard({ title, value }: { title: string, value: string }) {
 function NavButton({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {
   return (
     <button onClick={onClick} className={cn(
-      "relative flex flex-col md:flex-row items-center justify-center h-full md:h-auto flex-1 md:flex-none md:justify-start gap-1 md:gap-4 md:w-full md:px-5 md:py-3.5 transition-all md:rounded-xl group", 
-      active ? "text-[#fafafa] md:bg-[#fafafa]/10" : "text-gray-500 md:text-gray-400 hover:text-gray-300 md:hover:bg-[var(--dash-card)] md:hover:text-white"
+      "relative flex flex-col md:flex-row items-center justify-center h-full md:h-auto flex-1 md:flex-none md:justify-start gap-1 md:gap-3 md:w-full md:px-3.5 md:py-2.5 transition-all md:rounded-xl group cursor-pointer", 
+      active ? "text-white md:bg-indigo-600/15 md:border md:border-indigo-500/30 shadow-sm" : "text-gray-500 md:text-slate-400 hover:text-gray-300 md:hover:bg-[var(--dash-card)] md:hover:text-white md:border md:border-transparent"
     )}>
-      <div className={cn("md:p-2 md:rounded-lg transition-colors flex items-center justify-center", active ? "md:bg-[#fafafa] md:text-[var(--dash-bg)]" : "md:bg-[var(--dash-border)] md:text-gray-400 group-hover:md:bg-[var(--dash-border)]")}>
-         <Icon size={22} className="md:w-[24px] md:h-[24px]" strokeWidth={active ? 2.5 : 2} />
+      <div className={cn("md:p-2 md:rounded-lg transition-colors flex items-center justify-center", active ? "text-indigo-400 md:bg-indigo-600 md:text-white shadow-md shadow-indigo-500/25" : "md:bg-[var(--dash-border)]/50 md:text-slate-400 group-hover:md:bg-[var(--dash-border)] group-hover:md:text-white")}>
+         <Icon size={20} className="md:w-[20px] md:h-[20px]" strokeWidth={active ? 2.5 : 2} />
       </div>
-      <span className={cn("text-[11px] md:text-sm font-medium md:font-semibold", active ? "font-bold" : "")}>{label}</span>
-      {active && <div className="hidden md:block absolute right-0 w-1.5 h-8 bg-[#fafafa] rounded-l-full" />}
+      <span className={cn("text-[11px] md:text-sm font-medium", active ? "font-bold text-white" : "")}>{label}</span>
+      {active && <div className="hidden md:block absolute right-2.5 w-1.5 h-5 bg-indigo-500 rounded-full shadow-sm shadow-indigo-500/50" />}
     </button>
   );
 }
@@ -3049,34 +3119,36 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <LayoutGrid size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Category Management</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Organize products into intuitive collections and groups</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <LayoutGrid size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Category Management</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Organize products into intuitive collections and groups</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button 
-          onClick={() => { setEditingCategory(null); setIsEditing(true); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
-        >
-          <Plus size={16} /> Add Category
-        </button>
+          <button 
+            onClick={() => { setEditingCategory(null); setIsEditing(true); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
+          >
+            <Plus size={16} /> Add Category
+          </button>
+        </div>
       </div>
 
       {/* Categories Grid */}
@@ -3382,35 +3454,37 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Globe size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Storefront & Layout</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Customize banners, branding, stock sections, and delivery fees</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Globe size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Storefront & Layout</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Customize banners, branding, stock sections, and delivery fees</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div 
@@ -3833,36 +3907,38 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer" 
-            id="marketing_back_btn"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <BarChart2 size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Marketing & Pixel Tracking</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Meta Pixel, TikTok Pixel & Google Analytics 4 Conversions API</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer" 
+              id="marketing_back_btn"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <BarChart2 size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Marketing & Pixel Tracking</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Meta Pixel, TikTok Pixel & Google Analytics 4 Conversions API</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div 
@@ -4251,35 +4327,37 @@ function CourierManager({ settings, setSettings, onClose, themePrimary }: { sett
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Truck size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Courier & Delivery Integration</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automated parcel dispatch & fraud screening APIs</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Truck size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Courier & Delivery Integration</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automated parcel dispatch & fraud screening APIs</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div 
@@ -4468,35 +4546,37 @@ function PriceCalculatorManager({ settings, setSettings, onClose, themePrimary }
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Calculator size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Import Price Calculator</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automate CNY to BDT landed cost and wholesale margin</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Calculator size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Import Price Calculator</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automate CNY to BDT landed cost and wholesale margin</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div 
@@ -4798,24 +4878,26 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Shield size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Account & Team Access</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Security credentials, team member roles & auto logout</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Shield size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Account & Team Access</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Security credentials, team member roles & auto logout</p>
+              </div>
             </div>
           </div>
         </div>
@@ -5178,35 +5260,37 @@ function QtyRulesManager({ settings, setSettings, onClose, themePrimary }: { set
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <PackagePlus size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Quantity Pricing Rules</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automated tiered bulk discount for large orders</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <PackagePlus size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Quantity Pricing Rules</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automated tiered bulk discount for large orders</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button 
-          onClick={handleSave} 
-          disabled={isSaving}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-        </button>
+          <button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div 
@@ -5329,37 +5413,39 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            id="seo_back_btn"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Globe size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">SEO, OpenGraph & Favicon</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Search engine indexing, WhatsApp link previews and branding</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              id="seo_back_btn"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Globe size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">SEO, OpenGraph & Favicon</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Search engine indexing, WhatsApp link previews and branding</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-          id="seo_save_btn"
-        >
-          {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
-        </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
+            id="seo_save_btn"
+          >
+            {saved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -5577,34 +5663,36 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <ImageIcon size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Image Processing & Optimization</h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Real-time WebP compression, thumbnail sizing & asset delivery</p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <ImageIcon size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Image Processing & Optimization</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Real-time WebP compression, thumbnail sizing & asset delivery</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleSave}
-          className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
-        >
-          {saved ? 'Saved' : 'Save'}
-        </button>
+          <button
+            onClick={handleSave}
+            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
+          >
+            {saved ? 'Saved' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div 

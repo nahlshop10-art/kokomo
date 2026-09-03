@@ -202,47 +202,49 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={showSettings ? () => setShowSettings(false) : onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <ShoppingCart size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                {showSettings ? 'Abandoned Cart Settings' : 'Incomplete Checkout Recovery'}
-              </h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-                {showSettings ? 'Configure capture timers, data retention, and duplicate merges' : 'Recover high-intent customers who abandoned before final checkout'}
-              </p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={showSettings ? () => setShowSettings(false) : onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <ShoppingCart size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                  {showSettings ? 'Abandoned Cart Settings' : 'Incomplete Checkout Recovery'}
+                </h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+                  {showSettings ? 'Configure capture timers, data retention, and duplicate merges' : 'Recover high-intent customers who abandoned before final checkout'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {!showSettings ? (
-          <button 
-            onClick={() => setShowSettings(true)} 
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs md:text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all active:scale-95 cursor-pointer shrink-0"
-          >
-            <Settings size={15} /> Settings
-          </button>
-        ) : (
-          <button 
-            onClick={() => { handleSave(); setShowSettings(false); }} 
-            className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
-          >
-            Save
-          </button>
-        )}
+          {!showSettings ? (
+            <button 
+              onClick={() => setShowSettings(true)} 
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs md:text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all active:scale-95 cursor-pointer shrink-0"
+            >
+              <Settings size={15} /> Settings
+            </button>
+          ) : (
+            <button 
+              onClick={() => { handleSave(); setShowSettings(false); }} 
+              className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
+            >
+              Save & Apply
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto w-full overscroll-y-contain custom-scrollbar pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>

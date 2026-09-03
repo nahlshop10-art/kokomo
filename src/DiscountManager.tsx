@@ -77,34 +77,36 @@ export default function DiscountManager({ websiteSettings, setWebsiteSettings, p
 
   if (editingDiscount) {
     return (
-      <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+      <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
         {/* Wizard Header */}
-        <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setEditingDiscount(null)} 
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
-                {discounts.find(d => d.id === editingDiscount.id) ? 'Edit Discount Rule' : 'Create New Discount'}
-              </h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-                Step {step} of 6: {['Basic Info', 'Discount Type', 'Conditions', 'Action Values', 'Usage Limits', 'Schedule'][step - 1]}
-              </p>
+        <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+          <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setEditingDiscount(null)} 
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
+                  {discounts.find(d => d.id === editingDiscount.id) ? 'Edit Discount Rule' : 'Create New Discount'}
+                </h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+                  Step {step} of 6: {['Basic Info', 'Discount Type', 'Conditions', 'Action Values', 'Usage Limits', 'Schedule'][step - 1]}
+                </p>
+              </div>
             </div>
-          </div>
 
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-            Step {step}/6
-          </span>
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              Step {step}/6
+            </span>
+          </div>
         </div>
 
         {/* Wizard Content */}
         <div 
-          className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-3xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
+          className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-4xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {/* Step Pill Tracker */}
@@ -392,43 +394,45 @@ export default function DiscountManager({ websiteSettings, setWebsiteSettings, p
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Percent size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                Discounts & Coupons
-              </h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-                Manage promotional coupon codes, percentage rules, and free delivery
-              </p>
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <Percent size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                  Discounts & Coupons
+                </h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+                  Manage promotional coupon codes, percentage rules, and free delivery
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
-        >
-          <Plus size={16} className="stroke-[3]" /> Create Rule
-        </button>
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0"
+          >
+            <Plus size={16} className="stroke-[3]" /> Create Rule
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-3xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-4xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {discounts.length === 0 ? (

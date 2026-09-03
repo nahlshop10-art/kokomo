@@ -377,43 +377,45 @@ export default function FbZipExportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
       
       {/* 1. Standardized Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4 border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            title="Go back"
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onClose} 
+              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+              title="Go back"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
+              <FolderArchive size={20} strokeWidth={2} />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
+                Download FB Zip
+              </h1>
+              <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                IN-STOCK
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white transition-colors cursor-pointer shrink-0"
           >
-            <ChevronLeft size={20} />
+            Done
           </button>
-          
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
-            <FolderArchive size={20} strokeWidth={2} />
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
-              Download FB Zip
-            </h1>
-            <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              IN-STOCK
-            </span>
-          </div>
         </div>
-
-        <button
-          onClick={onClose}
-          className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white transition-colors cursor-pointer shrink-0"
-        >
-          Done
-        </button>
       </div>
 
       {/* 2. Main Scrollable Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 md:p-8 space-y-4 max-w-3xl mx-auto w-full pb-36 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 py-5 md:p-8 space-y-4 max-w-4xl mx-auto w-full pb-36 custom-scrollbar">
 
         {/* Export Progress Notification (Visible during active export) */}
         {exportState === 'exporting' && (
@@ -772,7 +774,7 @@ export default function FbZipExportModal({
       </div>
 
       {/* 3. Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[240px] px-4 py-3 bg-[var(--dash-bg)]/95 backdrop-blur-md border-t border-[var(--dash-border)]/70 z-[110] shadow-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="fixed bottom-0 left-0 right-0 md:left-[260px] px-4 py-3 bg-[var(--dash-bg)]/95 backdrop-blur-md border-t border-[var(--dash-border)]/70 z-[110] shadow-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button 
             onClick={onClose}

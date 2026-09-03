@@ -214,30 +214,32 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
   const statuses: OrderStatus[] = ['Pending', 'Unreachable', 'Preparing', 'Shipping', 'Completed', 'Canceled', 'Returned', 'Complete Return'];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] flex flex-col md:left-[240px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] flex flex-col md:left-[260px]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] bg-[var(--dash-bg)] z-10 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white"><ChevronLeft size={24} /></button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold">Order #{order.id}</h1>
-            <CopyButton text={order.id} className="p-0.5 text-gray-400 hover:text-white" />
+      <div className="border-b border-[var(--dash-border)] bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between p-4 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"><ChevronLeft size={22} /></button>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base md:text-lg font-bold text-white">Order #{order.id}</h1>
+              <CopyButton text={order.id} className="p-1 text-gray-400 hover:text-white bg-white/5 rounded-lg border border-white/10" />
+            </div>
           </div>
-        </div>
-        <div className="flex gap-1">
-          <button className="p-2 text-[#fafafa] hover:text-[#e4e4e7] rounded-lg bg-[var(--dash-card)] border border-[var(--dash-border)]"><Download size={20} /></button>
-          <button onClick={() => setShowDeleteConfirm(true)} className="p-2 text-red-500 hover:text-red-400 rounded-lg bg-[var(--dash-card)] border border-[var(--dash-border)]"><Trash2 size={20} /></button>
-          <button onClick={handleOpenMessage} className="p-2 text-gray-400 hover:text-white rounded-lg bg-[var(--dash-card)] border border-[var(--dash-border)] relative">
-            <MessageSquareText size={20} />
-            {order.userInfo.customerNote && !isNoteRead && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[var(--dash-card)] animate-pulse"></span>
-            )}
-          </button>
+          <div className="flex gap-1.5 items-center">
+            <button className="p-2 text-slate-300 hover:text-white rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] transition-colors cursor-pointer"><Download size={18} /></button>
+            <button onClick={() => setShowDeleteConfirm(true)} className="p-2 text-red-400 hover:text-red-300 rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] transition-colors cursor-pointer"><Trash2 size={18} /></button>
+            <button onClick={handleOpenMessage} className="p-2 text-gray-400 hover:text-white rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] relative transition-colors cursor-pointer">
+              <MessageSquareText size={18} />
+              {order.userInfo.customerNote && !isNoteRead && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[var(--dash-card)] animate-pulse"></span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-4 space-y-1 lg:space-y-3 pb-24 md:p-8 md:pb-8">
-        <div className="max-w-3xl mx-auto w-full space-y-1 lg:space-y-4">
+      <div className="flex-grow overflow-y-auto p-4 space-y-2 lg:space-y-4 pb-24 md:p-8 md:pb-8">
+        <div className="max-w-4xl mx-auto w-full space-y-2 lg:space-y-4">
         {/* Customer Info */}
         <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl flex flex-col">
           <div className="flex items-center gap-4 text-white p-4 border-b border-[var(--dash-border)]">
@@ -644,7 +646,7 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
       {/* Item Edit Modal */}
       <AnimatePresence>
         {editingItemIndex !== null && (
-          <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[240px]">
+          <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[260px]">
             <motion.div 
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
@@ -823,7 +825,7 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
       {/* Add Products Modal */}
       <AnimatePresence>
         {showAddProducts && (
-          <div className="fixed inset-0 z-[120] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[240px] p-0 md:p-8">
+          <div className="fixed inset-0 z-[120] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[260px] p-0 md:p-8">
             <motion.div 
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
