@@ -41,7 +41,7 @@ export default function ActionButtonsCustomiser({ settings, setSettings }: Actio
   ];
 
   return (
-    <div className="p-4 md:p-8 space-y-4 max-w-3xl mx-auto w-full pb-36">
+    <div className="p-2.5 md:p-8 space-y-4 max-w-3xl mx-auto w-full pb-36">
       <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Select Button</h4>
         <div className="space-y-2">

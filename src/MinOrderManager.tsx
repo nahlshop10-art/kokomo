@@ -50,7 +50,7 @@ export default function MinOrderManager({ websiteSettings, setWebsiteSettings, o
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -75,7 +75,7 @@ export default function MinOrderManager({ websiteSettings, setWebsiteSettings, o
           </div>
 
           <button 
-            onClick={handleSave}
+            onClick={handleSave} 
             disabled={isSaving}
             className="px-5 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer shrink-0 disabled:opacity-50"
           >
@@ -86,7 +86,7 @@ export default function MinOrderManager({ websiteSettings, setWebsiteSettings, o
 
       {/* Main Content */}
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-4xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-5 max-w-4xl mx-auto w-full pb-32 overscroll-y-contain custom-scrollbar"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Master Toggle Card */}

@@ -1968,7 +1968,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         ref={setScrollContainerRef} 
         className={cn(
           "flex-grow min-h-0 overflow-y-auto relative z-0 md:p-8 overscroll-y-contain", 
-          activeTab === 'Dashboard' ? 'px-1.5 pt-1 pb-20' : 'px-4 pt-4 pb-20'
+          activeTab === 'Dashboard' ? 'px-1.5 pt-1 pb-20' : activeTab === 'Settings' ? 'px-2.5 pt-2 pb-20' : 'px-4 pt-4 pb-20'
         )}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
@@ -2446,7 +2446,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
         {/* Settings Tab */}
         {activeTab === 'Settings' && perms.sections.settings && (
-          <div className="md:hidden max-w-6xl mx-auto w-full flex flex-col gap-4 px-1.5 py-2 pb-2">
+          <div className="md:hidden max-w-6xl mx-auto w-full flex flex-col gap-4 px-0 py-1 pb-2">
             {/* Header */}
             <div className="mb-1 md:mb-2">
               <h1 className="text-xl md:text-3xl font-extrabold text-white tracking-tight">Settings Hub</h1>
@@ -3720,7 +3720,7 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -3752,7 +3752,7 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
       {/* Categories Grid */}
       <div 
         ref={scrollRef} 
-        className="flex-1 overflow-y-auto p-4 md:p-8 overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="max-w-4xl mx-auto w-full space-y-4">
@@ -4055,7 +4055,7 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -4086,7 +4086,7 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Banner Section */}
@@ -4508,7 +4508,7 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -4540,7 +4540,7 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Meta Pixel Section */}
@@ -4928,7 +4928,7 @@ function CourierManager({ settings, setSettings, onClose, themePrimary }: { sett
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -4959,7 +4959,7 @@ function CourierManager({ settings, setSettings, onClose, themePrimary }: { sett
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Steadfast Section */}
@@ -5147,7 +5147,7 @@ function PriceCalculatorManager({ settings, setSettings, onClose, themePrimary }
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -5178,7 +5178,7 @@ function PriceCalculatorManager({ settings, setSettings, onClose, themePrimary }
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-2xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-2xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
@@ -5479,7 +5479,7 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -5502,7 +5502,7 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Profile Card */}
@@ -5861,7 +5861,7 @@ function QtyRulesManager({ settings, setSettings, onClose, themePrimary }: { set
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -5892,7 +5892,7 @@ function QtyRulesManager({ settings, setSettings, onClose, themePrimary }: { set
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-2xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-2xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
@@ -6014,7 +6014,7 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Header Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -6048,7 +6048,7 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
 
       {/* Main Content Area */}
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-4xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Basic SEO Controls (Box 1) */}
@@ -6264,7 +6264,7 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -6294,7 +6294,7 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-3xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-3xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Auto Optimization */}

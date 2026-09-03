@@ -298,7 +298,7 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -307,16 +307,18 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <User size={20} />
-            </div>
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                Customer Intelligence & Blacklist
-              </h1>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-                Purchase history, cancellation rates, blacklist control, and automated spam filtering
-              </p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                <User size={20} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                  Customer Intelligence & Blacklist
+                </h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+                  Purchase history, cancellation rates, blacklist control, and automated spam filtering
+                </p>
+              </div>
             </div>
           </div>
 
@@ -330,7 +332,7 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
       </div>
 
       {/* Sub-header Tab Bar */}
-      <div className="px-4 py-2.5 bg-[var(--dash-bg)]/95 backdrop-blur-md border-b border-[var(--dash-border)]/60 flex items-center shrink-0 z-10">
+      <div className="px-2.5 py-2.5 bg-[var(--dash-bg)]/95 backdrop-blur-md border-b border-[var(--dash-border)]/60 flex items-center shrink-0 z-10">
         <div className="flex items-center bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-1 gap-1 w-full max-w-md mx-auto">
           {(['Analytics', 'Blocked', 'Settings'] as const).map(tab => (
             <button
@@ -349,7 +351,7 @@ export default function CustomersManager({ orders, setOrders, customers = [], se
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 max-w-5xl mx-auto w-full pb-36 overscroll-y-contain custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-5 max-w-5xl mx-auto w-full pb-36 overscroll-y-contain custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
         {activeTab === 'Analytics' && (
           <div className="flex flex-col gap-4">
             

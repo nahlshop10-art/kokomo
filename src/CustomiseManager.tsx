@@ -76,7 +76,7 @@ export default function CustomiseManager({
     <div className="fixed inset-0 z-[110] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
           <div className="flex items-center gap-3">
             <button 
               onClick={onClose} 
@@ -105,7 +105,7 @@ export default function CustomiseManager({
       </div>
 
       {/* Sub-header Tab Bar */}
-      <div className="px-4 py-2.5 bg-[var(--dash-bg)]/95 backdrop-blur-md border-b border-[var(--dash-border)]/60 flex items-center shrink-0 z-10">
+      <div className="px-2.5 py-2.5 bg-[var(--dash-bg)]/95 backdrop-blur-md border-b border-[var(--dash-border)]/60 flex items-center shrink-0 z-10">
         <div className="flex items-center bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-1 gap-1 w-full max-w-md mx-auto">
           {(['website', 'buttons', 'dashboard'] as const).map(tab => (
             <button 
@@ -126,7 +126,7 @@ export default function CustomiseManager({
 
       <div className="flex-1 overflow-y-auto pb-36 bg-[var(--dash-bg)] custom-scrollbar">
         {activeTab === 'website' && (
-          <div className="p-4 md:p-8 space-y-4 max-w-3xl mx-auto w-full">
+          <div className="p-2.5 md:p-8 space-y-4 max-w-3xl mx-auto w-full">
             {draftSettings.mainFont && (
               <style>
                 {`@import url('https://fonts.googleapis.com/css2?family=${draftSettings.mainFont.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');`}
@@ -262,7 +262,7 @@ export default function CustomiseManager({
         )}
 
         {activeTab === 'dashboard' && (
-          <div className="p-4 md:p-8 space-y-4 max-w-3xl mx-auto w-full">
+          <div className="p-2.5 md:p-8 space-y-4 max-w-3xl mx-auto w-full">
             <div className="flex justify-between items-center mb-1">
               <h3 className="text-sm md:text-base font-bold text-white">Mobile Navigation Bar</h3>
               <button 
