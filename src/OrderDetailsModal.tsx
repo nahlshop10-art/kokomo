@@ -214,7 +214,7 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
   const statuses: OrderStatus[] = ['Pending', 'Unreachable', 'Preparing', 'Shipping', 'Completed', 'Canceled', 'Returned', 'Complete Return'];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] flex flex-col md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] flex flex-col md:left-[84px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)] bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between p-4 md:px-8 md:py-4">
@@ -646,7 +646,7 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
       {/* Item Edit Modal */}
       <AnimatePresence>
         {editingItemIndex !== null && (
-          <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[260px]">
+          <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[84px]">
             <motion.div 
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
@@ -825,7 +825,7 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
       {/* Add Products Modal */}
       <AnimatePresence>
         {showAddProducts && (
-          <div className="fixed inset-0 z-[120] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[260px] p-0 md:p-8">
+          <div className="fixed inset-0 z-[120] flex items-end md:items-center justify-center bg-[var(--dash-bg)]/50 md:left-[84px] p-0 md:p-8">
             <motion.div 
               initial={{ y: '100%' }}
               animate={{ y: 0 }}

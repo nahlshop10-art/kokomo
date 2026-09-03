@@ -377,7 +377,7 @@ export default function FbZipExportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       
       {/* 1. Standardized Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
@@ -774,7 +774,7 @@ export default function FbZipExportModal({
       </div>
 
       {/* 3. Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[260px] px-4 py-3 bg-[var(--dash-bg)]/95 backdrop-blur-md border-t border-[var(--dash-border)]/70 z-[110] shadow-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="fixed bottom-0 left-0 right-0 md:left-[334px] px-4 py-3 bg-[var(--dash-bg)]/95 backdrop-blur-md border-t border-[var(--dash-border)]/70 z-[110] shadow-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button 
             onClick={onClose}

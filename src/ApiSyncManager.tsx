@@ -179,7 +179,7 @@ export function ApiSyncManager({ settings, setSettings, onClose }: ApiSyncManage
 
   return (
     <div 
-      className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]"
+      className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]"
       id="api_sync_manager_view"
     >
       {/* Top Header Bar */}

@@ -10,7 +10,8 @@ import {
   Printer, CheckSquare, PackagePlus, AlertCircle, FileArchive, FolderArchive, Calculator, PackageX, Download,
   HelpCircle, Shield, Layers, Database, Info, ExternalLink,
   TrendingUp, ShoppingBag, CircleDollarSign, Undo2, MinusCircle, ClipboardList, ClipboardCheck, XCircle, Tag,
-  Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb, Mail, Clock, BarChart2
+  Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb, Mail, Clock, BarChart2,
+  Building, Percent, Send, MessageCircle, Box, Image
 } from 'lucide-react';
 import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
 import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff } from './lib/stockUtils';
@@ -1410,7 +1411,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:pl-[260px]">
+    <div className={cn("fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden", activeTab === 'Settings' ? "md:pl-[334px]" : "md:pl-[84px]")}>
       <AdminLoadingScreen />
       {/* Toast */}
       <AnimatePresence>
@@ -2001,165 +2002,293 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
         {/* Orders List */}
         {activeTab === 'Orders' && perms.sections.orders && (
-          <div className="flex flex-col gap-1 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-4 md:px-4">
+          <div className="w-full">
             {displayOrders.length === 0 ? (
               <div className="text-center text-gray-500 mt-10">No orders found</div>
             ) : (
-              displayOrders.map(order => (
-                <div key={order.id} className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <div onClick={(e) => toggleOrderSelection(order.id, e)} className="cursor-pointer">
-                        {selectedOrders.includes(order.id) ? (
-                          <div className="w-5 h-5 rounded-full bg-[#fafafa] flex items-center justify-center">
-                            <Check size={12} className="text-[var(--dash-bg)]" />
-                          </div>
-                        ) : (
-                          <div className="w-5 h-5 rounded-full border border-gray-500 flex items-center justify-center" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-bold text-white flex items-center gap-2">
-                          {perms.order.customerName ? order.userInfo.name : '***'}
-                          <span className="text-gray-500 font-normal text-[10px] flex items-center gap-0.5">#{order.id} <CopyButton text={order.id} className="p-0.5 text-gray-500 hover:text-white" /></span>
-                        </div>
-                        <div className="text-xs text-gray-500">{order.date}</div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-2 text-xs mb-1">
-                        {order.status === 'Pending' && <span className="text-blue-400 flex items-center gap-1"><span className="text-[10px]">🎉</span> pending</span>}
-                        {order.status === 'Canceled' && <span className="text-red-500 flex items-center gap-1"><X size={12}/> canceled</span>}
-                        {order.status === 'Unreachable' && <span className="text-gray-400 flex items-center gap-1"><EyeOff size={12}/> unreachable</span>}
-                        {order.status === 'Returned' && <span className="text-red-400 flex items-center gap-1"><Package size={12}/> returned</span>}
-                        {order.status === 'Complete Return' && <span className="text-red-500 flex items-center gap-1"><Package size={12}/> <Check size={10}/> complete return</span>}
-                        {order.status === 'Shipping' && <span className="text-pink-400 flex items-center gap-1"><Package size={12}/> shipping</span>}
-                        {order.status === 'Completed' && <span className="text-green-400 flex items-center gap-1"><Check size={12}/> completed</span>}
-                        {order.status === 'Preparing' && <span className="text-orange-400 flex items-center gap-1"><Package size={12}/> preparing</span>}
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
-                            const updated = { ...order, paymentStatus: newStatus } as Order;
-                            setOrders(orders.map(o => o.id === order.id ? updated : o));
-                            setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
-                            cloudStore.upsertOrder(updated, 'standard').catch(console.error);
-                          }}
-                          className={cn(
-                            "w-[18px] h-[18px] rounded-full flex items-center justify-center transition-all duration-300 ml-1 shadow-sm",
-                            order.paymentStatus === 'Paid' ? "bg-green-500" : "bg-red-500"
-                          )}
-                        >
-                          {order.paymentStatus === 'Paid' ? (
-                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                              <Check size={12} className="text-white" strokeWidth={3} />
-                            </motion.div>
-                          ) : (
-                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                          )}
-                        </button>
-                      </div>
-                      {order.trackingNumber && (
-                        <div className="text-[10px] text-blue-400 underline">
-                          {order.trackingNumber}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-end mt-2 relative min-h-[32px]">
-                    <div className="flex flex-col z-10">
-                      <div className="font-bold text-white text-lg leading-none">{perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}</div>
-                      {order.steadfast && (order.steadfast.consignmentId || order.steadfast.trackingCode) && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Truck size={12} className="text-[#fafafa]" />
-                          <span className="text-[11px] font-bold text-[#fafafa] tracking-wide font-mono uppercase">
-                            #{order.steadfast.consignmentId ? String(order.steadfast.consignmentId).replace(/(.{3})/g, '$1-').replace(/-$/, '') : order.steadfast.trackingCode}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex flex-col items-center justify-end z-0 w-[140px]">
-                      {(() => {
-                        if (order.bdCourierStatus === 'failed') {
-                          return (
-                            <button onClick={() => checkBdCourierFraud(order.id)} title="Retry Fraud Check" className="p-1 text-gray-500 hover:text-white transition-colors border border-[var(--dash-border)] bg-[var(--dash-bg)] rounded-full mb-1">
-                              <RefreshCw size={14} className={isSyncingBdCourier ? "animate-spin" : ""} />
-                            </button>
-                          );
-                        }
-                        
-                        const reports = order.bdCourierData?.reports || [];
-                        const hasWarning = reports.length > 0;
+              <>
+                {/* Desktop View: Clean Horizontal Rows (matching reference picture) */}
+                <div className="hidden md:flex flex-col gap-2 max-w-5xl mx-auto w-full">
+                  {displayOrders.map(order => {
+                    let completed = 0;
+                    let totalResolved = 0;
+                    let percentage = 0;
 
-                        let completed = 0;
-                        let totalResolved = 0;
-                        let percentage = 0;
+                    if (order.bdCourierData?.summary) {
+                      completed = order.bdCourierData.summary.success_parcel || 0;
+                      totalResolved = order.bdCourierData.summary.total_parcel || 0;
+                      percentage = order.bdCourierData.summary.success_ratio || 0;
+                    } else {
+                      const customerOrders = orders.filter(o => o.userInfo.phone === order.userInfo.phone);
+                      completed = customerOrders.filter(o => o.status === 'Completed').length;
+                      const failed = customerOrders.filter(o => o.status === 'Canceled' || o.status === 'Returned' || o.status === 'Complete Return' || o.status === 'Unreachable').length;
+                      totalResolved = completed + failed;
+                      if (totalResolved > 0) percentage = (completed / totalResolved) * 100;
+                    }
 
-                        if (order.bdCourierData?.summary) {
-                          completed = order.bdCourierData.summary.success_parcel || 0;
-                          totalResolved = order.bdCourierData.summary.total_parcel || 0;
-                          percentage = order.bdCourierData.summary.success_ratio || 0;
-                        } else {
-                          // Fallback to local history
-                          const customerOrders = orders.filter(o => o.userInfo.phone === order.userInfo.phone);
-                          completed = customerOrders.filter(o => o.status === 'Completed').length;
-                          const failed = customerOrders.filter(o => o.status === 'Canceled' || o.status === 'Returned' || o.status === 'Complete Return' || o.status === 'Unreachable').length;
-                          totalResolved = completed + failed;
-                          if (totalResolved > 0) percentage = (completed / totalResolved) * 100;
-                        }
+                    const percentageFormatted = percentage % 1 === 0 ? percentage : Number(percentage.toFixed(2));
 
-                        const percentageFormatted = percentage % 1 === 0 ? percentage : Number(percentage.toFixed(2));
-
-                        if (totalResolved > 0) {
-                          return (
-                            <div className="flex flex-col items-center gap-1 w-[80px] pb-0.5">
-                              <div className="flex items-center justify-center relative w-full">
-                                {hasWarning && (
-                                  <button onClick={(e) => {
-                                      e.stopPropagation();
-                                      alert(reports.map(r => `${r.courierName}: ${r.details}`).join('\n'));
-                                    }} 
-                                    className="text-red-500 hover:text-red-400 absolute left-[-16px]" title="Fraud Warning"
-                                  >
-                                    <ShieldAlert size={12} />
-                                  </button>
-                                )}
-                                <div className="text-[9px] font-mono font-medium text-gray-300 tracking-tight flex items-center justify-center whitespace-nowrap">
-                                  {completed} / {totalResolved} <span className="mx-1 text-gray-500">•</span> <span className="font-bold text-white">{percentageFormatted}%</span>
-                                </div>
-                                {order.bdCourierStatus === 'pending' && (
-                                   <RefreshCw size={10} className="animate-spin text-gray-500 absolute right-[-14px]" />
-                                )}
+                    return (
+                      <div 
+                        key={order.id} 
+                        className="bg-[var(--dash-card)]/90 hover:bg-[var(--dash-card)] border border-[var(--dash-border)]/60 rounded-xl px-5 py-3.5 flex items-center justify-between gap-4 transition-all shadow-sm"
+                      >
+                        {/* Left: Checkbox + Customer + Time + Price */}
+                        <div className="flex items-center gap-3.5 min-w-[260px]">
+                          <div onClick={(e) => toggleOrderSelection(order.id, e)} className="cursor-pointer shrink-0">
+                            {selectedOrders.includes(order.id) ? (
+                              <div className="w-5 h-5 rounded-full bg-cyan-400 flex items-center justify-center">
+                                <Check size={12} className="text-[var(--dash-bg)] font-bold" />
                               </div>
-                              <div className="w-full h-[3px] bg-[var(--dash-border)] rounded-full overflow-hidden">
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border border-gray-500 hover:border-gray-300 flex items-center justify-center transition-colors" />
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <div className="font-bold text-white text-sm flex items-center gap-2">
+                              <span className="truncate">{perms.order.customerName ? order.userInfo.name : '***'}</span>
+                              <span className="text-gray-500 font-mono text-[10px] font-normal">#{order.id}</span>
+                            </div>
+                            <div className="text-[11px] text-gray-400 mt-0.5">{order.date}</div>
+                            <div className="font-extrabold text-white text-base mt-0.5 tracking-tight">
+                              {perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Middle: Delivery Success Ratio & Progress Bar */}
+                        <div className="flex flex-col items-center justify-center flex-1 max-w-[260px] px-2">
+                          {totalResolved > 0 ? (
+                            <div className="flex flex-col items-center gap-1 w-full">
+                              <div className="text-[11px] font-mono font-medium text-gray-300 tracking-tight flex items-center justify-center">
+                                <span>{completed} / {totalResolved}</span>
+                                <span className="mx-1 text-gray-500">-</span>
+                                <span className="font-bold text-white">{percentageFormatted}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden border border-white/5">
                                 <div 
-                                  className={cn("h-full rounded-full transition-all duration-500", percentage > 50 ? "bg-[#fafafa]" : "bg-red-500")} 
+                                  className={cn("h-full rounded-full transition-all duration-500", percentage >= 70 ? "bg-emerald-400" : (percentage >= 40 ? "bg-amber-400" : "bg-rose-500"))} 
                                   style={{ width: `${percentage}%` }}
                                 />
                               </div>
                             </div>
-                          );
-                        } else if (order.bdCourierStatus === 'pending') {
-                           return <RefreshCw size={14} className="animate-spin text-gray-500 mb-1" />;
-                        }
-                        
-                        return null;
-                      })()}
-                    </div>
-                    
-                    <div className="flex justify-end z-10 pl-2">
-                      <button 
-                        onClick={() => setSelectedOrder(order)}
-                        className="text-[13px] text-gray-300 flex items-center gap-1 hover:text-white"
-                      >
-                        Details <ChevronRight size={16} />
-                      </button>
-                    </div>
-                  </div>
+                          ) : order.bdCourierStatus === 'pending' ? (
+                            <RefreshCw size={14} className="animate-spin text-gray-500" />
+                          ) : (
+                            <div className="text-[11px] text-gray-600 font-mono">No delivery history</div>
+                          )}
+                        </div>
+
+                        {/* Right: Status Pill + Courier Info + Payment Toggle + Details Action */}
+                        <div className="flex items-center gap-3 justify-end shrink-0 min-w-[280px]">
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1.5">
+                              {order.status === 'Pending' && <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold flex items-center gap-1"><Clock size={12}/> pending</span>}
+                              {order.status === 'Canceled' && <span className="px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold flex items-center gap-1"><X size={12}/> canceled</span>}
+                              {order.status === 'Unreachable' && <span className="px-2.5 py-1 rounded-md bg-gray-500/10 border border-gray-500/20 text-gray-400 text-xs font-semibold flex items-center gap-1"><EyeOff size={12}/> unreachable</span>}
+                              {order.status === 'Returned' && <span className="px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> returned</span>}
+                              {order.status === 'Complete Return' && <span className="px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> complete return</span>}
+                              {order.status === 'Shipping' && <span className="px-2.5 py-1 rounded-md bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> shipping</span>}
+                              {order.status === 'Completed' && <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center gap-1"><Check size={12}/> completed</span>}
+                              {order.status === 'Preparing' && <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> preparing</span>}
+                              
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
+                                  const updated = { ...order, paymentStatus: newStatus } as Order;
+                                  setOrders(orders.map(o => o.id === order.id ? updated : o));
+                                  setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
+                                  cloudStore.upsertOrder(updated, 'standard').catch(console.error);
+                                }}
+                                className={cn(
+                                  "w-[18px] h-[18px] rounded-full flex items-center justify-center transition-all duration-300 ml-1 shadow-sm cursor-pointer",
+                                  order.paymentStatus === 'Paid' ? "bg-green-500" : "bg-red-500"
+                                )}
+                                title={order.paymentStatus === 'Paid' ? "Paid" : "Unpaid"}
+                              >
+                                {order.paymentStatus === 'Paid' ? <Check size={10} className="text-white" strokeWidth={3} /> : <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </button>
+                            </div>
+
+                            {order.userInfo.city && (
+                              <div className="text-[10px] text-amber-300/80 font-medium">
+                                To {order.userInfo.city}
+                              </div>
+                            )}
+                          </div>
+
+                          <button 
+                            onClick={() => setSelectedOrder(order)}
+                            className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
+                          >
+                            Details <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))
+
+                {/* Mobile View: Exact Original Card List */}
+                <div className="md:hidden flex flex-col gap-1">
+                  {displayOrders.map(order => (
+                    <div key={order.id} className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div onClick={(e) => toggleOrderSelection(order.id, e)} className="cursor-pointer">
+                            {selectedOrders.includes(order.id) ? (
+                              <div className="w-5 h-5 rounded-full bg-[#fafafa] flex items-center justify-center">
+                                <Check size={12} className="text-[var(--dash-bg)]" />
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border border-gray-500 flex items-center justify-center" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-bold text-white flex items-center gap-2">
+                              {perms.order.customerName ? order.userInfo.name : '***'}
+                              <span className="text-gray-500 font-normal text-[10px] flex items-center gap-0.5">#{order.id} <CopyButton text={order.id} className="p-0.5 text-gray-500 hover:text-white" /></span>
+                            </div>
+                            <div className="text-xs text-gray-500">{order.date}</div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-2 text-xs mb-1">
+                            {order.status === 'Pending' && <span className="text-blue-400 flex items-center gap-1"><span className="text-[10px]">🎉</span> pending</span>}
+                            {order.status === 'Canceled' && <span className="text-red-500 flex items-center gap-1"><X size={12}/> canceled</span>}
+                            {order.status === 'Unreachable' && <span className="text-gray-400 flex items-center gap-1"><EyeOff size={12}/> unreachable</span>}
+                            {order.status === 'Returned' && <span className="text-red-400 flex items-center gap-1"><Package size={12}/> returned</span>}
+                            {order.status === 'Complete Return' && <span className="text-red-500 flex items-center gap-1"><Package size={12}/> <Check size={10}/> complete return</span>}
+                            {order.status === 'Shipping' && <span className="text-pink-400 flex items-center gap-1"><Package size={12}/> shipping</span>}
+                            {order.status === 'Completed' && <span className="text-green-400 flex items-center gap-1"><Check size={12}/> completed</span>}
+                            {order.status === 'Preparing' && <span className="text-orange-400 flex items-center gap-1"><Package size={12}/> preparing</span>}
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
+                                const updated = { ...order, paymentStatus: newStatus } as Order;
+                                setOrders(orders.map(o => o.id === order.id ? updated : o));
+                                setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
+                                cloudStore.upsertOrder(updated, 'standard').catch(console.error);
+                              }}
+                              className={cn(
+                                "w-[18px] h-[18px] rounded-full flex items-center justify-center transition-all duration-300 ml-1 shadow-sm",
+                                order.paymentStatus === 'Paid' ? "bg-green-500" : "bg-red-500"
+                              )}
+                            >
+                              {order.paymentStatus === 'Paid' ? (
+                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
+                                  <Check size={12} className="text-white" strokeWidth={3} />
+                                </motion.div>
+                              ) : (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              )}
+                            </button>
+                          </div>
+                          {order.trackingNumber && (
+                            <div className="text-[10px] text-blue-400 underline">
+                              {order.trackingNumber}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-end mt-2 relative min-h-[32px]">
+                        <div className="flex flex-col z-10">
+                          <div className="font-bold text-white text-lg leading-none">{perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}</div>
+                          {order.steadfast && (order.steadfast.consignmentId || order.steadfast.trackingCode) && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Truck size={12} className="text-[#fafafa]" />
+                              <span className="text-[11px] font-bold text-[#fafafa] tracking-wide font-mono uppercase">
+                                #{order.steadfast.consignmentId ? String(order.steadfast.consignmentId).replace(/(.{3})/g, '$1-').replace(/-$/, '') : order.steadfast.trackingCode}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex flex-col items-center justify-end z-0 w-[140px]">
+                          {(() => {
+                            if (order.bdCourierStatus === 'failed') {
+                              return (
+                                <button onClick={() => checkBdCourierFraud(order.id)} title="Retry Fraud Check" className="p-1 text-gray-500 hover:text-white transition-colors border border-[var(--dash-border)] bg-[var(--dash-bg)] rounded-full mb-1">
+                                  <RefreshCw size={14} className={isSyncingBdCourier ? "animate-spin" : ""} />
+                                </button>
+                              );
+                            }
+                            
+                            const reports = order.bdCourierData?.reports || [];
+                            const hasWarning = reports.length > 0;
+
+                            let completed = 0;
+                            let totalResolved = 0;
+                            let percentage = 0;
+
+                            if (order.bdCourierData?.summary) {
+                              completed = order.bdCourierData.summary.success_parcel || 0;
+                              totalResolved = order.bdCourierData.summary.total_parcel || 0;
+                              percentage = order.bdCourierData.summary.success_ratio || 0;
+                            } else {
+                              // Fallback to local history
+                              const customerOrders = orders.filter(o => o.userInfo.phone === order.userInfo.phone);
+                              completed = customerOrders.filter(o => o.status === 'Completed').length;
+                              const failed = customerOrders.filter(o => o.status === 'Canceled' || o.status === 'Returned' || o.status === 'Complete Return' || o.status === 'Unreachable').length;
+                              totalResolved = completed + failed;
+                              if (totalResolved > 0) percentage = (completed / totalResolved) * 100;
+                            }
+
+                            const percentageFormatted = percentage % 1 === 0 ? percentage : Number(percentage.toFixed(2));
+
+                            if (totalResolved > 0) {
+                              return (
+                                <div className="flex flex-col items-center gap-1 w-[80px] pb-0.5">
+                                  <div className="flex items-center justify-center relative w-full">
+                                    {hasWarning && (
+                                      <button onClick={(e) => {
+                                          e.stopPropagation();
+                                          alert(reports.map(r => `${r.courierName}: ${r.details}`).join('\n'));
+                                        }} 
+                                        className="text-red-500 hover:text-red-400 absolute left-[-16px]" title="Fraud Warning"
+                                      >
+                                        <ShieldAlert size={12} />
+                                      </button>
+                                    )}
+                                    <div className="text-[9px] font-mono font-medium text-gray-300 tracking-tight flex items-center justify-center whitespace-nowrap">
+                                      {completed} / {totalResolved} <span className="mx-1 text-gray-500">•</span> <span className="font-bold text-white">{percentageFormatted}%</span>
+                                    </div>
+                                    {order.bdCourierStatus === 'pending' && (
+                                       <RefreshCw size={10} className="animate-spin text-gray-500 absolute right-[-14px]" />
+                                    )}
+                                  </div>
+                                  <div className="w-full h-[3px] bg-[var(--dash-border)] rounded-full overflow-hidden">
+                                    <div 
+                                      className={cn("h-full rounded-full transition-all duration-500", percentage > 50 ? "bg-[#fafafa]" : "bg-red-500")} 
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            } else if (order.bdCourierStatus === 'pending') {
+                               return <RefreshCw size={14} className="animate-spin text-gray-500 mb-1" />;
+                            }
+                            
+                            return null;
+                          })()}
+                        </div>
+                        
+                        <div className="flex justify-end z-10 pl-2">
+                          <button 
+                            onClick={() => setSelectedOrder(order)}
+                            className="text-[13px] text-gray-300 flex items-center gap-1 hover:text-white"
+                          >
+                            Details <ChevronRight size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {activeTab === 'Orders' && paginatedOrdersHasMore && displayOrders.length > 0 && (
@@ -2688,27 +2817,18 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           }
         }
       `}</style>
-      <div className="mobile-dashboard-nav fixed bg-[var(--dash-bg)]/70 border-2 border-[var(--glass-border)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] shadow-black/50 rounded-[32px] flex justify-around items-center px-2 z-40 md:top-0 md:bottom-0 md:left-0 md:right-auto md:w-[260px] md:h-screen md:flex-col md:justify-start md:border-y-0 md:border-l-0 md:border-[var(--dash-border)] md:border-r md:px-4 md:py-6 md:gap-2 md:rounded-none md:bg-[var(--dash-bg)] md:backdrop-blur-none md:transform-none md:saturate-100 md:shadow-none overflow-y-auto">
-        <div className="hidden md:flex items-center justify-between w-full mb-6 px-3 pt-1">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner">
-               <LayoutDashboard size={20} />
-            </div>
-            <div>
-              <span className="text-white font-extrabold text-lg tracking-tight block leading-tight">Admin<span className="text-indigo-400">Panel</span></span>
-              <span className="text-[10px] text-slate-400 font-medium font-mono uppercase tracking-wider">Store Control</span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-            title="View Live Store"
+      <div className="mobile-dashboard-nav fixed bg-[var(--dash-bg)]/70 border-2 border-[var(--glass-border)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] shadow-black/50 rounded-[32px] flex justify-around items-center px-2 z-40 md:top-0 md:bottom-0 md:left-0 md:right-auto md:w-[84px] md:h-screen md:flex-col md:justify-start md:border-y-0 md:border-l-0 md:border-[var(--dash-border)] md:border-r md:px-2 md:py-6 md:gap-3 md:rounded-none md:bg-[var(--dash-bg)] md:backdrop-blur-none md:transform-none md:saturate-100 md:shadow-none overflow-y-auto">
+        <div className="hidden md:flex items-center justify-center w-full mb-3">
+          <div 
+            onClick={() => handleTabChange('Dashboard')}
+            className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner cursor-pointer hover:bg-indigo-500/20 transition-colors"
+            title="Dashboard"
           >
-            <Globe size={16} />
-          </button>
+             <LayoutDashboard size={20} />
+          </div>
         </div>
 
-        <div className="w-full flex flex-row md:flex-col gap-1 md:gap-1.5">
+        <div className="w-full flex flex-row md:flex-col gap-1 md:gap-2">
           {perms.sections.dashboard && <NavButton icon={LayoutDashboard} label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => handleTabChange('Dashboard')} />}
           {perms.sections.products && <NavButton icon={Package} label="Products" active={activeTab === 'Products'} onClick={() => handleTabChange('Products')} />}
           {perms.sections.orders && <NavButton icon={ShoppingCart} label="Orders" active={activeTab === 'Orders'} onClick={() => handleTabChange('Orders')} />}
@@ -2718,34 +2838,435 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         <div className="hidden md:block flex-1" />
         
         {/* Desktop Sidebar Footer */}
-        <div className="hidden md:flex flex-col gap-2 w-full pt-4 border-t border-[var(--dash-border)]/60">
+        <div className="hidden md:flex flex-col items-center gap-2.5 w-full pt-4 border-t border-[var(--dash-border)]/60">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="View Live Store"
+          >
+            <Globe size={18} />
+          </button>
           {currentAdmin && (
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-xs shrink-0">
-                  {currentAdmin.email ? currentAdmin.email[0].toUpperCase() : 'A'}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">{currentAdmin.email || 'Admin'}</div>
-                  <div className="text-[10px] text-indigo-400 font-medium tracking-wide uppercase">
-                    {currentAdmin.isSuperAdmin ? 'Super Admin' : (currentAdmin.role || 'Staff')}
-                  </div>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  cloudStore.logoutAdmin().catch(console.error);
-                  setCurrentAdmin(null);
-                }} 
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                title="Logout"
-              >
-                <LogOut size={16} />
-              </button>
-            </div>
+            <button 
+              onClick={() => {
+                cloudStore.logoutAdmin().catch(console.error);
+                setCurrentAdmin(null);
+              }} 
+              className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-xs hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer"
+              title={`Logout (${currentAdmin.email || 'Admin'})`}
+            >
+              {currentAdmin.email ? currentAdmin.email[0].toUpperCase() : 'A'}
+            </button>
           )}
         </div>
       </div>
+
+      {/* Desktop Settings Sub-Sidebar */}
+      {activeTab === 'Settings' && perms.sections.settings && (
+        <div className="hidden md:flex fixed top-0 bottom-0 left-[84px] w-[250px] bg-[var(--dash-bg)] border-r border-[var(--dash-border)]/70 flex-col z-30 overflow-y-auto px-3 py-5 select-none">
+          {/* Store Header */}
+          <div className="flex flex-col gap-1 pb-4 mb-3 border-b border-[var(--dash-border)]/60 px-2">
+            <a 
+              href="/" 
+              target="_blank" 
+              rel="noreferrer" 
+              className="text-white font-extrabold text-base tracking-tight hover:text-indigo-400 transition-colors flex items-center gap-1.5 group"
+            >
+              <span>{websiteSettings.storeName || 'PaikariX'}</span>
+              <ExternalLink size={13} className="text-slate-400 group-hover:text-indigo-400 transition-colors" />
+            </a>
+            <span className="text-[11px] text-slate-400 truncate">{currentAdmin?.email || 'admin@example.com'}</span>
+          </div>
+
+          {/* Settings Serial List */}
+          <div className="flex flex-col gap-0.5">
+            {/* 1. Maintenance */}
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-300">
+              <div className="flex items-center gap-2.5">
+                <RefreshCw size={16} className="text-indigo-400 shrink-0" />
+                <span className="text-xs font-medium text-white">Maintenance</span>
+              </div>
+              <button 
+                onClick={() => {
+                  const newVal = !isMaintenanceMode;
+                  setIsMaintenanceMode(newVal);
+                  cloudStore.saveSetting('isMaintenanceMode', newVal).catch(console.error);
+                }}
+                className={cn(
+                  "w-8 h-4.5 rounded-full relative flex items-center px-0.5 transition-colors duration-200 outline-none cursor-pointer shrink-0",
+                  isMaintenanceMode ? "bg-[#8b5cf6]" : "bg-slate-800 border border-white/10"
+                )}
+              >
+                <div className={cn(
+                  "w-3.5 h-3.5 rounded-full bg-white shadow-md transition-all duration-300",
+                  isMaintenanceMode ? "translate-x-3.5" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+
+            {/* 2. Pre Order */}
+            <div 
+              onClick={() => setSettingsView('preOrder')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'preOrder' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Box size={16} className="text-cyan-400 shrink-0" />
+                <span className="text-xs font-medium">Pre-Order</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 3. Categories */}
+            <div 
+              onClick={() => setSettingsView('categories')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'categories' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Tag size={16} className="text-purple-400 shrink-0" />
+                <span className="text-xs font-medium">Categories</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 4. Suppliers */}
+            <div 
+              onClick={() => setSettingsView('suppliers')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'suppliers' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Building size={16} className="text-amber-400 shrink-0" />
+                <span className="text-xs font-medium">Suppliers</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 5. Discounts */}
+            <div 
+              onClick={() => setSettingsView('discounts')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'discounts' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Percent size={16} className="text-emerald-400 shrink-0" />
+                <span className="text-xs font-medium">Discounts & Coupons</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 6. Website Layout */}
+            <div 
+              onClick={() => setSettingsView('website')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'website' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Globe size={16} className="text-indigo-400 shrink-0" />
+                <span className="text-xs font-medium">Website Layout</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 7. Courier */}
+            <div 
+              onClick={() => setSettingsView('courier')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'courier' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Truck size={16} className="text-teal-400 shrink-0" />
+                <span className="text-xs font-medium">Courier & Delivery</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 8. Price Calculator */}
+            <div 
+              onClick={() => setSettingsView('priceCalculator')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'priceCalculator' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <JapaneseYen size={16} className="text-yellow-400 shrink-0" />
+                <span className="text-xs font-medium">Price Calculator</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 9. Marketing */}
+            <div 
+              onClick={() => setSettingsView('marketing')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'marketing' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Target size={16} className="text-blue-400 shrink-0" />
+                <span className="text-xs font-medium">Marketing & Pixels</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 10. Quantity Rules */}
+            <div 
+              onClick={() => setSettingsView('qtyRules')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'qtyRules' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Layers size={16} className="text-cyan-400 shrink-0" />
+                <span className="text-xs font-medium">Quantity Rules</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 11. Bulk Edit Price */}
+            <div 
+              onClick={() => setSettingsView('bulkPrice')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'bulkPrice' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Calculator size={16} className="text-indigo-400 shrink-0" />
+                <span className="text-xs font-medium">Bulk Edit Price</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 12. Anti-Spam */}
+            <div 
+              onClick={() => setSettingsView('antiSpam')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'antiSpam' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert size={16} className="text-rose-400 shrink-0" />
+                <span className="text-xs font-medium">Anti-Spam & Fraud</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 13. Order Notifications */}
+            <div 
+              onClick={() => setSettingsView('notification')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'notification' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Send size={16} className="text-sky-400 shrink-0" />
+                <span className="text-xs font-medium">Order Notifications</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 14. Incomplete Orders */}
+            <div 
+              onClick={() => setSettingsView('incompleteOrders')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'incompleteOrders' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <AlertCircle size={16} className="text-amber-400 shrink-0" />
+                <span className="text-xs font-medium">Incomplete Orders</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 15. Minimum Order */}
+            <div 
+              onClick={() => setSettingsView('minOrder')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'minOrder' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShoppingCart size={16} className="text-pink-400 shrink-0" />
+                <span className="text-xs font-medium">Minimum Order</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 16. Customers CRM */}
+            {perms.sections.customers && (
+              <div 
+                onClick={() => setSettingsView('customers')}
+                className={cn(
+                  "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                  settingsView === 'customers' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <User size={16} className="text-blue-400 shrink-0" />
+                  <span className="text-xs font-medium">Customers CRM</span>
+                </div>
+                <ChevronRight size={13} className="text-slate-500 shrink-0" />
+              </div>
+            )}
+
+            {/* 17. SEO & Branding */}
+            <div 
+              onClick={() => setSettingsView('seoSettings')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'seoSettings' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Globe size={16} className="text-indigo-400 shrink-0" />
+                <span className="text-xs font-medium">SEO & Branding</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 18. Image Settings */}
+            <div 
+              onClick={() => setSettingsView('imageSettings')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'imageSettings' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Image size={16} className="text-teal-400 shrink-0" />
+                <span className="text-xs font-medium">Image Settings</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 19. Store API Sync */}
+            <div 
+              onClick={() => setSettingsView('apiSync')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'apiSync' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Database size={16} className="text-emerald-400 shrink-0" />
+                <span className="text-xs font-medium">Store API Sync</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 20. Customise Theme */}
+            <div 
+              onClick={() => setSettingsView('customise')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'customise' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Palette size={16} className="text-pink-400 shrink-0" />
+                <span className="text-xs font-medium">Customise Theme</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 21. Account Settings */}
+            <div 
+              onClick={() => setSettingsView('account')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'account' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings size={16} className="text-teal-400 shrink-0" />
+                <span className="text-xs font-medium">Account Settings</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 22. Team Permissions */}
+            <div 
+              onClick={() => setSettingsView('accountControl')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'accountControl' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <Shield size={16} className="text-indigo-400 shrink-0" />
+                <span className="text-xs font-medium">Team Permissions</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 23. Download FB Zip */}
+            <div 
+              onClick={() => setSettingsView('fbZipExport')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'fbZipExport' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <FolderArchive size={16} className="text-blue-400 shrink-0" />
+                <span className="text-xs font-medium">Download Fb Zip</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 24. Social Media */}
+            <div 
+              onClick={() => setSettingsView('socialMedia')}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all",
+                settingsView === 'socialMedia' ? "bg-indigo-600/15 border border-indigo-500/30 text-white font-bold" : "text-slate-300 hover:bg-white/[0.02] hover:text-white border border-transparent"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <MessageCircle size={16} className="text-sky-400 shrink-0" />
+                <span className="text-xs font-medium">Social Media Links</span>
+              </div>
+              <ChevronRight size={13} className="text-slate-500 shrink-0" />
+            </div>
+
+            {/* 25. Logout */}
+            <div 
+              onClick={() => {
+                cloudStore.logoutAdmin().catch(console.error);
+                setCurrentAdmin(null);
+              }}
+              className="flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer text-rose-400 hover:bg-rose-500/10 transition-all mt-2 border-t border-[var(--dash-border)]/50 pt-3"
+            >
+              <div className="flex items-center gap-2.5">
+                <LogOut size={16} className="text-rose-400 shrink-0" />
+                <span className="text-xs font-medium">Logout</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FABs */}
       {topBarMode === 'default' && activeTab === 'Products' && (
@@ -3079,14 +3600,20 @@ function StatCard({ title, value }: { title: string, value: string }) {
 function NavButton({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {
   return (
     <button onClick={onClick} className={cn(
-      "relative flex flex-col md:flex-row items-center justify-center h-full md:h-auto flex-1 md:flex-none md:justify-start gap-1 md:gap-3 md:w-full md:px-3.5 md:py-2.5 transition-all md:rounded-xl group cursor-pointer", 
-      active ? "text-white md:bg-indigo-600/15 md:border md:border-indigo-500/30 shadow-sm" : "text-gray-500 md:text-slate-400 hover:text-gray-300 md:hover:bg-[var(--dash-card)] md:hover:text-white md:border md:border-transparent"
+      "relative flex flex-col items-center justify-center h-full md:h-auto flex-1 md:flex-none gap-1 md:gap-1.5 md:w-full md:py-3 transition-all md:rounded-2xl group cursor-pointer", 
+      active 
+        ? "text-white md:bg-indigo-600/15 md:border md:border-indigo-500/30 shadow-sm" 
+        : "text-gray-500 md:text-slate-400 hover:text-gray-300 md:hover:bg-white/[0.03] md:hover:text-white md:border md:border-transparent"
     )}>
-      <div className={cn("md:p-2 md:rounded-lg transition-colors flex items-center justify-center", active ? "text-indigo-400 md:bg-indigo-600 md:text-white shadow-md shadow-indigo-500/25" : "md:bg-[var(--dash-border)]/50 md:text-slate-400 group-hover:md:bg-[var(--dash-border)] group-hover:md:text-white")}>
-         <Icon size={20} className="md:w-[20px] md:h-[20px]" strokeWidth={active ? 2.5 : 2} />
+      <div className={cn(
+        "transition-all flex items-center justify-center", 
+        active 
+          ? "text-white md:bg-indigo-600 md:w-10 md:h-7 md:rounded-full shadow-md shadow-indigo-500/25" 
+          : "text-gray-400 md:w-10 md:h-7 md:rounded-full group-hover:text-white"
+      )}>
+         <Icon size={20} className="md:w-[18px] md:h-[18px]" strokeWidth={active ? 2.5 : 2} />
       </div>
-      <span className={cn("text-[11px] md:text-sm font-medium", active ? "font-bold text-white" : "")}>{label}</span>
-      {active && <div className="hidden md:block absolute right-2.5 w-1.5 h-5 bg-indigo-500 rounded-full shadow-sm shadow-indigo-500/50" />}
+      <span className={cn("text-[10px] md:text-[11px] font-medium tracking-tight", active ? "font-bold text-white" : "text-gray-400")}>{label}</span>
     </button>
   );
 }
@@ -3119,7 +3646,7 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -3454,7 +3981,7 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -3907,7 +4434,7 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -4327,7 +4854,7 @@ function CourierManager({ settings, setSettings, onClose, themePrimary }: { sett
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -4546,7 +5073,7 @@ function PriceCalculatorManager({ settings, setSettings, onClose, themePrimary }
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -4878,7 +5405,7 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -5260,7 +5787,7 @@ function QtyRulesManager({ settings, setSettings, onClose, themePrimary }: { set
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Header */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -5413,7 +5940,7 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Header Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
@@ -5663,7 +6190,7 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const themeColor = '#6366F1';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[260px]">
+    <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
       {/* Top Bar */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-4 py-3.5 md:px-8 md:py-4">
