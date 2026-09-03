@@ -676,6 +676,224 @@ export function CartModal({ onClose, cart, orders, tab, setTab, updateQuantity, 
   );
 }
 
+export function DesktopRightSidebar({
+  cart,
+  orders,
+  tab,
+  setTab,
+  updateQuantity,
+  removeFromCart,
+  onCheckout,
+  onViewOrder,
+  onOrderAgain,
+  onAddMoreToOrder,
+  websiteSettings,
+  products
+}: any) {
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const { total, itemDiscounts } = React.useMemo(
+    () => getCartTotal(cart, websiteSettings?.qtyRules),
+    [cart, websiteSettings?.qtyRules]
+  );
+  const totalQuantity = cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0);
+
+  // Smart Discount Message Logic
+  const applicableDiscounts = websiteSettings?.discounts?.filter((d: any) => d.status && d.type !== 'coupon') || [];
+  let nextDiscountMsg = '';
+
+  if (applicableDiscounts.length > 0) {
+    const upcomingDiscounts = applicableDiscounts
+      .filter((d: any) => d.conditions.minOrderAmount && d.conditions.minOrderAmount > total)
+      .sort((a: any, b: any) => (a.conditions.minOrderAmount || 0) - (b.conditions.minOrderAmount || 0));
+
+    if (upcomingDiscounts.length > 0) {
+      const nextD = upcomingDiscounts[0];
+      const amountNeeded = (nextD.conditions.minOrderAmount || 0) - total;
+      let reward = '';
+      if (nextD.type === 'percentage') reward = `${nextD.action.percentage}% OFF`;
+      else if (nextD.type === 'fixed') reward = `${formatPrice(nextD.action.fixedAmount || 0)} OFF`;
+      else if (nextD.type === 'free_delivery') reward = `Free Delivery`;
+
+      if (reward) {
+        nextDiscountMsg = `Add ${formatPrice(amountNeeded)} more to get ${reward}`;
+      }
+    }
+  }
+
+  return (
+    <aside className="hidden lg:flex flex-col w-76 xl:w-86 2xl:w-90 border-l border-gray-100 bg-[var(--theme-white)] h-screen sticky top-0 shrink-0 z-30 select-none">
+      {/* Top Segmented Header */}
+      <div className="h-16 lg:h-18 px-4 flex items-center justify-center border-b border-gray-100 shrink-0">
+        <div className="flex w-full max-w-[240px] bg-gray-100 rounded-full p-1">
+          <button
+            onClick={() => setTab('history')}
+            className={cn(
+              "flex-1 py-1.5 rounded-full text-xs font-bold transition-all text-center",
+              tab === 'history'
+                ? "bg-[var(--theme-black)] text-[var(--theme-white)] shadow-sm"
+                : "text-gray-500 hover:text-gray-900"
+            )}
+          >
+            History
+          </button>
+          <button
+            onClick={() => setTab('cart')}
+            className={cn(
+              "flex-1 py-1.5 rounded-full text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
+              tab === 'cart'
+                ? "bg-[var(--theme-black)] text-[var(--theme-white)] shadow-sm"
+                : "text-gray-500 hover:text-gray-900"
+            )}
+          >
+            <span>Cart</span>
+            {totalQuantity > 0 && (
+              <span className={cn(
+                "px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none",
+                tab === 'cart'
+                  ? "bg-[var(--theme-primary)] text-[var(--theme-white)]"
+                  : "bg-gray-200 text-gray-700"
+              )}>
+                {totalQuantity}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {tab === 'cart' && nextDiscountMsg && (
+        <div className="bg-[var(--theme-primary)]/10 px-4 py-2 text-center text-xs font-medium text-[var(--theme-primary)] border-b border-[var(--theme-primary)]/20 shrink-0">
+          ✨ {nextDiscountMsg}
+        </div>
+      )}
+
+      {/* Main Body */}
+      <div className="flex-grow overflow-y-auto p-3 space-y-2.5">
+        {tab === 'cart' ? (
+          cart.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 py-16">
+              <ShoppingBag size={48} className="mb-3 opacity-20" />
+              <p className="text-sm font-medium">Your cart is empty</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {cart.map((item: CartItem) => (
+                <MemoizedCartRow
+                  key={item.id}
+                  item={item}
+                  itemDiscount={itemDiscounts[item.id]}
+                  onPreview={setPreviewImage}
+                  onRemove={removeFromCart}
+                  onUpdateQty={updateQuantity}
+                  themeStyle="cart"
+                />
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="space-y-2.5">
+            {orders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 py-16">
+                <p className="text-sm font-medium">No order history</p>
+              </div>
+            ) : (
+              [...orders]
+                .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
+                .map((order: Order) => {
+                  let bgColor = 'bg-[#e0f2fe]';
+                  let iconColor = 'text-blue-500';
+                  let Icon = MoreHorizontal;
+
+                  if (order.status === 'Canceled' || order.status === 'Returned' || order.status === 'Complete Return') {
+                    bgColor = 'bg-[#ffe4e6]';
+                    iconColor = 'text-red-500';
+                    Icon = X;
+                  } else if (order.status === 'Completed') {
+                    bgColor = 'bg-[#dcfce7]';
+                    iconColor = 'text-green-500';
+                    Icon = Check;
+                  }
+
+                  const splitDate = order.date.split(', ');
+                  const niceDate = splitDate.length > 2 ? `${splitDate[1]}` : order.date;
+
+                  const isCanceled = order.status === 'Canceled';
+                  const hasAvailableItem = products ? order.items.some((item: any) => {
+                    const p = products.find((prod: any) => prod.id === item.product.id);
+                    return p && isProductInStock(p) && p.isVisible !== false;
+                  }) : false;
+                  const showOrderAgain = isCanceled && hasAvailableItem;
+
+                  return (
+                    <div key={order.id} className={cn("rounded-2xl p-3.5 shadow-sm border border-[var(--theme-white)]/50", bgColor)}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-[var(--theme-white)] flex items-center justify-center shadow-sm shrink-0">
+                            <Icon size={16} className={iconColor} />
+                          </div>
+                          <span className="font-bold text-base text-[var(--theme-black)]">{formatPrice(order.total)}</span>
+                        </div>
+                        <span className="text-[11px] text-gray-500 font-medium">{niceDate}</span>
+                      </div>
+                      <div className="flex gap-1.5 mt-2">
+                        <button
+                          onClick={() => onViewOrder(order)}
+                          className="flex-1 py-2 bg-[var(--theme-white)] border border-gray-100 rounded-xl text-xs font-semibold text-[var(--theme-black)] flex items-center justify-center gap-1.5 shadow-sm hover:bg-gray-50 transition-colors"
+                        >
+                          Details <ArrowRight size={14} />
+                        </button>
+                        {['Pending', 'Preparing', 'Unreachable'].includes(order.status) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onAddMoreToOrder(order.id); }}
+                            className="flex-1 py-2 bg-[#e8f5e9] border border-[#bbf7d0] rounded-xl text-xs font-bold text-green-700 flex items-center justify-center gap-1.5 shadow-sm hover:bg-opacity-90 transition-colors"
+                          >
+                            <Plus size={14} /> Add More
+                          </button>
+                        )}
+                        {showOrderAgain && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onOrderAgain(order); }}
+                            className="flex-1 py-2 bg-[var(--theme-primary)] rounded-xl text-xs font-bold text-[var(--theme-white)] flex items-center justify-center gap-1.5 shadow-sm hover:bg-[var(--theme-primary-hover)] transition-colors"
+                          >
+                            <Plus size={14} /> Order Again
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {tab === 'cart' && cart.length > 0 && (
+        <div className="p-4 border-t border-gray-100 bg-[var(--theme-white)] shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">TOTAL:</span>
+            <span className="font-extrabold text-xl text-[var(--theme-black)]">{formatPrice(total)}</span>
+          </div>
+          <ActionBtn
+            config={websiteSettings?.actionButtons?.checkout || DEFAULT_ACTION_BUTTONS.checkout}
+            onClick={onCheckout}
+            label="Checkout"
+          />
+        </div>
+      )}
+
+      <AnimatePresence>
+        {previewImage && (
+          <ImagePreviewModal
+            src={previewImage}
+            onClose={() => setPreviewImage(null)}
+          />
+        )}
+      </AnimatePresence>
+    </aside>
+  );
+}
+
 export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSettings, updateQuantity, removeFromCart, onSaveIncompleteOrder }: any) {
   useScrollLock(true);
   const [name, setName] = useState(() => localStorage.getItem('checkout_name') || '');
@@ -990,9 +1208,9 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-center bg-[var(--theme-black)]/50 lg:p-6 lg:backdrop-blur-sm">
-      <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-[85vh] lg:max-h-[850px] flex flex-col lg:flex-row lg:gap-6 relative">
-        <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--store-bg)] lg:rounded-2xl lg:overflow-hidden h-full lg:shadow-xl">
+    <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-start bg-[var(--theme-black)]/50 lg:bg-[var(--store-bg)] lg:p-6 lg:overflow-y-auto">
+      <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-auto flex flex-col lg:flex-row lg:gap-6 relative lg:my-auto">
+        <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--theme-white)] lg:rounded-2xl lg:overflow-hidden h-full lg:h-auto lg:shadow-md lg:border lg:border-gray-100">
           <div className="flex items-center p-2 lg:p-4 bg-[var(--theme-white)] border-b border-gray-100 relative lg:shrink-0 lg:py-5 lg:px-6">
           <div className="flex items-center z-10">
             <button onClick={handleClose} className="p-2 -ml-2 text-gray-600">
@@ -1278,7 +1496,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
         </div>
       </div>
       
-      <div className="hidden lg:flex flex-col lg:w-[45%] h-full bg-[#fcfbf9] rounded-2xl overflow-hidden shadow-xl border border-gray-100 p-2">
+      <div className="hidden lg:flex flex-col lg:w-[45%] h-auto bg-[var(--theme-white)] rounded-2xl overflow-hidden shadow-md border border-gray-100 p-4">
         {orderListElem}
       </div>
     </div>

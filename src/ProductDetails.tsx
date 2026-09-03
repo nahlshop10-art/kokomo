@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   ArrowLeft, Menu, Search, ShoppingBag, ChevronLeft, ChevronRight, 
-  Trash2, Plus, Minus, X
+  Trash2, Plus, Minus, X, MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatPrice } from './lib/utils';
@@ -261,7 +261,7 @@ export default function ProductDetails({
   return (
     <div className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full pt-16 z-40">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-[var(--theme-white)] fixed top-0 left-0 right-0 w-full z-50 shadow-sm">
+      <header className="flex items-center justify-between px-2 md:px-4 py-3 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all">
         <div className="flex items-center gap-2 z-10">
           <button onClick={onBack} className="p-2 -ml-2 text-[var(--theme-black)]">
             <ArrowLeft size={24} />
@@ -269,11 +269,33 @@ export default function ProductDetails({
           <button onClick={onMenu} className="p-2 text-[var(--theme-black)]">
             <Menu size={24} />
           </button>
+          {/* Social links visible on tablet & desktop */}
+          <div className="hidden md:flex items-center gap-1.5 ml-1">
+            {websiteSettings?.socialLinks && websiteSettings.socialLinks.length > 0 ? (
+              websiteSettings.socialLinks.filter(l => l.link).map(link => (
+                <a
+                  key={link.id}
+                  href={link.link.startsWith('http') ? link.link : `https://${link.link}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                >
+                  {link.icon ? (
+                    <img src={link.icon} alt="social" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600">
+                      <MessageCircle size={16} />
+                    </div>
+                  )}
+                </a>
+              ))
+            ) : null}
+          </div>
         </div>
         
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {websiteSettings?.logoUrl ? (
-            <img src={websiteSettings.logoUrl} alt="Logo" className="h-8 object-contain pointer-events-auto" />
+            <img src={websiteSettings.logoUrl} alt="Logo" className="h-8 md:h-9 object-contain pointer-events-auto" />
           ) : (
             <div className="h-8 pointer-events-auto"></div>
           )}
@@ -302,14 +324,6 @@ export default function ProductDetails({
               <Search size={22} />
             </button>
           </div>
-          <button onClick={onViewCart} className="p-2 -mr-2 text-[var(--theme-black)] relative hidden lg:flex">
-            <ShoppingBag size={22} />
-            {cartTotalItems > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-[var(--theme-primary)] text-[var(--theme-white)] text-[10px] font-bold rounded-full flex items-center justify-center">
-                {cartTotalItems}
-              </span>
-            )}
-          </button>
           <button onClick={onViewCart} className="p-2 -mr-2 text-[var(--theme-black)] relative lg:hidden">
             <ShoppingBag size={22} />
             {cartTotalItems > 0 && (
@@ -668,13 +682,15 @@ export default function ProductDetails({
       {/* Sticky Bottom Bar */}
       <AnimatePresence>
         {cartTotalItems > 0 && !isAddingToOrder && (
-          <ActionBtn
-            config={websiteSettings?.actionButtons?.viewCart || DEFAULT_ACTION_BUTTONS.viewCart}
-            onClick={onViewCart}
-            label="View Cart"
-            badge={cartTotalItems}
-            rightText={formatPrice(cartTotalPrice)}
-          />
+          <div className="lg:hidden">
+            <ActionBtn
+              config={websiteSettings?.actionButtons?.viewCart || DEFAULT_ACTION_BUTTONS.viewCart}
+              onClick={onViewCart}
+              label="View Cart"
+              badge={cartTotalItems}
+              rightText={formatPrice(cartTotalPrice)}
+            />
+          </div>
         )}
         
         {cartTotalItems > 0 && isAddingToOrder && (

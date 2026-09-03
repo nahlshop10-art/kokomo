@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Menu, Search, ShoppingBag, LayoutGrid, Lock, Unlock,
-  Trash2, Minus, Plus, X, RefreshCw, EyeOff
+  Trash2, Minus, Plus, X, RefreshCw, EyeOff, MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ import { initMetaPixel, trackMetaEvent } from './lib/metaPixel';
 import { initTikTokPixel, trackTikTokEvent } from './lib/tiktokPixel';
 import { initGA4, trackGA4Event } from './lib/ga4Pixel';
 import { initBatcher, setBatchingInterval } from './lib/eventBatcher';
-import { BannerSlider, FilterDropdown, Sidebar, SearchModal, ColorModal, CartModal, CheckoutModal, OrderDetailsModal, ThankYouModal, ImagePreviewModal } from './AppComponents';
+import { BannerSlider, FilterDropdown, Sidebar, SearchModal, ColorModal, CartModal, DesktopRightSidebar, CheckoutModal, OrderDetailsModal, ThankYouModal, ImagePreviewModal } from './AppComponents';
 import { getCartTotal, calculateItemDiscount } from './lib/pricingUtils';
 import { isProductInStock } from './lib/stockUtils';
 import MinOrderPopup from './MinOrderPopup';
@@ -850,6 +850,48 @@ export default function App() {
     showToast(`${product.title} added to Order #${orderId}`);
   };
 
+  const handleStartCheckout = () => {
+    if (websiteSettings?.minOrderFeature?.enabled) {
+      if (cartTotalItems < websiteSettings.minOrderFeature.minQuantity) {
+        setIsMinOrderPopupOpen(true);
+        return;
+      }
+    }
+
+    setCartOpen(false); 
+    setCheckoutOpen(true); 
+    trackMetaEvent('InitiateCheckout', {
+      content_ids: cart.map(item => item.product.id),
+      contents: cart.map(item => ({ id: item.product.id, quantity: item.quantity })),
+      content_type: 'product',
+      value: cartTotalPrice,
+      currency: 'BDT',
+      num_items: cartTotalItems
+    }, marketingSettings.metaPixel);
+
+    trackTikTokEvent('InitiateCheckout', {
+      contents: cart.map(item => ({
+        content_id: item.product.id,
+        content_type: 'product',
+        price: item.product.price,
+        quantity: item.quantity
+      })),
+      value: cartTotalPrice,
+      currency: 'BDT'
+    }, marketingSettings.tiktokPixel);
+
+    trackGA4Event('begin_checkout', {
+      currency: 'BDT',
+      value: cartTotalPrice,
+      items: cart.map(item => ({
+        item_id: item.product.id,
+        item_name: item.product.title,
+        price: item.product.price,
+        quantity: item.quantity
+      }))
+    }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
+  };
+
   const placeOrder = async (userInfo: any, deliveryCharge: number, discountAmount: number = 0, discountName: string = '', discountId?: string) => {
     // 1. Strict pre-checkout stock verification
     for (const item of cart) {
@@ -1228,110 +1270,135 @@ export default function App() {
           `}
         </style>
       )}
-      {selectedProductForDetails ? (
-        <ProductDetails 
-          key={selectedProductForDetails.id}
-          product={selectedProductForDetails} 
-          products={products}
-          onBack={() => closeUrlModal()} 
-          cart={addingToOrderId ? addingToOrderItems : cart}
-          addToCart={addingToOrderId ? handleAddToOrderTemp : addToCart}
-          updateQuantity={addingToOrderId ? updateToOrderTempQuantity : updateQuantity}
-          removeFromCart={addingToOrderId ? removeFromOrderTemp : removeFromCart}
-          onViewCart={() => {
-            if (addingToOrderId) {
-              confirmAddToCartItemsToOrder();
-            } else {
-              setCartTab('cart'); 
-              setCartOpen(true);
-            }
-          }}
-          onSearch={() => setSearchOpen(true)}
-          onMenu={() => setSidebarOpen(true)}
-          websiteSettings={websiteSettings}
-          isAddingToOrder={!!addingToOrderId}
-          cancelAddingToOrder={() => { setAddingToOrderId(null); setAddingToOrderItems([]); }}
-          onAddToOrder={(p) => {
-            // Unused as we now use generalized cart flow, but left just in case
-          }}
-          onProductSelect={(p) => setSelectedProductForDetails(p)}
-        />
-      ) : (
-        <div className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full pt-16">
-          {/* Header */}
-          <header className="flex items-center justify-between px-2 py-3 bg-[var(--theme-white)] fixed top-0 left-0 right-0 w-full z-50 shadow-sm">
-            <div className="flex items-center z-10">
-              <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-[var(--theme-black)]">
-                <Menu size={24} />
-              </button>
-            </div>
-            
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {websiteSettings.logoUrl ? (
-                <img 
-                  src={websiteSettings.logoUrl} 
-                  alt="Logo" 
-                  className="h-8 object-contain cursor-pointer select-none pointer-events-auto"
-                  onClick={handleLogoClick}
-                  onPointerDown={handleLogoPointerDown}
-                  onPointerUp={handleLogoPointerUp}
-                  onPointerLeave={handleLogoPointerUp}
-                />
-              ) : (
-                <div 
-                  className="h-8 w-8 cursor-pointer select-none pointer-events-auto"
-                  onClick={handleLogoClick}
-                  onPointerDown={handleLogoPointerDown}
-                  onPointerUp={handleLogoPointerUp}
-                  onPointerLeave={handleLogoPointerUp}
-                />
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 z-10 relative">
-              <button 
-                onClick={() => setSearchOpen(true)} 
-                className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-500 px-4 h-10 rounded-full w-64 hover:bg-gray-100 transition-colors mr-4"
-              >
-                <Search size={18} />
-                <span className="text-sm">Search...</span>
-              </button>
-
-              <div className="w-10 h-10 flex justify-center items-center lg:hidden relative">
-                <AnimatePresence>
-                  {!isSearchOpen && (
-                    <>
-                      <motion.button 
-                        key="search-button"
-                        layoutId="search-bar-morph" 
-                        style={{ borderRadius: 9999 }}
-                        transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
-                        onClick={() => setSearchOpen(true)} 
-                        className="absolute w-10 h-10 bg-transparent overflow-hidden border-[1.5px] border-transparent"
-                      />
-                      <motion.button
-                        key="search-icon"
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.1 }}
-                        onClick={() => setSearchOpen(true)} 
-                        className="absolute w-10 h-10 bg-transparent flex items-center justify-center z-10 text-[var(--theme-black)]"
-                      >
-                        <Search size={22} />
-                      </motion.button>
-                    </>
+      <div className="flex w-full min-h-screen bg-[var(--store-bg)] text-[var(--theme-black)] relative">
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {selectedProductForDetails ? (
+            <ProductDetails 
+              key={selectedProductForDetails.id}
+              product={selectedProductForDetails} 
+              products={products}
+              onBack={() => closeUrlModal()} 
+              cart={addingToOrderId ? addingToOrderItems : cart}
+              addToCart={addingToOrderId ? handleAddToOrderTemp : addToCart}
+              updateQuantity={addingToOrderId ? updateToOrderTempQuantity : updateQuantity}
+              removeFromCart={addingToOrderId ? removeFromOrderTemp : removeFromCart}
+              onViewCart={() => {
+                if (addingToOrderId) {
+                  confirmAddToCartItemsToOrder();
+                } else {
+                  setCartTab('cart'); 
+                  setCartOpen(true);
+                }
+              }}
+              onSearch={() => setSearchOpen(true)}
+              onMenu={() => setSidebarOpen(true)}
+              websiteSettings={websiteSettings}
+              isAddingToOrder={!!addingToOrderId}
+              cancelAddingToOrder={() => { setAddingToOrderId(null); setAddingToOrderItems([]); }}
+              onAddToOrder={(p) => {
+                // Unused as we now use generalized cart flow, but left just in case
+              }}
+              onProductSelect={(p) => setSelectedProductForDetails(p)}
+            />
+          ) : (
+            <div className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full pt-16">
+              {/* Header */}
+              <header className="flex items-center justify-between px-2 md:px-4 py-3 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all">
+                <div className="flex items-center gap-2 z-10">
+                  <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-[var(--theme-black)]">
+                    <Menu size={24} />
+                  </button>
+                  {/* Social links visible on tablet & desktop */}
+                  <div className="hidden md:flex items-center gap-1.5 ml-1">
+                    {websiteSettings?.socialLinks && websiteSettings.socialLinks.length > 0 ? (
+                      websiteSettings.socialLinks.filter(l => l.link).map(link => (
+                        <a
+                          key={link.id}
+                          href={link.link.startsWith('http') ? link.link : `https://${link.link}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                        >
+                          {link.icon ? (
+                            <img src={link.icon} alt="social" className="w-full h-full object-contain" />
+                          ) : (
+                            <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600">
+                              <MessageCircle size={16} />
+                            </div>
+                          )}
+                        </a>
+                      ))
+                    ) : null}
+                  </div>
+                </div>
+                
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  {websiteSettings.logoUrl ? (
+                    <img 
+                      src={websiteSettings.logoUrl} 
+                      alt="Logo" 
+                      className="h-8 md:h-9 object-contain cursor-pointer select-none pointer-events-auto"
+                      onClick={handleLogoClick}
+                      onPointerDown={handleLogoPointerDown}
+                      onPointerUp={handleLogoPointerUp}
+                      onPointerLeave={handleLogoPointerUp}
+                    />
+                  ) : (
+                    <div 
+                      className="h-8 w-8 cursor-pointer select-none pointer-events-auto"
+                      onClick={handleLogoClick}
+                      onPointerDown={handleLogoPointerDown}
+                      onPointerUp={handleLogoPointerUp}
+                      onPointerLeave={handleLogoPointerUp}
+                    />
                   )}
-                </AnimatePresence>
-              </div>
-              <button onClick={() => { setCartTab('cart'); setCartOpen(true); }} className="p-2 -mr-2 text-[var(--theme-black)] relative">
-                <ShoppingBag size={22} />
-                {cartTotalItems > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-[var(--theme-primary)] text-[var(--theme-white)] text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {cartTotalItems}
-                  </span>
-                )}
-              </button>
-            </div>
-          </header>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 z-10 relative">
+                  <button 
+                    onClick={() => setSearchOpen(true)} 
+                    className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-500 px-4 h-10 rounded-full w-64 hover:bg-gray-100 transition-colors mr-2"
+                  >
+                    <Search size={18} />
+                    <span className="text-sm">Search...</span>
+                  </button>
+
+                  <div className="w-10 h-10 flex justify-center items-center lg:hidden relative">
+                    <AnimatePresence>
+                      {!isSearchOpen && (
+                        <>
+                          <motion.button 
+                            key="search-button"
+                            layoutId="search-bar-morph" 
+                            style={{ borderRadius: 9999 }}
+                            transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
+                            onClick={() => setSearchOpen(true)} 
+                            className="absolute w-10 h-10 bg-transparent overflow-hidden border-[1.5px] border-transparent"
+                          />
+                          <motion.button
+                            key="search-icon"
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.1 }}
+                            onClick={() => setSearchOpen(true)} 
+                            className="absolute w-10 h-10 bg-transparent flex items-center justify-center z-10 text-[var(--theme-black)]"
+                          >
+                            <Search size={22} />
+                          </motion.button>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <button onClick={() => { setCartTab('cart'); setCartOpen(true); }} className="p-2 -mr-2 text-[var(--theme-black)] relative lg:hidden">
+                    <ShoppingBag size={22} />
+                    {cartTotalItems > 0 && (
+                      <span className="absolute top-1 right-1 w-4 h-4 bg-[var(--theme-primary)] text-[var(--theme-white)] text-[10px] font-bold rounded-full flex items-center justify-center">
+                        {cartTotalItems}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </header>
 
           {/* Banner Slider */}
           {websiteSettings.bannerEnabled && websiteSettings.banners.length > 0 && (
@@ -1595,13 +1662,15 @@ export default function App() {
 
           {/* Floating Cart */}
           {cart.length > 0 && !addingToOrderId && (
-            <ActionBtn
-              config={websiteSettings?.actionButtons?.viewCart || DEFAULT_ACTION_BUTTONS.viewCart}
-              onClick={() => { setCartTab('cart'); setCartOpen(true); }}
-              label="View Cart"
-              badge={cartTotalItems}
-              rightText={formatPrice(cartTotalPrice)}
-            />
+            <div className="lg:hidden">
+              <ActionBtn
+                config={websiteSettings?.actionButtons?.viewCart || DEFAULT_ACTION_BUTTONS.viewCart}
+                onClick={() => { setCartTab('cart'); setCartOpen(true); }}
+                label="View Cart"
+                badge={cartTotalItems}
+                rightText={formatPrice(cartTotalPrice)}
+              />
+            </div>
           )}
 
           {addingToOrderId && addingToOrderItems.length > 0 && (
@@ -1654,6 +1723,27 @@ export default function App() {
           )}
         </div>
       )}
+        </div>
+
+        {/* Persistent Desktop Right Sidebar */}
+        <DesktopRightSidebar
+          cart={cart}
+          orders={myOrders}
+          tab={cartTab}
+          setTab={setCartTab}
+          updateQuantity={updateQuantity}
+          removeFromCart={removeFromCart}
+          onCheckout={handleStartCheckout}
+          onViewOrder={(o: Order) => { setSelectedOrder(o); }}
+          onOrderAgain={handleOrderAgain}
+          onAddMoreToOrder={(orderId: string) => {
+            setAddingToOrderItems([]);
+            setAddingToOrderId(orderId);
+          }}
+          websiteSettings={websiteSettings}
+          products={products}
+        />
+      </div>
 
       {/* Modals */}
       <React.Suspense fallback={null}>
@@ -1698,65 +1788,27 @@ export default function App() {
           />
         )}
         {isCartOpen && (
-          <CartModal 
-            onClose={() => closeUrlModal()} 
-            cart={cart} 
-            orders={myOrders}
-            tab={cartTab}
-            setTab={setCartTab}
-            updateQuantity={updateQuantity} 
-            removeFromCart={removeFromCart} 
-            websiteSettings={websiteSettings}
-            products={products}
-            onCheckout={() => { 
-              if (websiteSettings?.minOrderFeature?.enabled) {
-                if (cartTotalItems < websiteSettings.minOrderFeature.minQuantity) {
-                  setIsMinOrderPopupOpen(true);
-                  return;
-                }
-              }
-
-              setCartOpen(false); 
-              setCheckoutOpen(true); 
-              trackMetaEvent('InitiateCheckout', {
-                content_ids: cart.map(item => item.product.id),
-                contents: cart.map(item => ({ id: item.product.id, quantity: item.quantity })),
-                content_type: 'product',
-                value: cartTotalPrice,
-                currency: 'BDT',
-                num_items: cartTotalItems
-              }, marketingSettings.metaPixel);
-
-              trackTikTokEvent('InitiateCheckout', {
-                contents: cart.map(item => ({
-                  content_id: item.product.id,
-                  content_type: 'product',
-                  price: item.product.price,
-                  quantity: item.quantity
-                })),
-                value: cartTotalPrice,
-                currency: 'BDT'
-              }, marketingSettings.tiktokPixel);
-
-              trackGA4Event('begin_checkout', {
-                currency: 'BDT',
-                value: cartTotalPrice,
-                items: cart.map(item => ({
-                  item_id: item.product.id,
-                  item_name: item.product.title,
-                  price: item.product.price,
-                  quantity: item.quantity
-                }))
-              }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
-            }} 
-            onViewOrder={(o) => { setCartOpen(false); setSelectedOrder(o); }}
-            onOrderAgain={handleOrderAgain}
-            onAddMoreToOrder={(orderId) => {
-              setAddingToOrderItems([]);
-              setAddingToOrderId(orderId);
-              setCartOpen(false);
-            }}
-          />
+          <div className="lg:hidden">
+            <CartModal 
+              onClose={() => closeUrlModal()} 
+              cart={cart} 
+              orders={myOrders}
+              tab={cartTab}
+              setTab={setCartTab}
+              updateQuantity={updateQuantity} 
+              removeFromCart={removeFromCart} 
+              websiteSettings={websiteSettings}
+              products={products}
+              onCheckout={handleStartCheckout}
+              onViewOrder={(o: any) => { setCartOpen(false); setSelectedOrder(o); }}
+              onOrderAgain={handleOrderAgain}
+              onAddMoreToOrder={(orderId: any) => {
+                setAddingToOrderItems([]);
+                setAddingToOrderId(orderId);
+                setCartOpen(false);
+              }}
+            />
+          </div>
         )}
         {isCheckoutOpen && (
           <CheckoutModal 
@@ -1955,12 +2007,14 @@ export default function App() {
 
       {/* Floating Social Buttons */}
       {(!isCartOpen && !isCheckoutOpen) && (
-        <FloatingSocialButtons 
-          links={websiteSettings.socialLinks || []} 
-          mainIcon={websiteSettings.socialMediaMainIcon}
-          config={websiteSettings?.actionButtons?.viewCart || DEFAULT_ACTION_BUTTONS.viewCart}
-          isCartVisible={cart.length > 0 && !addingToOrderId}
-        />
+        <div className="lg:hidden">
+          <FloatingSocialButtons 
+            links={websiteSettings.socialLinks || []} 
+            mainIcon={websiteSettings.socialMediaMainIcon}
+            config={websiteSettings?.actionButtons?.viewCart || DEFAULT_ACTION_BUTTONS.viewCart}
+            isCartVisible={cart.length > 0 && !addingToOrderId}
+          />
+        </div>
       )}
     </div>
   );
