@@ -259,16 +259,47 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         const validViews = ['main', 'categories', 'website', 'marketing', 'courier', 'priceCalculator', 'account', 'accountControl', 'discounts', 'customers', 'suppliers', 'customise', 'qtyRules', 'incompleteOrders', 'antiSpam', 'minOrder', 'bulkPrice', 'socialMedia', 'preOrder', 'imageSettings', 'seoSettings', 'apiSync', 'notification', 'fbZipExport'];
         const matchedView = validViews.find(v => slugify(v) === slug) || slug;
         setSettingsView(matchedView as any);
+        setSelectedOrder(null);
+        setEditingProduct(null);
+        setIsAddingProduct(false);
+        setShowZipImport(false);
+        setShowFbZipExport(false);
+     } else if (path === '/admin/settings') {
+        setActiveTab('Settings');
+        setSelectedOrder(null);
+        setEditingProduct(null);
+        setIsAddingProduct(false);
+        setShowZipImport(false);
+        setShowFbZipExport(false);
+        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+          setSettingsView('categories');
+        } else {
+          setSettingsView('main');
+        }
      } else if (path.startsWith('/admin/')) {
         const slug = path.replace('/admin/', '');
         const tabs = ['Dashboard', 'Products', 'Orders', 'Settings'];
         const mTab = tabs.find(t => slugify(t) === slug);
         if (mTab) {
            setActiveTab(mTab);
-           if (mTab !== 'Settings') setSettingsView('main');
+           setSelectedOrder(null);
+           setEditingProduct(null);
+           setIsAddingProduct(false);
+           setShowZipImport(false);
+           setShowFbZipExport(false);
+           if (mTab !== 'Settings') {
+             setSettingsView('main');
+           } else if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+             setSettingsView('categories');
+           }
         }
      } else if (path === '/admin') {
         setActiveTab('Products');
+        setSelectedOrder(null);
+        setEditingProduct(null);
+        setIsAddingProduct(false);
+        setShowZipImport(false);
+        setShowFbZipExport(false);
         setSettingsView('main');
      }
      setTimeout(() => { isUpdatingFromUrl.current = false; }, 50);
@@ -286,6 +317,15 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
      if (location.pathname !== target) navigate(target);
   }, [activeTab, settingsView]);
 
+  // Ensure desktop Settings view always defaults to categories instead of showing duplicate or blank middle
+  useEffect(() => {
+    if (activeTab === 'Settings' && settingsView === 'main') {
+      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+        setSettingsView('categories');
+      }
+    }
+  }, [activeTab, settingsView]);
+
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showZipImport, setShowZipImport] = useState(false);
@@ -301,7 +341,26 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
   const handleTabChange = (tab: any) => {
     setActiveTab(tab);
+    // Crucial: Close any open modals so navigation switches immediately
+    setSelectedOrder(null);
+    setEditingProduct(null);
+    setIsAddingProduct(false);
+    setShowZipImport(false);
+    setShowFbZipExport(false);
+
     if (tab !== 'Settings') {
+      setSettingsView('main');
+    } else {
+      if (typeof window !== 'undefined' && window.innerWidth >= 768 && (settingsView === 'main' || !settingsView)) {
+        setSettingsView('categories');
+      }
+    }
+  };
+
+  const handleCloseSettingsView = () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setSettingsView('categories');
+    } else {
       setSettingsView('main');
     }
   };
@@ -2375,7 +2434,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
         {/* Settings Tab */}
         {activeTab === 'Settings' && perms.sections.settings && (
-          <div className="max-w-6xl mx-auto w-full flex flex-col gap-4 md:gap-6 px-1.5 md:px-4 py-2 pb-36">
+          <div className="md:hidden max-w-6xl mx-auto w-full flex flex-col gap-4 px-1.5 py-2 pb-36">
             {/* Header */}
             <div className="mb-1 md:mb-2">
               <h1 className="text-xl md:text-3xl font-extrabold text-white tracking-tight">Settings Hub</h1>
@@ -3392,31 +3451,31 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       )}
 
       {settingsView === 'categories' && perms.sections.settings && (
-        <CategoriesManager categories={categories} setCategories={setCategories} onClose={() => setSettingsView('main')} themePrimary={websiteSettings.themeColors?.primary} />
+        <CategoriesManager categories={categories} setCategories={setCategories} onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
       )}
       {settingsView === 'imageSettings' && perms.sections.settings && (
-        <ImageSettingsManager onClose={() => setSettingsView('main')} themePrimary={websiteSettings.themeColors?.primary} />
+        <ImageSettingsManager onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
       )}
       {settingsView === 'seoSettings' && perms.sections.settings && (
-        <SeoSettingsManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <SeoSettingsManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'website' && perms.sections.settings && (
-        <WebsiteManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <WebsiteManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'socialMedia' && perms.sections.settings && (
-        <SocialMediaManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <SocialMediaManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'apiSync' && perms.sections.settings && (
-        <ApiSyncManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <ApiSyncManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'marketing' && perms.sections.settings && (
-        <MarketingManager settings={marketingSettings} setSettings={setMarketingSettings} onClose={() => setSettingsView('main')} themePrimary={websiteSettings.themeColors?.primary} />
+        <MarketingManager settings={marketingSettings} setSettings={setMarketingSettings} onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
       )}
       {settingsView === 'courier' && perms.sections.settings && (
-        <CourierManager settings={courierSettings} setSettings={setCourierSettings} onClose={() => setSettingsView('main')} themePrimary={websiteSettings.themeColors?.primary} />
+        <CourierManager settings={courierSettings} setSettings={setCourierSettings} onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
       )}
       {settingsView === 'customers' && perms.sections.settings && perms.sections.customers && (
-        <CustomersManager orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers} websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} isOwner={isOwner} />
+        <CustomersManager orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers} websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} isOwner={isOwner} />
       )}
       {settingsView === 'incompleteOrders' && perms.sections.settings && (
         <IncompleteOrdersManager 
@@ -3426,14 +3485,14 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           websiteSettings={websiteSettings} 
           setWebsiteSettings={setWebsiteSettings}
           setOrders={setOrders}
-          onClose={() => setSettingsView('main')} 
+          onClose={handleCloseSettingsView} 
         />
       )}
       {settingsView === 'antiSpam' && perms.sections.settings && (
-        <AntiSpamManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <AntiSpamManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'minOrder' && perms.sections.settings && (
-        <MinOrderManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <MinOrderManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'bulkPrice' && perms.sections.settings && (
         <BulkPriceManager 
@@ -3441,23 +3500,23 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           setProducts={setProducts}
           categories={categories}
           suppliers={websiteSettings.suppliers || []}
-          onClose={() => setSettingsView('main')}
+          onClose={handleCloseSettingsView}
         />
       )}
       {settingsView === 'priceCalculator' && perms.sections.settings && (
-        <PriceCalculatorManager settings={priceCalculatorSettings} setSettings={setPriceCalculatorSettings} onClose={() => setSettingsView('main')} themePrimary={websiteSettings.themeColors?.primary} />
+        <PriceCalculatorManager settings={priceCalculatorSettings} setSettings={setPriceCalculatorSettings} onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
       )}
       {settingsView === 'suppliers' && perms.sections.settings && (
-        <SupplierManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <SupplierManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'qtyRules' && perms.sections.settings && (
-        <QtyRulesManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <QtyRulesManager settings={websiteSettings} setSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'customise' && perms.sections.settings && (
         <CustomiseManager 
           settings={websiteSettings} 
           setSettings={setWebsiteSettings} 
-          onClose={() => setSettingsView('main')} 
+          onClose={handleCloseSettingsView} 
           products={products}
           categories={categories}
           onDownloadFbZip={() => setSettingsView('fbZipExport')}
@@ -3469,23 +3528,23 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           categories={categories}
           websiteSettings={websiteSettings}
           themePrimary={websiteSettings.themeColors?.primary}
-          onClose={() => setSettingsView('main')}
+          onClose={handleCloseSettingsView}
         />
       )}
       {settingsView === 'notification' && perms.sections.settings && (
-        <NotificationManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <NotificationManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'accountControl' && perms.sections.settings && (
-        <AccountControlManager adminUsers={adminUsers} setAdminUsers={setAdminUsers} currentAdmin={currentAdmin} onClose={() => setSettingsView('main')} />
+        <AccountControlManager adminUsers={adminUsers} setAdminUsers={setAdminUsers} currentAdmin={currentAdmin} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'account' && perms.sections.settings && (
-        <AccountManager adminUsers={adminUsers} setAdminUsers={setAdminUsers} currentAdmin={currentAdmin} setCurrentAdmin={setCurrentAdmin} websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <AccountManager adminUsers={adminUsers} setAdminUsers={setAdminUsers} currentAdmin={currentAdmin} setCurrentAdmin={setCurrentAdmin} websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'discounts' && perms.sections.settings && (
-        <DiscountManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} products={products} categories={categories} onClose={() => setSettingsView('main')} />
+        <DiscountManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} products={products} categories={categories} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'preOrder' && perms.sections.settings && (
-        <PreOrderManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={() => setSettingsView('main')} />
+        <PreOrderManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
       {activeTab === 'Orders' && selectedOrders.length > 0 && (
         <div className="fixed left-[-9999px] top-0 pointer-events-none z-[-100]">
