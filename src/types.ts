@@ -318,6 +318,7 @@ export interface FloatingButtonDesign extends ButtonDesign {
 }
 
 export interface ActionButtonsConfig {
+  addToCart?: ButtonDesign;
   viewCart: FloatingButtonDesign;
   checkout: ButtonDesign;
   placeOrder: ButtonDesign;
@@ -325,6 +326,20 @@ export interface ActionButtonsConfig {
 }
 
 export const DEFAULT_ACTION_BUTTONS: ActionButtonsConfig = {
+  addToCart: {
+    width: '100%',
+    height: '38px',
+    backgroundColor: 'var(--theme-primary)',
+    textColor: 'var(--theme-white)',
+    fontSize: '14px',
+    fontWeight: 600,
+    icon: 'plus',
+    iconPosition: 'left',
+    borderRadius: '9999px',
+    elevation: 0,
+    paddingX: '16px',
+    paddingY: '8px',
+  },
   viewCart: {
     width: 'auto',
     height: '48px',

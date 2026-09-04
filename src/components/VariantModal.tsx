@@ -195,18 +195,20 @@ export function VariantModal({ product, onClose, onAdd }: VariantModalProps) {
               </div>
             </div>
 
-            <button 
-              onClick={handleAddToCart}
-              disabled={!selectedVariant || isOutOfStock}
-              className={cn(
-                "w-full h-9 xl:h-10 rounded-full text-sm",
-                selectedVariant && !isOutOfStock 
-                   ? "btn-gradient cursor-pointer" 
-                   : "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none font-semibold flex items-center justify-center"
-              )}
-            >
-              {isOutOfStock ? "Out of stock" : "Add to cart"}
-            </button>
+            <div className="w-full flex justify-center">
+              <button 
+                onClick={handleAddToCart}
+                disabled={!selectedVariant || isOutOfStock}
+                className={cn(
+                  "btn-add-to-cart text-sm",
+                  selectedVariant && !isOutOfStock 
+                     ? "btn-gradient cursor-pointer" 
+                     : "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none font-semibold flex items-center justify-center"
+                )}
+              >
+                {isOutOfStock ? "Out of stock" : "Add to cart"}
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>

@@ -104,52 +104,82 @@ const StorefrontProductCard = React.memo(function StorefrontProductCard({
         <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
 
         {cartItem && (!product.hasVariants || !product.variants?.length) ? (
-          <div className="flex items-center justify-between w-full h-[36px] lg:h-[40px]" onClick={(e) => e.stopPropagation()}>
-            <button onClick={(e) => { e.stopPropagation(); onRemove(cartItem.id); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-red-500 border border-red-200 rounded-full bg-red-50 cursor-pointer">
-              <Trash2 size={16} />
-            </button>
-            <div className="flex items-center border border-gray-200 rounded-full h-full bg-[var(--theme-white)]" onClick={(e) => e.stopPropagation()}>
-              <button onClick={(e) => { e.stopPropagation(); onUpdate(cartItem.id, -1); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-l-full cursor-pointer">
-                <Minus size={16} />
+          <div className="w-full flex justify-center mt-auto" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="flex items-center justify-between" 
+              style={{
+                width: 'var(--btn-add-width, 100%)',
+                height: 'var(--btn-add-height, 38px)',
+              }}
+            >
+              <button 
+                onClick={(e) => { e.stopPropagation(); onRemove(cartItem.id); }} 
+                className="flex items-center justify-center text-red-500 border border-red-200 bg-red-50 cursor-pointer shrink-0"
+                style={{
+                  width: 'var(--btn-add-height, 38px)',
+                  height: 'var(--btn-add-height, 38px)',
+                  borderRadius: 'var(--btn-add-radius, 9999px)'
+                }}
+              >
+                <Trash2 size={16} />
               </button>
-              <input 
-                type="number" 
-                className="w-10 text-center font-medium text-sm appearance-none border-none outline-none focus:outline-none bg-transparent p-0 m-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                value={cartItem.quantity === 0 ? '' : (cartItem.quantity || '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '') {
-                    onUpdate(cartItem.id, 0, false);
-                    return;
-                  }
-                  const num = parseInt(val);
-                  if (!isNaN(num)) {
-                    onUpdate(cartItem.id, num, false);
-                  }
-                }}
-                onBlur={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (isNaN(val) || val < 1) {
-                    onUpdate(cartItem.id, 1, false);
-                  }
-                }}
+              <div 
+                className="flex items-center border border-gray-200 h-full bg-[var(--theme-white)] overflow-hidden" 
+                style={{ borderRadius: 'var(--btn-add-radius, 9999px)' }}
                 onClick={(e) => e.stopPropagation()}
-              />
-              <button onClick={(e) => { e.stopPropagation(); onUpdate(cartItem.id, 1); }} className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-r-full cursor-pointer">
-                <Plus size={16} />
-              </button>
+              >
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onUpdate(cartItem.id, -1); }} 
+                  className="px-2 lg:px-2.5 h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer"
+                  style={{ borderTopLeftRadius: 'var(--btn-add-radius, 9999px)', borderBottomLeftRadius: 'var(--btn-add-radius, 9999px)' }}
+                >
+                  <Minus size={16} />
+                </button>
+                <input 
+                  type="number" 
+                  className="w-10 text-center font-medium text-sm appearance-none border-none outline-none focus:outline-none bg-transparent p-0 m-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  value={cartItem.quantity === 0 ? '' : (cartItem.quantity || '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      onUpdate(cartItem.id, 0, false);
+                      return;
+                    }
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                      onUpdate(cartItem.id, num, false);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 1) {
+                      onUpdate(cartItem.id, 1, false);
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onUpdate(cartItem.id, 1); }} 
+                  className="px-2 lg:px-2.5 h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer"
+                  style={{ borderTopRightRadius: 'var(--btn-add-radius, 9999px)', borderBottomRightRadius: 'var(--btn-add-radius, 9999px)' }}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
           </div>
         ) : (
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd(product);
-            }}
-            className="btn-gradient w-full h-9 xl:h-10 rounded-full gap-1.5 cursor-pointer"
-          >
-            {addingToOrderId ? (cartItem ? <><Plus size={15} /> Add more</> : <><Plus size={15} /> Add to Order</>) : (cartItem ? "Add more" : "Add to cart")}
-          </button>
+          <div className="w-full flex justify-center mt-auto">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd(product);
+              }}
+              className="btn-gradient btn-add-to-cart gap-1.5 cursor-pointer"
+            >
+              {addingToOrderId ? (cartItem ? <><Plus size={15} /> Add more</> : <><Plus size={15} /> Add to Order</>) : (cartItem ? "Add more" : "Add to cart")}
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -196,6 +226,11 @@ export default function App() {
       root.style.setProperty('--theme-black', websiteSettings.themeColors?.black || '#000000');
       root.style.setProperty('--theme-white', websiteSettings.themeColors?.white || '#ffffff');
       root.style.setProperty('--store-bg', websiteSettings.themeColors?.bg || websiteSettings.themeColors?.white || '#ffffff');
+      
+      const addBtn = websiteSettings.actionButtons?.addToCart || DEFAULT_ACTION_BUTTONS.addToCart;
+      root.style.setProperty('--btn-add-height', addBtn?.height || '38px');
+      root.style.setProperty('--btn-add-width', addBtn?.width || '100%');
+      root.style.setProperty('--btn-add-radius', addBtn?.borderRadius || '9999px');
       
       const tint = websiteSettings.dashboardTheme?.blueTint ?? 47;
       root.style.setProperty('--dash-bg', `hsl(222, ${tint}%, 11%)`);
@@ -1400,6 +1435,9 @@ export default function App() {
     '--theme-black': websiteSettings.themeColors?.black || '#000000',
     '--theme-white': websiteSettings.themeColors?.white || '#ffffff',
     '--store-bg': websiteSettings.themeColors?.bg || websiteSettings.themeColors?.white || '#ffffff',
+    '--btn-add-height': websiteSettings.actionButtons?.addToCart?.height || '38px',
+    '--btn-add-width': websiteSettings.actionButtons?.addToCart?.width || '100%',
+    '--btn-add-radius': websiteSettings.actionButtons?.addToCart?.borderRadius || '9999px',
   } as React.CSSProperties;
 
   return (

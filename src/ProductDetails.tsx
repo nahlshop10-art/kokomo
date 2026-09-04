@@ -476,18 +476,20 @@ export default function ProductDetails({
              Out of stock
            </div>
         ) : cartQuantity === 0 ? (
-          <button 
-            disabled={product.hasVariants && !selectedVariant}
-            onClick={handleAddToCart}
-            className={cn(
-              "w-full h-9 xl:h-10 rounded-full gap-1.5 mt-2",
-              product.hasVariants && !selectedVariant
-               ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none font-semibold text-sm flex items-center justify-center"
-               : "btn-gradient"
-            )}
-          >
-            {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
-          </button>
+          <div className="w-full flex justify-center mt-2">
+            <button 
+              disabled={product.hasVariants && !selectedVariant}
+              onClick={handleAddToCart}
+              className={cn(
+                "btn-add-to-cart gap-1.5",
+                product.hasVariants && !selectedVariant
+                 ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none font-semibold text-sm flex items-center justify-center"
+                 : "btn-gradient"
+              )}
+            >
+              {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
+            </button>
+          </div>
         ) : (
           <div className="flex items-center justify-between mt-2 pt-2">
             <span className="text-2xl font-bold text-[var(--theme-primary)]">{formatPrice(displayPrice * cartQuantity)}</span>
@@ -660,12 +662,14 @@ export default function ProductDetails({
                         </div>
                       </div>
                     ) : (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                        className="btn-gradient w-full h-9 xl:h-10 rounded-full gap-1.5"
-                      >
-                        {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
-                      </button>
+                      <div className="w-full flex justify-center">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); addToCart(p); }}
+                          className="btn-gradient btn-add-to-cart gap-1.5"
+                        >
+                          {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -790,12 +794,14 @@ export default function ProductDetails({
               </div>
 
               {cartQuantity === 0 ? (
-                <button 
-                  onClick={handleAddToCart}
-                  className="btn-gradient w-full h-9 xl:h-10 rounded-full gap-1.5 mt-2"
-                >
-                  {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
-                </button>
+                <div className="w-full flex justify-center mt-2">
+                  <button 
+                    onClick={handleAddToCart}
+                    className="btn-gradient btn-add-to-cart gap-1.5"
+                  >
+                    {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
+                  </button>
+                </div>
               ) : (
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Quantity</span>

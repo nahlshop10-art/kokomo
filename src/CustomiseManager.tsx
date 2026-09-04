@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Save, Check, FolderArchive, Download, Palette } from 'lucide-react';
-import { WebsiteSettings, Product, Category } from './types';
+import { WebsiteSettings, Product, Category, DEFAULT_ACTION_BUTTONS } from './types';
 import ActionButtonsCustomiser from './components/ActionButtonsCustomiser';
 import FbZipExportModal from './components/FbZipExportModal';
 import { cloudStore } from './lib/cloudStore';
@@ -253,6 +253,211 @@ export default function CustomiseManager({
                 <p className="text-[11px] text-slate-500">Controls the brightness/opacity of text elements across the storefront.</p>
               </div>
             </div>
+
+            {/* Add to Cart / Add to Order Button Controls */}
+            {(() => {
+              const addToCartBtn = draftSettings.actionButtons?.addToCart || DEFAULT_ACTION_BUTTONS.addToCart || {
+                width: '100%',
+                height: '38px',
+                borderRadius: '9999px',
+              };
+              const numericHeight = parseInt(String(addToCartBtn.height || '38').replace(/\D/g, '')) || 38;
+              const numericRadius = addToCartBtn.borderRadius === '9999px' ? 9999 : (parseInt(String(addToCartBtn.borderRadius || '9999').replace(/\D/g, '')) || 0);
+              const widthVal = addToCartBtn.width || '100%';
+              const numericWidth = widthVal.endsWith('%') ? parseInt(widthVal) : (widthVal === 'auto' ? 100 : 100);
+
+              const updateAddToCart = (key: string, value: any) => {
+                setDraftSettings(prev => {
+                  const prevButtons = prev.actionButtons || DEFAULT_ACTION_BUTTONS;
+                  const baseBtn = prevButtons.addToCart || DEFAULT_ACTION_BUTTONS.addToCart!;
+                  return {
+                    ...prev,
+                    actionButtons: {
+                      ...prevButtons,
+                      addToCart: {
+                        ...baseBtn,
+                        [key]: value
+                      }
+                    }
+                  };
+                });
+              };
+
+              return (
+                <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-5">
+                  <div className="flex justify-between items-center border-b border-[var(--dash-border)]/50 pb-3">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                        "Add to Cart" & "Add to Order" Button
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Customise height, width, and rounded corner radius for all Add to Cart and Add to Order buttons in front store
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Live Interactive Preview */}
+                  <div className="py-5 px-4 bg-[var(--dash-bg)] rounded-xl flex flex-col items-center justify-center gap-3 border border-[var(--dash-border)]/50 overflow-hidden">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Live Preview</span>
+                    <div className="w-full max-w-xs flex flex-col items-center gap-2.5">
+                      <div className="w-full flex justify-center">
+                        <button
+                          type="button"
+                          style={{
+                            height: addToCartBtn.height || '38px',
+                            width: addToCartBtn.width === 'auto' ? 'auto' : (addToCartBtn.width || '100%'),
+                            borderRadius: addToCartBtn.borderRadius || '9999px',
+                            background: 'var(--theme-primary-gradient)',
+                            boxShadow: 'var(--theme-primary-shadow)',
+                            color: 'rgb(254, 243, 245)',
+                          }}
+                          className="font-semibold text-sm flex items-center justify-center px-4 transition-all"
+                        >
+                          Add to cart
+                        </button>
+                      </div>
+                      <div className="w-full flex justify-center">
+                        <button
+                          type="button"
+                          style={{
+                            height: addToCartBtn.height || '38px',
+                            width: addToCartBtn.width === 'auto' ? 'auto' : (addToCartBtn.width || '100%'),
+                            borderRadius: addToCartBtn.borderRadius || '9999px',
+                            background: 'var(--theme-primary-gradient)',
+                            boxShadow: 'var(--theme-primary-shadow)',
+                            color: 'rgb(254, 243, 245)',
+                          }}
+                          className="font-semibold text-sm flex items-center justify-center gap-1.5 px-4 transition-all"
+                        >
+                          <span className="text-base leading-none font-bold">+</span> Add to Order
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Height */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-slate-300">Button Height</label>
+                      <span className="text-indigo-400 font-mono text-xs font-bold bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                        {addToCartBtn.height || '38px'}
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="28" 
+                      max="64" 
+                      value={numericHeight}
+                      onChange={(e) => updateAddToCart('height', `${e.target.value}px`)}
+                      className="w-full accent-indigo-500 cursor-pointer"
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {[
+                        { label: 'Compact (32px)', val: '32px' },
+                        { label: 'Standard (38px)', val: '38px' },
+                        { label: 'Comfortable (44px)', val: '44px' },
+                        { label: 'Large (50px)', val: '50px' },
+                      ].map(p => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          onClick={() => updateAddToCart('height', p.val)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer",
+                            addToCartBtn.height === p.val
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                              : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:text-white"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Width */}
+                  <div className="space-y-2 border-t border-[var(--dash-border)]/50 pt-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-slate-300">Button Width</label>
+                      <span className="text-indigo-400 font-mono text-xs font-bold bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                        {addToCartBtn.width || '100%'}
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="50" 
+                      max="100" 
+                      value={numericWidth}
+                      onChange={(e) => updateAddToCart('width', `${e.target.value}%`)}
+                      className="w-full accent-indigo-500 cursor-pointer"
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {[
+                        { label: 'Full Width (100%)', val: '100%' },
+                        { label: '90% Width', val: '90%' },
+                        { label: '80% Width', val: '80%' },
+                        { label: 'Auto Width', val: 'auto' },
+                      ].map(p => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          onClick={() => updateAddToCart('width', p.val)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer",
+                            addToCartBtn.width === p.val
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                              : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:text-white"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Corner Radius Rounded */}
+                  <div className="space-y-2 border-t border-[var(--dash-border)]/50 pt-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-slate-300">Corner Radius (Rounded)</label>
+                      <span className="text-indigo-400 font-mono text-xs font-bold bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                        {addToCartBtn.borderRadius === '9999px' ? 'Full Pill (9999px)' : (addToCartBtn.borderRadius || '9999px')}
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="40" 
+                      value={numericRadius > 40 ? 40 : numericRadius}
+                      onChange={(e) => updateAddToCart('borderRadius', `${e.target.value}px`)}
+                      className="w-full accent-indigo-500 cursor-pointer"
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {[
+                        { label: 'Square (0px)', val: '0px' },
+                        { label: 'Slightly Rounded (6px)', val: '6px' },
+                        { label: 'Rounded (10px)', val: '10px' },
+                        { label: 'Extra Rounded (16px)', val: '16px' },
+                        { label: 'Full Pill (9999px)', val: '9999px' },
+                      ].map(p => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          onClick={() => updateAddToCart('borderRadius', p.val)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer",
+                            addToCartBtn.borderRadius === p.val
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                              : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:text-white"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
           </div>
         )}

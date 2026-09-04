@@ -320,12 +320,14 @@ export function ColorModal({ product, onClose, onAdd }: { product: Product, onCl
               ))}
             </div>
           </div>
-          <button 
-            onClick={() => { onAdd(product, selectedColor.name); onClose(); }} 
-            className="btn-gradient w-full h-9 xl:h-10 rounded-full"
-          >
-            Add to cart
-          </button>
+          <div className="w-full flex justify-center">
+            <button 
+              onClick={() => { onAdd(product, selectedColor.name); onClose(); }} 
+              className="btn-gradient btn-add-to-cart"
+            >
+              Add to cart
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>

@@ -11,21 +11,22 @@ interface ActionButtonsCustomiserProps {
 type ButtonKey = keyof ActionButtonsConfig;
 
 export default function ActionButtonsCustomiser({ settings, setSettings }: ActionButtonsCustomiserProps) {
-  const [selectedButton, setSelectedButton] = useState<ButtonKey>('viewCart');
+  const [selectedButton, setSelectedButton] = useState<ButtonKey>('addToCart');
   
   const buttonsConfig: ActionButtonsConfig = settings.actionButtons || DEFAULT_ACTION_BUTTONS;
 
-  const currentSettings = buttonsConfig[selectedButton];
+  const currentSettings: ButtonDesign | FloatingButtonDesign = buttonsConfig[selectedButton] || DEFAULT_ACTION_BUTTONS[selectedButton] || DEFAULT_ACTION_BUTTONS.addToCart!;
 
   const updateSettings = (key: string, value: any) => {
     setSettings(prev => {
       const prevButtons = prev.actionButtons || DEFAULT_ACTION_BUTTONS;
+      const baseBtn = prevButtons[selectedButton] || DEFAULT_ACTION_BUTTONS[selectedButton] || DEFAULT_ACTION_BUTTONS.addToCart!;
       return {
         ...prev,
         actionButtons: {
           ...prevButtons,
           [selectedButton]: {
-            ...prevButtons[selectedButton],
+            ...baseBtn,
             [key]: value
           }
         }
@@ -34,14 +35,84 @@ export default function ActionButtonsCustomiser({ settings, setSettings }: Actio
   };
 
   const buttonOptions: { key: ButtonKey; label: string }[] = [
+    { key: 'addToCart', label: 'Add to Cart / Add to Order Button' },
     { key: 'viewCart', label: 'View Cart Floating Button' },
     { key: 'confirmOrder', label: 'Confirm Order Floating Button' },
     { key: 'checkout', label: 'Checkout Button (Cart)' },
     { key: 'placeOrder', label: 'Place Order Button' },
   ];
 
+  // Helper parsing numeric height / width / radius
+  const numericHeight = parseInt(String(currentSettings.height || '38').replace(/\D/g, '')) || 38;
+  const numericRadius = currentSettings.borderRadius === '9999px' ? 9999 : (parseInt(String(currentSettings.borderRadius || '9999').replace(/\D/g, '')) || 0);
+  const widthVal = currentSettings.width || '100%';
+  const numericWidth = widthVal.endsWith('%') ? parseInt(widthVal) : (widthVal === 'auto' ? 100 : 100);
+
   return (
     <div className="p-2.5 md:p-8 space-y-4 max-w-3xl mx-auto w-full pb-36">
+      {/* Live Preview Card */}
+      <div className="bg-[var(--dash-card)] border border-indigo-500/30 rounded-2xl p-4 md:p-6 shadow-xl space-y-3">
+        <div className="flex justify-between items-center border-b border-[var(--dash-border)]/50 pb-2.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+            Live Preview: {buttonOptions.find(o => o.key === selectedButton)?.label}
+          </h4>
+          <span className="text-[11px] font-mono text-slate-400">
+            H: {currentSettings.height || '38px'} | W: {currentSettings.width || '100%'} | R: {currentSettings.borderRadius || '9999px'}
+          </span>
+        </div>
+        
+        <div className="py-6 px-4 bg-[var(--dash-bg)] rounded-xl flex flex-col items-center justify-center gap-4 border border-[var(--dash-border)]/50 overflow-hidden">
+          {selectedButton === 'addToCart' ? (
+            <div className="w-full flex flex-col items-center gap-3">
+              <div className="w-full max-w-xs flex justify-center">
+                <button
+                  style={{
+                    height: currentSettings.height || '38px',
+                    width: currentSettings.width === 'auto' ? 'auto' : (currentSettings.width || '100%'),
+                    borderRadius: currentSettings.borderRadius || '9999px',
+                    background: 'var(--theme-primary-gradient)',
+                    boxShadow: 'var(--theme-primary-shadow)',
+                    color: 'rgb(254, 243, 245)',
+                  }}
+                  className="font-semibold text-sm flex items-center justify-center px-4 transition-all"
+                >
+                  Add to cart
+                </button>
+              </div>
+              <div className="w-full max-w-xs flex justify-center">
+                <button
+                  style={{
+                    height: currentSettings.height || '38px',
+                    width: currentSettings.width === 'auto' ? 'auto' : (currentSettings.width || '100%'),
+                    borderRadius: currentSettings.borderRadius || '9999px',
+                    background: 'var(--theme-primary-gradient)',
+                    boxShadow: 'var(--theme-primary-shadow)',
+                    color: 'rgb(254, 243, 245)',
+                  }}
+                  className="font-semibold text-sm flex items-center justify-center gap-1.5 px-4 transition-all"
+                >
+                  <span className="text-base leading-none font-bold">+</span> Add to Order
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              style={{
+                height: currentSettings.height || '48px',
+                width: currentSettings.width === 'auto' ? 'auto' : (currentSettings.width || '100%'),
+                borderRadius: currentSettings.borderRadius || '9999px',
+                background: 'var(--theme-primary-gradient)',
+                boxShadow: 'var(--theme-primary-shadow)',
+                color: 'rgb(254, 243, 245)',
+              }}
+              className="font-semibold text-sm flex items-center justify-center px-6 transition-all"
+            >
+              {selectedButton === 'viewCart' ? 'View Cart ৳ 1,838' : selectedButton === 'placeOrder' ? 'Place Order →' : 'Checkout'}
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Select Button</h4>
         <div className="space-y-2">
@@ -63,78 +134,153 @@ export default function ActionButtonsCustomiser({ settings, setSettings }: Actio
         </div>
       </div>
 
-      <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+      <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-5">
         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2 border-b border-[var(--dash-border)]/50 pb-3">
           <Layout size={16} className="text-indigo-400" /> Size & Shape
         </h4>
         
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Width</label>
-            <select
-              value={currentSettings.width}
-              onChange={(e) => updateSettings('width', e.target.value)}
-              className="w-full bg-[var(--dash-bg)] text-white border border-[var(--dash-border)] focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs md:text-sm outline-none"
-            >
-              <option value="auto">Auto (Fit Content)</option>
-              <option value="100%">100% (Full Width)</option>
-              <option value="90%">90% Width</option>
-              <option value="200px">Fixed (200px)</option>
-            </select>
+        {/* Height Control (Slider + Input + Quick Presets) */}
+        <div className="space-y-2.5">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">Button Height</label>
+            <span className="text-indigo-400 font-mono text-xs font-bold bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+              {currentSettings.height || '38px'}
+            </span>
           </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Height</label>
-            <input 
-              type="text"
-              value={currentSettings.height}
-              onChange={(e) => updateSettings('height', e.target.value)}
-              className="w-full bg-[var(--dash-bg)] text-white border border-[var(--dash-border)] focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs md:text-sm outline-none font-mono"
-              placeholder="e.g. 48px"
-            />
+          <input 
+            type="range" 
+            min="28" 
+            max="64" 
+            value={numericHeight}
+            onChange={(e) => updateSettings('height', `${e.target.value}px`)}
+            className="w-full accent-indigo-500 cursor-pointer"
+          />
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {[
+              { label: 'Compact (32px)', val: '32px' },
+              { label: 'Normal (36px)', val: '36px' },
+              { label: 'Standard (38px)', val: '38px' },
+              { label: 'Comfortable (44px)', val: '44px' },
+              { label: 'Large (50px)', val: '50px' },
+            ].map(p => (
+              <button
+                key={p.val}
+                type="button"
+                onClick={() => updateSettings('height', p.val)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer",
+                  currentSettings.height === p.val
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                    : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:text-white"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Border Radius</label>
-            <input 
-              type="text"
-              value={currentSettings.borderRadius}
-              onChange={(e) => updateSettings('borderRadius', e.target.value)}
-              className="w-full bg-[var(--dash-bg)] text-white border border-[var(--dash-border)] focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs md:text-sm outline-none font-mono"
-              placeholder="e.g. 8px, 9999px"
-            />
+        {/* Width Control (Slider + Presets) */}
+        <div className="space-y-2.5 border-t border-[var(--dash-border)]/50 pt-4">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">Button Width</label>
+            <span className="text-indigo-400 font-mono text-xs font-bold bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+              {currentSettings.width || '100%'}
+            </span>
           </div>
+          <input 
+            type="range" 
+            min="50" 
+            max="100" 
+            value={numericWidth}
+            onChange={(e) => updateSettings('width', `${e.target.value}%`)}
+            className="w-full accent-indigo-500 cursor-pointer"
+          />
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {[
+              { label: 'Full Width (100%)', val: '100%' },
+              { label: '95% Width', val: '95%' },
+              { label: '90% Width', val: '90%' },
+              { label: '85% Width', val: '85%' },
+              { label: '80% Width', val: '80%' },
+              { label: 'Auto Width', val: 'auto' },
+            ].map(p => (
+              <button
+                key={p.val}
+                type="button"
+                onClick={() => updateSettings('width', p.val)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer",
+                  currentSettings.width === p.val
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                    : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:text-white"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Border Radius Control (Corner Radius Rounded) */}
+        <div className="space-y-2.5 border-t border-[var(--dash-border)]/50 pt-4">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">Corner Radius (Rounded)</label>
+            <span className="text-indigo-400 font-mono text-xs font-bold bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+              {currentSettings.borderRadius === '9999px' ? 'Full Pill (9999px)' : (currentSettings.borderRadius || '9999px')}
+            </span>
+          </div>
+          <input 
+            type="range" 
+            min="0" 
+            max="40" 
+            value={numericRadius > 40 ? 40 : numericRadius}
+            onChange={(e) => updateSettings('borderRadius', `${e.target.value}px`)}
+            className="w-full accent-indigo-500 cursor-pointer"
+          />
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {[
+              { label: 'Sharp Square (0px)', val: '0px' },
+              { label: 'Slightly Rounded (6px)', val: '6px' },
+              { label: 'Rounded (10px)', val: '10px' },
+              { label: 'Extra Rounded (16px)', val: '16px' },
+              { label: 'Full Pill (9999px)', val: '9999px' },
+            ].map(p => (
+              <button
+                key={p.val}
+                type="button"
+                onClick={() => updateSettings('borderRadius', p.val)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer",
+                  currentSettings.borderRadius === p.val
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                    : "bg-[var(--dash-bg)] text-slate-400 border-[var(--dash-border)] hover:text-white"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 border-t border-[var(--dash-border)]/50 pt-4">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Shadow (Elevation)</label>
             <input 
               type="range" min="0" max="5"
-              value={currentSettings.elevation}
+              value={currentSettings.elevation || 0}
               onChange={(e) => updateSettings('elevation', parseInt(e.target.value))}
               className="w-full mt-2 accent-indigo-500"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Padding X</label>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Custom Border Radius</label>
             <input 
               type="text"
-              value={currentSettings.paddingX}
-              onChange={(e) => updateSettings('paddingX', e.target.value)}
-              className="w-full bg-[var(--dash-bg)] text-white border border-[var(--dash-border)] focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs md:text-sm outline-none font-mono"
-              placeholder="e.g. 24px"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Padding Y</label>
-            <input 
-              type="text"
-              value={currentSettings.paddingY}
-              onChange={(e) => updateSettings('paddingY', e.target.value)}
-              className="w-full bg-[var(--dash-bg)] text-white border border-[var(--dash-border)] focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs md:text-sm outline-none font-mono"
-              placeholder="e.g. 12px"
+              value={currentSettings.borderRadius || ''}
+              onChange={(e) => updateSettings('borderRadius', e.target.value)}
+              className="w-full bg-[var(--dash-bg)] text-white border border-[var(--dash-border)] focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-mono outline-none"
+              placeholder="e.g. 12px or 9999px"
             />
           </div>
         </div>

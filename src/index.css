@@ -16,6 +16,9 @@
   --dash-card: #1E293B;
   --dash-border: #334155;
   --dash-border-light: #475569;
+  --btn-add-height: 38px;
+  --btn-add-width: 100%;
+  --btn-add-radius: 9999px;
 }
 
 html, body {
@@ -55,9 +58,16 @@ html.scroll-locked, body.scroll-locked {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
+  border-radius: var(--btn-add-radius, 9999px);
   padding: 8px 16px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-add-to-cart {
+  width: var(--btn-add-width, 100%) !important;
+  height: var(--btn-add-height, 38px) !important;
+  border-radius: var(--btn-add-radius, 9999px) !important;
+  max-width: 100%;
 }
 
 .btn-gradient:hover {
