@@ -41,6 +41,8 @@ export function formatWhatsAppPhone(phone: string | undefined | null): string {
     return cleaned.replace(/^(88)+/, '88');
   } else if (cleaned.startsWith('01')) {
     return '88' + cleaned;
+  } else if (cleaned.length === 10 && cleaned.startsWith('1')) {
+    return '880' + cleaned;
   }
   
   return cleaned;
@@ -120,8 +122,16 @@ export function normalizePhone(phone: string | undefined | null): string {
     return cleaned.substring(2);
   } else if (cleaned.startsWith('0') && cleaned.length === 11) {
     return cleaned;
+  } else if (cleaned.length === 10 && cleaned.startsWith('1')) {
+    return '0' + cleaned;
   }
   return cleaned;
+}
+
+export function isValidBangladeshiPhone(phone: string | undefined | null): boolean {
+  if (!phone) return false;
+  const norm = normalizePhone(phone);
+  return /^01[3-9]\d{8}$/.test(norm);
 }
 
 export function slugify(text: string): string {

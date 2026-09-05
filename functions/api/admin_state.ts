@@ -10,7 +10,21 @@ export async function onRequestGet(context: any) {
     // Standard orders are now fetched via paginated /api/admin_orders.ts!
     const orders: any[] = [];
         
-    const incompleteOrdersRes = await env.DB.prepare("SELECT data FROM orders WHERE type = 'incomplete' ORDER BY cast(id as integer) DESC LIMIT 1000").all();
+    const incompleteOrdersRes = await env.DB.prepare(`
+      SELECT o.data FROM orders o 
+      WHERE o.type = 'incomplete' 
+        AND NOT EXISTS (
+          SELECT 1 FROM orders s 
+          WHERE s.type = 'standard' 
+            AND (
+              json_extract(s.data, '$.userInfo.phone') = json_extract(o.data, '$.phone')
+              OR json_extract(s.data, '$.userInfo.phone') = json_extract(o.data, '$.normPhone')
+              OR replace(replace(replace(replace(json_extract(s.data, '$.userInfo.phone'), ' ', ''), '-', ''), '+88', ''), '+', '') = replace(o.id, 'inc_', '')
+            )
+            AND datetime(coalesce(s.updated_at, CURRENT_TIMESTAMP)) >= datetime(coalesce(o.updated_at, CURRENT_TIMESTAMP), '-1 minute')
+        )
+      ORDER BY o.updated_at DESC LIMIT 1000
+    `).all();
     const incompleteOrders = incompleteOrdersRes.results.map((r: any) => JSON.parse(r.data));
 
     const products = productsRes.results.map((r: any) => JSON.parse(r.data));

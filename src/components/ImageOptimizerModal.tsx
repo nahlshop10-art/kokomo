@@ -38,7 +38,7 @@ export default function ImageOptimizerModal({
 
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<any>(null);
 
   const [isDefaultMode, setIsDefaultMode] = useState(false);
 

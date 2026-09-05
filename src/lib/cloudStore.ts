@@ -251,15 +251,14 @@ export const cloudStore = {
     return this._post('/api/customers', { items: [customer], action: 'upsert' });
   },
 
-    async publicIncompleteOrder(order: any) {
-    this.emitEvent('Saving incomplete order...', true);
+  async publicIncompleteOrder(order: any) {
     const res = await fetch('/api/public_incomplete_order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order)
+      body: JSON.stringify(order),
+      keepalive: true
     });
     if (!res.ok) {
-       this.emitEvent('Failed to save incomplete order', false, true);
        throw new Error('Incomplete order API failed');
     }
     return await res.json();

@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, Download, Check, MessageCircle, Calendar, Copy, MapPin, Clock, Tag, FileText, Activity, Phone, MoreVertical, X, User, Settings, Save, ShoppingCart } from 'lucide-react';
 import { format, subDays, isAfter, isBefore, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
 import { WebsiteSettings, IncompleteOrder, Order } from './types';
-import { cn, formatPrice, formatWhatsAppPhone } from './lib/utils';
+import { cn, formatPrice, formatWhatsAppPhone, normalizePhone } from './lib/utils';
 import { cloudStore } from './lib/cloudStore';
 
 interface Props {
@@ -49,9 +49,42 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
     await cloudStore.saveSetting('websiteSettings', updatedSettings);
   };
 
+  const isOrderAlreadyCompleted = (inc: IncompleteOrder): boolean => {
+    const p = normalizePhone(inc.phone);
+    if (!p) return false;
+    const incTime = inc.updatedAt || inc.timestamp || 0;
+    return orders.some(o => {
+      const orderPhone = normalizePhone(o.userInfo?.phone);
+      if (orderPhone !== p) return false;
+      const orderTime = o.clientInfo?.timestamp || (o.date ? new Date(o.date).getTime() : 0);
+      // Order completed at or after this incomplete order was created/updated (with 60s grace)
+      return orderTime > 0 && orderTime >= (incTime - 60000);
+    });
+  };
+
+  // Clean up any stale incomplete orders in D1 that were actually completed
+  useEffect(() => {
+    if (!orders || orders.length === 0 || !incompleteOrders || incompleteOrders.length === 0) return;
+    const toClean = incompleteOrders.filter(inc => isOrderAlreadyCompleted(inc));
+    if (toClean.length > 0) {
+      toClean.forEach(inc => {
+        cloudStore.deleteOrder(inc, 'incomplete').catch(() => {});
+      });
+      if (setIncompleteOrders) {
+        setIncompleteOrders(prev => prev.filter(inc => !toClean.some(c => c.id === inc.id)));
+      }
+    }
+  }, [orders, incompleteOrders, setIncompleteOrders]);
+
   const filteredOrders = useMemo(() => {
     return incompleteOrders.filter(o => {
-      const orderDate = new Date(o.timestamp);
+      const p = normalizePhone(o.phone);
+      if (!p) return false;
+      // Strictly guarantee that placed orders NEVER appear in incomplete orders
+      if (isOrderAlreadyCompleted(o)) return false;
+
+      const orderTime = o.updatedAt || o.timestamp;
+      const orderDate = new Date(orderTime);
       
       if (dateFilter === 'ALL') return true;
       if (dateFilter === 'CUSTOM') {
@@ -63,8 +96,47 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
       const days = parseInt(dateFilter);
       const cutoff = subDays(new Date(), days);
       return isAfter(orderDate, cutoff);
-    }).sort((a, b) => b.timestamp - a.timestamp);
-  }, [incompleteOrders, dateFilter, customStartDate, customEndDate]);
+    }).sort((a, b) => (b.updatedAt || b.timestamp) - (a.updatedAt || a.timestamp));
+  }, [incompleteOrders, orders, dateFilter, customStartDate, customEndDate]);
+
+  const renderStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'CANCELLED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            Cancelled
+          </span>
+        );
+      case 'LEFT_PAGE':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Left Page
+          </span>
+        );
+      case 'RETURNED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            Returned
+          </span>
+        );
+      case 'PHONE_ENTERED':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+            Phone Entered
+          </span>
+        );
+      default:
+        return status ? (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/15 text-slate-300 border border-slate-500/30">
+            {status}
+          </span>
+        ) : null;
+    }
+  };
 
   const toggleSelection = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -103,7 +175,7 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
       formatWhatsAppPhone(o.phone),
       o.name || '',
       o.location || '',
-      format(o.timestamp, 'yyyy-MM-dd HH:mm:ss'),
+      format(o.updatedAt || o.timestamp, 'yyyy-MM-dd HH:mm:ss'),
       o.status || 'Hot',
       o.contacted ? 'Yes' : 'No'
     ]);
@@ -130,7 +202,7 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
         Phone: formatWhatsAppPhone(o.phone),
         Name: o.name || '',
         Location: o.location || '',
-        Time: format(o.timestamp, 'yyyy-MM-dd HH:mm:ss'),
+        Time: format(o.updatedAt || o.timestamp, 'yyyy-MM-dd HH:mm:ss'),
         Status: o.status || 'Hot',
         Contacted: o.contacted ? 'Yes' : 'No'
       }));
@@ -480,13 +552,22 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
                           </button>
 
                           <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-sm font-bold text-white truncate">{order.name || 'Anonymous Customer'}</span>
+                              {renderStatusBadge(order.status)}
+                            </div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-bold text-white truncate">{order.name || 'Anonymous'}</span>
-                              <span className="text-slate-600">•</span>
-                              <span className="text-xs text-slate-300 font-mono truncate">{formatWhatsAppPhone(order.phone)}</span>
+                              <span className="text-xs text-slate-300 font-mono font-medium">{formatWhatsAppPhone(order.phone)}</span>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(formatWhatsAppPhone(order.phone)); }} 
+                                className="text-slate-400 hover:text-white"
+                                title="Copy Phone"
+                              >
+                                <Copy size={11} />
+                              </button>
                             </div>
                             <div className="text-[11px] text-slate-400 flex items-center gap-2 flex-wrap">
-                              <span>{formatDisplayDate(order.timestamp)}</span>
+                              <span>{formatDisplayDate(order.updatedAt || order.timestamp)}</span>
                               {order.contacted && (
                                 <span className="text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-500/20">
                                   <Check size={10} /> Contacted
@@ -504,17 +585,42 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
                         </button>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-[#1e293b]/50">
-                        <span className="text-xs font-semibold text-slate-400">
-                          {order.cartItems?.length || 0} item(s) in cart
-                        </span>
-                        <button 
-                          onClick={(e) => openWhatsApp(order.phone, e)}
-                          className="w-9 h-9 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 flex items-center justify-center transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
-                          title="Contact on WhatsApp"
-                        >
-                          <MessageCircle size={16} />
-                        </button>
+                      {/* Cart Preview & Recovery Actions */}
+                      <div className="flex items-center justify-between pt-2.5 border-t border-[var(--dash-border)]/50 gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex -space-x-2 overflow-hidden shrink-0">
+                            {order.cartItems?.slice(0, 3).map((item, idx) => (
+                              <img 
+                                key={idx} 
+                                src={item.product?.thumbnail || item.product?.image} 
+                                alt={item.product?.title || ''} 
+                                className="inline-block h-6 w-6 rounded-md ring-2 ring-[var(--dash-card)] object-cover bg-white/5" 
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs font-semibold text-slate-400 truncate">
+                            {order.cartItems?.length || 0} item(s) • {formatPrice(order.cartItems?.reduce((sum, item) => sum + ((item.variantPrice ?? item.product?.price ?? 0) * item.quantity), 0) || 0)}
+                          </span>
+                        </div>
+
+                        {/* 1-Click WhatsApp & Call Recovery Buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <a 
+                            href={`tel:${order.phone}`} 
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-sm"
+                            title="Direct Phone Call"
+                          >
+                            <Phone size={14} />
+                          </a>
+                          <button 
+                            onClick={(e) => openWhatsApp(order.phone, e)}
+                            className="w-8 h-8 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 flex items-center justify-center transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                            title="Contact on WhatsApp"
+                          >
+                            <MessageCircle size={15} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -533,6 +639,7 @@ export default function IncompleteOrdersManager({ websiteSettings, setWebsiteSet
           toggleContacted={toggleContacted}
           openWhatsApp={openWhatsApp}
           createOrderAction={createOrderFromIncompleteAction}
+          renderStatusBadge={renderStatusBadge}
         />
       )}
     </div>
@@ -546,9 +653,10 @@ interface DetailOverlayProps {
   toggleContacted: (id: string, e?: React.MouseEvent) => void;
   openWhatsApp: (phone: string, e?: React.MouseEvent) => void;
   createOrderAction: (order: IncompleteOrder) => void;
+  renderStatusBadge: (status?: string) => React.ReactNode;
 }
 
-function DetailOverlay({ orderId, orders, onClose, toggleContacted, openWhatsApp, createOrderAction }: DetailOverlayProps) {
+function DetailOverlay({ orderId, orders, onClose, toggleContacted, openWhatsApp, createOrderAction, renderStatusBadge }: DetailOverlayProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const order = orders.find(o => o.id === orderId);
@@ -570,8 +678,11 @@ function DetailOverlay({ orderId, orders, onClose, toggleContacted, openWhatsApp
               <ChevronLeft size={20} />
             </button>
             <div>
-              <h2 className="text-sm md:text-base font-bold text-white">Lead Details</h2>
-              <p className="text-[11px] text-slate-400 font-medium">{format(order.timestamp, 'dd MMM yyyy, hh:mm a')}</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm md:text-base font-bold text-white">Lead Details</h2>
+                {renderStatusBadge(order.status)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium">{format(order.updatedAt || order.timestamp, 'dd MMM yyyy, hh:mm a')}</p>
             </div>
           </div>
           <button 
@@ -591,11 +702,14 @@ function DetailOverlay({ orderId, orders, onClose, toggleContacted, openWhatsApp
                 {order.name ? order.name.substring(0, 2).toUpperCase() : 'U'}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-white truncate">{order.name || 'Anonymous Customer'}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-bold text-white truncate">{order.name || 'Anonymous Customer'}</h3>
+                  {renderStatusBadge(order.status)}
+                </div>
                 <div className="space-y-1.5 mt-2 text-xs text-slate-400">
                   <div className="flex items-center gap-2">
                     <Phone size={12} className="text-slate-500" />
-                    <span className="font-mono text-white">{formatWhatsAppPhone(order.phone)}</span>
+                    <span className="font-mono text-white font-medium">{formatWhatsAppPhone(order.phone)}</span>
                     <button 
                       onClick={() => navigator.clipboard.writeText(formatWhatsAppPhone(order.phone))} 
                       className="text-indigo-400 hover:text-indigo-300 ml-1"
@@ -614,8 +728,24 @@ function DetailOverlay({ orderId, orders, onClose, toggleContacted, openWhatsApp
               </div>
             </div>
 
-            {/* Actions */}
+            {/* 1-Click Recovery Actions (WhatsApp & Direct Call) */}
             <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-[var(--dash-border)]/50">
+              <a 
+                href={`tel:${order.phone}`}
+                className="py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-all cursor-pointer shadow-sm"
+              >
+                <Phone size={14} /> Call Customer
+              </a>
+              <button 
+                onClick={(e) => openWhatsApp(order.phone, e)}
+                className="py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+              >
+                <MessageCircle size={14} /> WhatsApp
+              </button>
+            </div>
+
+            {/* Workflow Actions */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
               <button 
                 onClick={(e) => toggleContacted(order.id, e)}
                 className={cn(

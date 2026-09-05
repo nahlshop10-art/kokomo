@@ -3578,7 +3578,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 key={`print-${orderId}`} 
                 order={order} 
                 settings={websiteSettings} 
-                ref={el => bulkPrintRefs.current[orderId] = el as HTMLDivElement} 
+                ref={el => { bulkPrintRefs.current[orderId] = el as HTMLDivElement; }} 
               />
             );
           })}
@@ -3981,7 +3981,7 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
   const processFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const targetRatio = 16 / 5;

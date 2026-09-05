@@ -6,11 +6,11 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { cn, formatPrice, normalizePhone, useWindowScrollRestore, slugify, sendTelegramNotification } from './lib/utils';
+import { cn, formatPrice, normalizePhone, isValidBangladeshiPhone, useWindowScrollRestore, slugify, sendTelegramNotification } from './lib/utils';
 import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, getAvailableStock } from './lib/stockUtils';
 import { cloudStore } from './lib/cloudStore';
 import { CopyButton } from './components/CopyButton';
-import { Product, CartItem, Order, OrderStatus, Category, WebsiteSettings, MarketingSettings, CourierSettings, PriceCalculatorSettings, IncompleteOrder } from './types';
+import { Product, CartItem, Order, OrderStatus, Category, WebsiteSettings, MarketingSettings, CourierSettings, PriceCalculatorSettings, IncompleteOrder, IncompleteOrderStatus } from './types';
 import { PRODUCTS, CATEGORIES as DEFAULT_CATEGORIES } from './data';
 import { initMetaPixel, trackMetaEvent } from './lib/metaPixel';
 import { initTikTokPixel, trackTikTokEvent } from './lib/tiktokPixel';
@@ -1163,8 +1163,11 @@ export default function App() {
     let serverOrder = newOrder;
     try {
         const incompleteOrderIdsToDelete = incompleteOrders
-          .filter(o => normalizePhone(o.phone) === customerPhone)
+          .filter(o => normalizePhone(o.phone) === customerPhone || o.id === `inc_${customerPhone}`)
           .map(o => o.id);
+        if (!incompleteOrderIdsToDelete.includes(`inc_${customerPhone}`)) {
+          incompleteOrderIdsToDelete.push(`inc_${customerPhone}`);
+        }
 
         const res = await cloudStore.publicCheckout({
             order: newOrder,
@@ -1190,7 +1193,10 @@ export default function App() {
     setMyOrderIds([...myOrderIds, serverOrder.id]);
     setMyOrders([serverOrder, ...myOrders]);
 
-    setIncompleteOrders(prev => prev.filter(o => normalizePhone(o.phone) !== customerPhone));
+    setIncompleteOrders(prev => prev.filter(o => {
+      const p = normalizePhone(o.phone);
+      return p !== customerPhone && o.id !== `inc_${customerPhone}`;
+    }));
 
     // Reduce stock locally for instant UI update
     setProducts(prevProducts => deductOrderStock(prevProducts, serverOrder));
@@ -1279,63 +1285,56 @@ export default function App() {
     }, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' }, { email: userInfo.email, phone: userInfo.phone });
   };
 
-  const handleSaveIncompleteOrder = (phone: string, name: string, address: string) => {
+  const handleSaveIncompleteOrder = (phone: string, name: string = '', address: string = '', status: IncompleteOrderStatus = 'PHONE_ENTERED') => {
     const normPhone = normalizePhone(phone);
-    if (!normPhone) return;
+    if (!normPhone || !isValidBangladeshiPhone(normPhone)) return;
 
     const now = Date.now();
-    const duplicateControlValue = websiteSettings.incompleteOrdersFeature?.duplicateControlValue || 1;
-    const duplicateControlUnit = websiteSettings.incompleteOrdersFeature?.duplicateControlUnit || 'days';
-    
-    let duplicateThresholdMs = duplicateControlValue * 24 * 60 * 60 * 1000;
-    if (duplicateControlUnit === 'minutes') duplicateThresholdMs = duplicateControlValue * 60 * 1000;
-    else if (duplicateControlUnit === 'hours') duplicateThresholdMs = duplicateControlValue * 60 * 60 * 1000;
+    const orderId = `inc_${normPhone}`;
 
-    let targetToPersist: IncompleteOrder | null = null;
+    // Never resurrect an incomplete order if an order was completed for this phone in the last 5 minutes
+    const hasRecentCompletedOrder = [...myOrders, ...orders].some(o => {
+      if (normalizePhone(o.userInfo?.phone) !== normPhone) return false;
+      const t = o.clientInfo?.timestamp || (o.date ? new Date(o.date).getTime() : 0);
+      return Boolean(t && (now - t) < 5 * 60 * 1000);
+    });
+    if (hasRecentCompletedOrder) {
+      return;
+    }
+
+    const orderPayload: IncompleteOrder = {
+      id: orderId,
+      phone,
+      normPhone,
+      name,
+      location: address,
+      timestamp: now,
+      updatedAt: now,
+      status: status || 'PHONE_ENTERED',
+      contacted: false,
+      cartItems: cart && cart.length > 0 ? cart : []
+    };
 
     setIncompleteOrders(prev => {
-      const recentDuplicates = prev.filter(o => 
-        normalizePhone(o.phone) === normPhone && (now - o.timestamp) < duplicateThresholdMs
-      );
-
-      if (recentDuplicates.length > 0) {
-        // Update the most recent duplicate
-        const updatedOrder: IncompleteOrder = {
-          ...recentDuplicates[0],
-          name: name || recentDuplicates[0].name,
-          location: address || recentDuplicates[0].location,
-          timestamp: now,
-          cartItems: cart
-        };
-        targetToPersist = updatedOrder;
-        
-        return prev.map(o => {
-          if (o.id === recentDuplicates[0].id) {
-            return updatedOrder;
-          }
-          return o;
-        });
-      }
-
-      // Add a new incomplete order
-      const newIncomplete: IncompleteOrder = {
-        id: Math.random().toString(36).substring(2, 9),
-        phone,
-        name,
-        location: address,
-        timestamp: now,
-        status: 'Hot',
-        contacted: false,
-        cartItems: cart
+      const existing = prev.find(o => o.id === orderId || normalizePhone(o.phone) === normPhone);
+      const merged: IncompleteOrder = {
+        ...orderPayload,
+        name: name || existing?.name || '',
+        location: address || existing?.location || '',
+        timestamp: existing?.timestamp || now,
+        contacted: existing?.contacted ?? false,
+        contactedAt: existing?.contactedAt,
+        adminNotes: existing?.adminNotes,
+        notes: existing?.notes,
+        cartItems: cart && cart.length > 0 ? cart : (existing?.cartItems || [])
       };
-      targetToPersist = newIncomplete;
-      
-      return [newIncomplete, ...prev];
+      if (existing) {
+        return prev.map(o => (o.id === existing.id || normalizePhone(o.phone) === normPhone) ? merged : o);
+      }
+      return [merged, ...prev];
     });
 
-    if (targetToPersist) {
-      cloudStore.publicIncompleteOrder(targetToPersist).catch(console.error);
-    }
+    cloudStore.publicIncompleteOrder(orderPayload).catch(console.error);
   };
 
   const handleOrderAgain = (orderToReorder: Order) => {

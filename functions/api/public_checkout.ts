@@ -33,7 +33,7 @@ export async function onRequestPost(context: any) {
 
   try {
     const data = await request.json();
-    const { order, customer, incompletePhone, discountId } = data;
+    const { order, customer, incompletePhone, incompleteOrderIdsToDelete, discountId } = data;
 
     if (!order || !order.items || !Array.isArray(order.items)) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400 });
@@ -114,12 +114,54 @@ export async function onRequestPost(context: any) {
       }
     }
 
-    // 5. Delete Incomplete Orders
-    if (incompletePhone) {
+    // 5. Delete Incomplete Orders atomically
+    const rawPhones: string[] = [];
+    if (incompletePhone) rawPhones.push(String(incompletePhone).trim());
+    if (order.userInfo?.phone) rawPhones.push(String(order.userInfo.phone).trim());
+
+    const normalizedPhones: string[] = [];
+    for (const p of rawPhones) {
+      let cleaned = p.replace(/\D/g, '');
+      if (cleaned.startsWith('880') && cleaned.length >= 13) cleaned = cleaned.substring(2);
+      else if (cleaned.length === 10 && cleaned.startsWith('1')) cleaned = '0' + cleaned;
+      if (cleaned) normalizedPhones.push(cleaned);
+    }
+
+    const allPhones = Array.from(new Set([
+      ...rawPhones, 
+      ...normalizedPhones, 
+      ...normalizedPhones.map(p => '+88' + p),
+      ...normalizedPhones.map(p => '88' + p)
+    ]));
+    const targetIds = Array.from(new Set([
+      ...normalizedPhones.map(p => `inc_${p}`),
+      ...(Array.isArray(incompleteOrderIdsToDelete) ? incompleteOrderIdsToDelete : [])
+    ]));
+
+    if (allPhones.length > 0 || targetIds.length > 0) {
+      const conditions: string[] = [];
+      const bindParams: any[] = [];
+
+      if (targetIds.length > 0) {
+        const idPlaceholders = targetIds.map(() => '?').join(',');
+        conditions.push(`id IN (${idPlaceholders})`);
+        bindParams.push(...targetIds);
+      }
+
+      if (allPhones.length > 0) {
+        const phonePlaceholders = allPhones.map(() => '?').join(',');
+        conditions.push(`json_extract(data, '$.phone') IN (${phonePlaceholders})`);
+        bindParams.push(...allPhones);
+        conditions.push(`json_extract(data, '$.normPhone') IN (${phonePlaceholders})`);
+        bindParams.push(...allPhones);
+      }
+
+      if (conditions.length > 0) {
         stmts.push(
-            env.DB.prepare("DELETE FROM orders WHERE type = 'incomplete' AND json_extract(data, '$.phone') = ?")
-            .bind(incompletePhone)
+          env.DB.prepare(`DELETE FROM orders WHERE type = 'incomplete' AND (${conditions.join(' OR ')})`)
+            .bind(...bindParams)
         );
+      }
     }
 
     // 6. Update Discount usage

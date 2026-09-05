@@ -162,17 +162,22 @@ export interface GlobalQtyRules {
   discountPerPiece: number;
 }
 
-export type IncompleteOrderStatus = 'Hot' | 'Cold' | 'Follow-up';
+export type IncompleteOrderStatus = 'PHONE_ENTERED' | 'CANCELLED' | 'LEFT_PAGE' | 'RETURNED' | 'Hot' | 'Cold' | 'Follow-up' | string;
 
 export interface IncompleteOrder {
   id: string;
   phone: string;
+  normPhone?: string;
   name?: string;
   location?: string;
   timestamp: number;
+  createdAt?: number;
+  updatedAt?: number;
   status?: IncompleteOrderStatus;
   contacted?: boolean;
   contactedAt?: number;
+  adminNotes?: string;
+  notes?: string;
   cartItems?: CartItem[];
 }
 
@@ -251,6 +256,7 @@ export interface TelegramNotificationSettings {
 
 export interface WebsiteSettings {
   shopName?: string;
+  storeName?: string;
   smartProductDisplay?: boolean;
   bannerBorderRadius?: string;
   bannerEnabled: boolean;
@@ -519,17 +525,22 @@ export interface Order {
     phone: string;
     address: string;
     customerNote?: string;
+    city?: string;
   };
   deliveryCharge: number;
   discountAmount?: number;
   promoCode?: string;
   promoId?: string;
   clientInfo?: {
-    userAgent: string;
-    deviceType: string;
-    os: string;
-    browser: string;
-    screenResolution: string;
+    userAgent?: string;
+    deviceType?: string;
+    os?: string;
+    browser?: string;
+    screenResolution?: string;
+    phone?: string;
+    ipAddress?: string;
+    deviceId?: string;
+    timestamp?: number;
   };
   steadfast?: {
     consignmentId: string;
@@ -546,6 +557,7 @@ export interface Order {
   stockReturned?: boolean;
   subtotal: number;
   total: number;
+  totalAmount?: number;
   discount?: number;
   discountName?: string;
   extraCosts?: number;

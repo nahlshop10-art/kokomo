@@ -6,12 +6,12 @@ import { getCartTotal } from './lib/pricingUtils';
 import { isProductInStock } from './lib/stockUtils';
 import { downloadReceiptAsJPG, downloadReceiptAsPDF } from './lib/downloadReceipt';
 import { Receipt } from './components/Receipt';
-import { cn, formatPrice, normalizePhone, slugify } from './lib/utils';
+import { cn, formatPrice, normalizePhone, isValidBangladeshiPhone, slugify } from './lib/utils';
 import { CopyButton } from './components/CopyButton';
 import MinOrderPopup from './MinOrderPopup';
 import ActionBtn from './components/ActionBtn';
 import { useScrollLock } from './hooks/useScrollLock';
-import { DEFAULT_ACTION_BUTTONS, Category, Product, WebsiteSettings, Order, CartItem } from './types';
+import { DEFAULT_ACTION_BUTTONS, Category, Product, WebsiteSettings, Order, CartItem, IncompleteOrderStatus } from './types';
 
 export function BannerSlider({ banners, borderRadius = '0px' }: { banners: string[], borderRadius?: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -294,7 +294,7 @@ export function ColorModal({ product, onClose, onAdd }: { product: Product, onCl
           <X size={18} />
         </button>
         <div className="aspect-square bg-gray-100 relative">
-          <img src={selectedColor.thumbnail || selectedColor.image || product.thumbnail || product.image} alt={product.title} className="w-full h-full object-cover" />
+          <img src={(selectedColor as any).thumbnail || selectedColor.image || product.thumbnail || product.image} alt={product.title} className="w-full h-full object-cover" />
         </div>
         <div className="p-5">
           <div className="text-sm text-[var(--theme-black)] line-clamp-2 h-[2.5rem] leading-[1.25rem] mb-3">{product.title}</div>
@@ -925,40 +925,100 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
     return () => clearTimeout(timer);
   }, [name, phone, address]);
 
-  const lastSavedIncompleteRef = useRef<string>('');
-  const timeoutRef = useRef<any>(null);
+  const lastSentSignatureRef = useRef<string>('');
+  const lastEventRef = useRef<string>('');
+  const isOrderPlacedRef = useRef<boolean>(false);
+  const phoneRef = useRef<string>(phone);
+  const nameRef = useRef<string>(name);
+  const addressRef = useRef<string>(address);
 
-  const triggerSaveIncompleteOrder = useCallback((p: string, n: string, a: string) => {
-    if (success) return;
-    const phoneDigits = p.replace(/\D/g, '');
-    if (phoneDigits.length < 11) return;
-    const cartSignature = Array.isArray(cart) ? cart.map((c: any) => `${c.product?.id || ''}:${c.quantity || 0}:${c.variant || ''}`).join(';') : '';
-    const fingerprint = `${phoneDigits}|${(n || '').trim()}|${(a || '').trim()}|${cartSignature}`;
-    if (lastSavedIncompleteRef.current === fingerprint) return;
-    lastSavedIncompleteRef.current = fingerprint;
-    onSaveIncompleteOrder?.(p, n, a);
-  }, [cart, onSaveIncompleteOrder, success]);
+  useEffect(() => { phoneRef.current = phone; }, [phone]);
+  useEffect(() => { nameRef.current = name; }, [name]);
+  useEffect(() => { addressRef.current = address; }, [address]);
 
+  const triggerSaveIncompleteOrder = useCallback((p: string, n?: string, a?: string, eventType: IncompleteOrderStatus = 'PHONE_ENTERED') => {
+    if (isOrderPlacedRef.current || success) return;
+    if (!websiteSettings?.incompleteOrdersFeature?.enabled) return;
+    if (!isValidBangladeshiPhone(p)) return;
+
+    const normPhone = normalizePhone(p);
+    const cartSig = Array.isArray(cart) ? cart.map((c: any) => `${c.product?.id || c.id || ''}:${c.quantity || 0}:${c.variantId || ''}`).join(';') : '';
+    const cleanName = (n ?? nameRef.current ?? '').trim();
+    const cleanAddr = (a ?? addressRef.current ?? '').trim();
+    // Pure phone-based deduplication signature - prevents redundant requests while typing name/address
+    const signature = `${normPhone}|${eventType}|${cartSig}`;
+
+    if (lastSentSignatureRef.current === signature) return;
+    lastSentSignatureRef.current = signature;
+    lastEventRef.current = eventType;
+
+    onSaveIncompleteOrder?.(normPhone, cleanName, cleanAddr, eventType);
+  }, [cart, onSaveIncompleteOrder, success, websiteSettings?.incompleteOrdersFeature?.enabled]);
+
+  // Pure Event-Driven Triggers: Left Page / Returned / App Switch / Tab Switch / Pagehide (NO TIMERS)
   useEffect(() => {
     if (success || !websiteSettings?.incompleteOrdersFeature?.enabled) return;
 
-    // Timeout logic for inactivity
-    timeoutRef.current = setTimeout(() => {
-      triggerSaveIncompleteOrder(phone, name, address);
-    }, (websiteSettings.incompleteOrdersFeature.inactivityTimerMinutes || 5) * 60 * 1000);
+    const handleVisibilityChange = () => {
+      if (isOrderPlacedRef.current || success) return;
+      if (document.visibilityState === 'hidden') {
+        if (isValidBangladeshiPhone(phoneRef.current)) {
+          triggerSaveIncompleteOrder(phoneRef.current, nameRef.current, addressRef.current, 'LEFT_PAGE');
+        }
+      } else if (document.visibilityState === 'visible') {
+        if (lastEventRef.current === 'LEFT_PAGE' && isValidBangladeshiPhone(phoneRef.current)) {
+          triggerSaveIncompleteOrder(phoneRef.current, nameRef.current, addressRef.current, 'RETURNED');
+        }
+      }
+    };
+
+    const handlePageHide = () => {
+      if (isOrderPlacedRef.current || success) return;
+      if (isValidBangladeshiPhone(phoneRef.current)) {
+        triggerSaveIncompleteOrder(phoneRef.current, nameRef.current, addressRef.current, 'LEFT_PAGE');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
 
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
     };
-  }, [phone, name, address, success, websiteSettings, triggerSaveIncompleteOrder]);
+  }, [success, websiteSettings?.incompleteOrdersFeature?.enabled, triggerSaveIncompleteOrder]);
 
-  const handleClose = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (!success && websiteSettings?.incompleteOrdersFeature?.enabled) {
-      triggerSaveIncompleteOrder(phone, name, address);
+  const handleClose = useCallback(() => {
+    if (!isOrderPlacedRef.current && !success && websiteSettings?.incompleteOrdersFeature?.enabled) {
+      if (isValidBangladeshiPhone(phoneRef.current)) {
+        triggerSaveIncompleteOrder(phoneRef.current, nameRef.current, addressRef.current, 'CANCELLED');
+      }
     }
     onClose();
-  };
+  }, [onClose, success, websiteSettings?.incompleteOrdersFeature?.enabled, triggerSaveIncompleteOrder]);
+
+  // Clean cancellation if checkout modal unmounts (e.g. browser back button / history navigation)
+  useEffect(() => {
+    return () => {
+      if (!isOrderPlacedRef.current && !success && websiteSettings?.incompleteOrdersFeature?.enabled) {
+        if (isValidBangladeshiPhone(phoneRef.current)) {
+          triggerSaveIncompleteOrder(phoneRef.current, nameRef.current, addressRef.current, 'CANCELLED');
+        }
+      }
+    };
+  }, [success, websiteSettings?.incompleteOrdersFeature?.enabled, triggerSaveIncompleteOrder]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleClose]);
 
   const { total: subtotal, itemDiscounts } = React.useMemo(
     () => getCartTotal(cart, websiteSettings?.qtyRules),
@@ -1163,6 +1223,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
       }
     }
 
+    isOrderPlacedRef.current = true;
     setIsSubmitting(true);
     
     // Generate simple device fingerprint
@@ -1192,6 +1253,7 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
     };
 
     await new Promise(resolve => setTimeout(resolve, 300)); // Simulate extra network request for UI feel
+    isOrderPlacedRef.current = true;
     setSuccess(true);
     setTimeout(() => {
       onPlaceOrder({ name, phone, address, customerNote, clientInfo }, deliveryCharge, discountAmount, bestDiscount?.name || '', bestDiscount?.id);
@@ -1211,8 +1273,8 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-center bg-[var(--theme-black)]/50 lg:bg-[var(--store-bg)] lg:p-6 lg:overflow-hidden">
-      <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-[calc(100vh-3rem)] lg:max-h-[850px] flex flex-col lg:flex-row lg:gap-6 relative">
+    <div className="fixed inset-0 z-50 flex justify-end lg:justify-center lg:items-center bg-[var(--theme-black)]/50 lg:bg-[var(--store-bg)] lg:p-6 lg:overflow-hidden" onClick={handleClose}>
+      <div className="w-full max-w-md lg:max-w-5xl bg-[var(--store-bg)] lg:bg-transparent h-full lg:h-[calc(100vh-3rem)] lg:max-h-[850px] flex flex-col lg:flex-row lg:gap-6 relative" onClick={e => e.stopPropagation()}>
         <div className="flex flex-col flex-1 lg:w-3/5 lg:bg-[var(--theme-white)] lg:rounded-2xl lg:overflow-hidden h-full lg:shadow-md lg:border lg:border-gray-100 min-h-0">
           <div className="flex items-center p-2 lg:p-4 bg-[var(--theme-white)] border-b border-gray-100 relative lg:shrink-0 lg:py-5 lg:px-6">
           <div className="flex items-center z-10">
@@ -1315,8 +1377,16 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
                     else val = val.substring(0, 14);
                     
                     setPhone(val); 
-                    setError(null); 
+                    setError(null);
+                    if (isValidBangladeshiPhone(val)) {
+                      triggerSaveIncompleteOrder(val, name, address, 'PHONE_ENTERED');
+                    }
                   }} 
+                  onBlur={() => {
+                    if (isValidBangladeshiPhone(phone)) {
+                      triggerSaveIncompleteOrder(phone, name, address, 'PHONE_ENTERED');
+                    }
+                  }}
                   className={cn(
                     "w-full pl-10 pr-4 py-3 bg-[var(--theme-primary)]/5 border text-sm focus:outline-none focus:ring-2 transition-all",
                     phone.length > 0
