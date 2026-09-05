@@ -35,13 +35,17 @@ const queue = {
 };
 
 export const setBatchingInterval = (seconds?: number) => {
-  const ms = (seconds !== undefined && seconds !== null ? seconds : 35) * 1000;
+  const ms = (seconds !== undefined && seconds !== null ? Math.max(0, seconds) : 35) * 1000;
   if (currentBatchIntervalMs !== ms) {
     currentBatchIntervalMs = ms;
   }
 };
 
 const scheduleFlush = () => {
+  if (currentBatchIntervalMs <= 0) {
+    flushEvents();
+    return;
+  }
   if (!batchTimeoutId) {
     batchTimeoutId = setTimeout(() => {
       batchTimeoutId = null;

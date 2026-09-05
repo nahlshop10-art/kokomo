@@ -331,6 +331,10 @@ export default function App() {
         pixelId: '',
         accessToken: '',
         testCode: ''
+      },
+      pixelBatch: {
+        enabled: true,
+        intervalSeconds: 35
       }
     };
   });
@@ -352,8 +356,12 @@ export default function App() {
   }, [marketingSettings.metaPixel.enabled, marketingSettings.metaPixel.pixelId, marketingSettings.tiktokPixel.enabled, marketingSettings.tiktokPixel.pixelId, marketingSettings.ga4?.enabled, marketingSettings.ga4?.measurementId]);
 
   useEffect(() => {
-    setBatchingInterval(websiteSettings.eventBatchingInterval);
-  }, [websiteSettings.eventBatchingInterval]);
+    const isEnabled = marketingSettings?.pixelBatch?.enabled ?? true;
+    const interval = isEnabled 
+      ? (marketingSettings?.pixelBatch?.intervalSeconds ?? websiteSettings?.eventBatchingInterval ?? 35)
+      : 0;
+    setBatchingInterval(interval);
+  }, [websiteSettings?.eventBatchingInterval, marketingSettings?.pixelBatch?.enabled, marketingSettings?.pixelBatch?.intervalSeconds]);
 
 
   const [products, setProducts] = useState<Product[]>(PRODUCTS);

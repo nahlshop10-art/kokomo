@@ -13,7 +13,7 @@ import {
   Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb, Mail, Clock, BarChart2,
   Building, Percent, Send, MessageCircle, Box, Image
 } from 'lucide-react';
-import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
+import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, PixelBatchSettings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
 import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff } from './lib/stockUtils';
 import { cn, formatPrice, useScrollRestore, slugify } from './lib/utils';
 import { useHistoryModal } from './hooks/useHistoryModal';
@@ -4277,7 +4277,7 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
           )}
         </div>
 
-        {/* Pixel Event Batching & Smart Display */}
+        {/* Smart Product Display */}
         <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -4507,6 +4507,17 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
         enabled: prev.ga4?.enabled ?? false,
         measurementId: prev.ga4?.measurementId ?? '',
         apiSecret: prev.ga4?.apiSecret ?? '',
+        [field]: value
+      }
+    }));
+  };
+
+  const updatePixelBatch = (field: keyof PixelBatchSettings, value: boolean | number) => {
+    setDraftSettings(prev => ({
+      ...prev,
+      pixelBatch: {
+        enabled: prev.pixelBatch?.enabled ?? true,
+        intervalSeconds: prev.pixelBatch?.intervalSeconds ?? 35,
         [field]: value
       }
     }));
@@ -4856,6 +4867,62 @@ function MarketingManager({ settings, setSettings, onClose, themePrimary }: { se
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Pixel Event Batching Section */}
+        <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4" id="pixel_batching_card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Pixel Event Batching</h2>
+                <p className="text-xs text-slate-400">Collect and group pixel events to send them together in a single Cloudflare request.</p>
+              </div>
+            </div>
+            
+            <button 
+              type="button"
+              onClick={() => updatePixelBatch('enabled', !(draftSettings.pixelBatch?.enabled ?? true))}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                (draftSettings.pixelBatch?.enabled ?? true) ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
+              id="pixel_batching_toggle"
+              title="Toggle Pixel Batching"
+            >
+              <div 
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  (draftSettings.pixelBatch?.enabled ?? true) ? "translate-x-5.5" : "translate-x-0"
+                )} 
+              />
+            </button>
+          </div>
+
+          {(draftSettings.pixelBatch?.enabled ?? true) && (
+            <div className="space-y-3.5 pt-2 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 block">Batching Interval (Seconds) *</label>
+                <div className="relative flex items-center">
+                  <input 
+                    type="number" 
+                    min="1"
+                    max="300"
+                    value={draftSettings.pixelBatch?.intervalSeconds ?? 35}
+                    onChange={(e) => updatePixelBatch('intervalSeconds', Math.max(1, parseInt(e.target.value) || 1))}
+                    placeholder="e.g. 35"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                  />
+                  <span className="absolute right-4 text-xs font-semibold text-slate-400 pointer-events-none">Seconds</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                  Sets the timer for how many seconds later this pixel batch will send all events together. Events automatically flush instantly on checkout, purchase, or tab close.
+                </p>
               </div>
             </div>
           )}

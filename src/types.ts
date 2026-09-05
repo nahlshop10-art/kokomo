@@ -91,10 +91,16 @@ export interface GA4Settings {
   apiSecret: string;
 }
 
+export interface PixelBatchSettings {
+  enabled: boolean;
+  intervalSeconds: number;
+}
+
 export interface MarketingSettings {
   metaPixel: MetaPixelSettings;
   tiktokPixel: TikTokPixelSettings;
   ga4?: GA4Settings;
+  pixelBatch?: PixelBatchSettings;
 }
 
 export type DiscountType = 'percentage' | 'fixed' | 'free_delivery' | 'buy_x_get_y' | 'coupon';
