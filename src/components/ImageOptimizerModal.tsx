@@ -54,8 +54,8 @@ export default function ImageOptimizerModal({
         setScale(config.scale);
       } else {
         setIsDefaultMode(false);
-        setQuality(75);
-        setScale(100);
+        setQuality(70);
+        setScale(70);
       }
       urlToImageData(originalDataUrl, 1920)
         .then(data => {
@@ -70,14 +70,15 @@ export default function ImageOptimizerModal({
        setImageData(null);
        setOptimizedDataUrl(null);
        setLoadError(false);
-       setQuality(75);
-       setScale(100);
+       setQuality(70);
+       setScale(70);
        setUseOriginal(false);
     }
   }, [isOpen, originalDataUrl]);
 
   const handleSetDefault = () => {
-    setDefaultImageOptimization({ enabled: true, quality, scale, thumbnailWidth: 100, thumbnailQuality: 60 });
+    const cur = getDefaultImageOptimization();
+    setDefaultImageOptimization({ enabled: true, quality, scale, thumbnailWidth: cur.thumbnailWidth || 470, thumbnailQuality: cur.thumbnailQuality || 70 });
     setIsDefaultMode(true);
   };
 

@@ -189,8 +189,8 @@ export default function ZipImportModal({ onClose, onImportComplete, categories, 
                     imageUrl = await cloudStore.uploadFile(finalBlob, finalImageFilename);
                     
                     const thumbCfg = getDefaultImageOptimization();
-                    const thumbWidth = thumbCfg?.thumbnailWidth || 500;
-                    const thumbQuality = thumbCfg?.thumbnailQuality || 65;
+                    const thumbWidth = thumbCfg?.thumbnailWidth || 470;
+                    const thumbQuality = thumbCfg?.thumbnailQuality || 70;
                     
                     if (parsedImageData && parsedImageData.width > thumbWidth) {
                       const thumbOptions: OptimizeOptions = { 

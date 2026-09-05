@@ -39,7 +39,7 @@ export interface ImageOptimizationConfig {
 }
 
 export function getDefaultImageOptimization(): ImageOptimizationConfig {
-  const defaultCfg: ImageOptimizationConfig = { enabled: true, quality: 80, scale: 100, thumbnailWidth: 500, thumbnailQuality: 65 };
+  const defaultCfg: ImageOptimizationConfig = { enabled: true, quality: 70, scale: 70, thumbnailWidth: 470, thumbnailQuality: 70 };
   try {
     const saved = localStorage.getItem('paikarix_image_optimization_default');
     if (saved) return { ...defaultCfg, ...JSON.parse(saved) };

@@ -242,7 +242,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
               }));
 
               const defaultConfig = getDefaultImageOptimization();
-              let optimizeOptions: OptimizeOptions = { quality: 75 };
+              let optimizeOptions: OptimizeOptions = { quality: 70 };
               if (defaultConfig && defaultConfig.enabled) {
                  optimizeOptions.quality = defaultConfig.quality;
                  if (defaultConfig.scale !== 100) {
@@ -261,8 +261,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                    optimizedDataUrl = await cloudStore.uploadFile(blob, `img_${Date.now()}.webp`);
                    
                    // Thumbnail generation
-                   let thumbWidth = defaultConfig?.thumbnailWidth || 500;
-                   let thumbQuality = defaultConfig?.thumbnailQuality || 65;
+                   let thumbWidth = defaultConfig?.thumbnailWidth || 470;
+                   let thumbQuality = defaultConfig?.thumbnailQuality || 70;
                    if (imageData.width > thumbWidth) {
                      const thumbOptions: OptimizeOptions = { 
                        quality: thumbQuality, 

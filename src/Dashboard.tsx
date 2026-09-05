@@ -556,6 +556,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           if (state.settings.marketingSettings) setMarketingSettings(state.settings.marketingSettings);
           if (state.settings.courierSettings) setCourierSettings(state.settings.courierSettings);
           if (state.settings.priceCalculatorSettings) setPriceCalculatorSettings(state.settings.priceCalculatorSettings);
+          if (state.settings.imageOptimization) setDefaultImageOptimization(state.settings.imageOptimization);
         }
       }
       
@@ -6246,10 +6247,10 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
 
 export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () => void; themePrimary?: string }) {
   const [enabled, setEnabled] = useState(true);
-  const [quality, setQuality] = useState(80);
-  const [scale, setScale] = useState(100);
-  const [thumbnailWidth, setThumbnailWidth] = useState(500);
-  const [thumbnailQuality, setThumbnailQuality] = useState(65);
+  const [quality, setQuality] = useState(70);
+  const [scale, setScale] = useState(70);
+  const [thumbnailWidth, setThumbnailWidth] = useState(470);
+  const [thumbnailQuality, setThumbnailQuality] = useState(70);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -6262,7 +6263,9 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   }, []);
 
   const handleSave = () => {
-    setDefaultImageOptimization({ enabled, quality, scale, thumbnailWidth, thumbnailQuality });
+    const cfg = { enabled, quality, scale, thumbnailWidth, thumbnailQuality };
+    setDefaultImageOptimization(cfg);
+    cloudStore.saveSetting('imageOptimization', cfg).catch(console.error);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
