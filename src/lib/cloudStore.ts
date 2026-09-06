@@ -210,11 +210,7 @@ export const cloudStore = {
   },
 
   async deleteProducts(products: Product[]) {
-    this.emitEvent('Checking order references...');
-    const urlsToRelease: string[] = [];
-    products.forEach(p => urlsToRelease.push(...this._extractProductUrls(p)));
-    
-    this.emitEvent('Deleting products from D1...');
+    this.emitEvent('Deleting products...');
     const result = await this._post('/api/products', { items: products, action: 'delete' });
     
     if (!result.success) {
@@ -222,8 +218,16 @@ export const cloudStore = {
       throw new Error(result.error || 'Failed to delete products');
     }
 
-    if (urlsToRelease.length > 0) {
-       await this.garbageCollect(urlsToRelease, true);
+    this.emitEvent('Completed ✅', true);
+    return result;
+  },
+
+  async deleteAnalyticsItems(itemIds: string[]) {
+    this.emitEvent('Updating analytics items...');
+    const result = await this._post('/api/analytics_items', { action: 'delete', itemIds });
+    if (!result.success) {
+      this.emitEvent('Failed to update analytics items', false, true);
+      throw new Error(result.error || 'Failed to update analytics items');
     }
     this.emitEvent('Completed ✅', true);
     return result;
@@ -275,34 +279,14 @@ export const cloudStore = {
   },
 
   async deleteOrder(order: Order | IncompleteOrder, type: 'standard' | 'incomplete') {
-    this.emitEvent('Checking related files...');
-    const urlsToRelease = this._extractOrderUrls(order);
-    this.emitEvent('Deleting order from D1...');
+    this.emitEvent('Deleting order...');
     const result = await this._post('/api/orders', { items: [order], type, action: 'delete' });
-    if (urlsToRelease.length > 0) {
-      await this.garbageCollect(urlsToRelease, true);
+    if (!result.success) {
+      this.emitEvent('Failed to delete order', false, true);
+      throw new Error(result.error || 'Failed to delete order');
     }
     this.emitEvent('Completed ✅', true);
     return result;
-  },
-  
-  _extractProductUrls(product: Product): string[] {
-    const urls: (string | undefined)[] = [];
-    if (product.image) urls.push(product.image);
-    if (product.images) urls.push(...product.images);
-    if (product.colors) urls.push(...product.colors.map((c: any) => c.image));
-    if (product.variants) urls.push(...product.variants.map((v: any) => v.image));
-    return urls.filter(u => u && typeof u === 'string' && (u.startsWith('http') || u.startsWith('/uploads'))) as string[];
-  },
-
-  _extractOrderUrls(order: any): string[] {
-    const urls: (string | undefined)[] = [];
-    const items = order.items || order.cartItems || [];
-    items.forEach((item: any) => {
-      if (item.product) urls.push(...this._extractProductUrls(item.product));
-    });
-    // Add logic for attachments/invoices if they exist later
-    return Array.from(new Set(urls.filter(u => u && typeof u === 'string' && (u.startsWith('http') || u.startsWith('/uploads'))))) as string[];
   },
 
   async saveSetting(key: string, value: any, silent: boolean = false) {

@@ -75,16 +75,29 @@ let hasRunCleanup = false;
 const TopProductItem = React.memo(({ 
   product, 
   quantity, 
-  showImages 
+  showImages,
+  isDeleteMode,
+  isSelected,
+  onToggleSelect
 }: { 
   product: Product; 
   quantity: number; 
   showImages: boolean; 
+  isDeleteMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) => {
   if (!product) return null;
   return (
     <div 
-      className="relative overflow-hidden rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] aspect-square"
+      onClick={isDeleteMode ? onToggleSelect : undefined}
+      className={`relative overflow-hidden rounded-xl bg-[var(--dash-card)] border aspect-square transition-all ${
+        isDeleteMode ? 'cursor-pointer hover:opacity-90' : ''
+      } ${
+        isSelected 
+          ? 'border-red-500 ring-2 ring-red-500/50' 
+          : 'border-[var(--dash-border)]'
+      }`}
     >
       {showImages && (
         <img 
@@ -94,6 +107,15 @@ const TopProductItem = React.memo(({
           decoding="async"
           className="absolute inset-0 w-full h-full object-cover"
         />
+      )}
+      {isDeleteMode && (
+        <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center z-10 transition-colors ${
+          isSelected ? 'bg-red-500 text-white' : 'bg-black/60 border border-white/40 text-transparent'
+        }`}>
+          <svg className="w-3 h-3 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
       )}
       <div className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-md">
         {quantity}
@@ -341,6 +363,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [showFbZipExport, setShowFbZipExport] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [isManagingAnalyticsItems, setIsManagingAnalyticsItems] = useState(false);
+  const [selectedAnalyticsItemIds, setSelectedAnalyticsItemIds] = useState<string[]>([]);
 
   useHistoryModal(isAddingProduct, () => setIsAddingProduct(false), 'add-product');
   useHistoryModal(!!editingProduct, () => setEditingProduct(null), 'edit-product');
@@ -989,6 +1013,31 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     });
   };
 
+  const handleDeleteAnalyticsItems = () => {
+    if (selectedAnalyticsItemIds.length === 0) return;
+    setConfirmAction({
+      title: 'Delete Analytics Images',
+      message: `Are you sure you want to remove ${selectedAnalyticsItemIds.length} item(s) from Analytics? If they are used elsewhere in orders or products, they will only be hidden; otherwise they will be permanently deleted.`,
+      onConfirm: async () => {
+        try {
+          const idsToDelete = [...selectedAnalyticsItemIds];
+          await cloudStore.deleteAnalyticsItems(idsToDelete);
+          setWebsiteSettings(prev => ({
+            ...prev,
+            hiddenAnalyticsItemIds: Array.from(new Set([...(prev.hiddenAnalyticsItemIds || []), ...idsToDelete]))
+          }));
+          setSelectedAnalyticsItemIds([]);
+          setIsManagingAnalyticsItems(false);
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3000);
+        } catch (err) {
+          console.error('Failed to delete analytics items', err);
+        }
+        setConfirmAction(null);
+      }
+    });
+  };
+
   let displayProducts = [...products];
 
   // Search
@@ -1164,8 +1213,9 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       });
   }
 
+  const hiddenAnalyticsItemIds = websiteSettings?.hiddenAnalyticsItemIds || [];
   const topProducts = Array.from(productSales.values())
-    .filter(p => p && p.product && p.quantity > 0)
+    .filter(p => p && p.product && p.quantity > 0 && !hiddenAnalyticsItemIds.includes(p.product.id))
     .sort((a, b) => b.quantity - a.quantity);
 
   const toggleProductSelection = (id: string) => {
@@ -2013,7 +2063,52 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             {/* Top Products */}
             {perms.analytics.topSellingProducts && topProducts.length > 0 && (
               <div className="mb-6 border-t border-[var(--dash-border)] pt-8">
-                <h3 className="text-xl font-bold text-white mb-6 flex items-center justify-center">Items</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-8"></div>
+                  <h3 className="text-xl font-bold text-white flex items-center justify-center">Items</h3>
+                  <button 
+                    onClick={() => {
+                      setIsManagingAnalyticsItems(prev => !prev);
+                      setSelectedAnalyticsItemIds([]);
+                    }}
+                    className={`p-2 rounded-xl border transition-all ${
+                      isManagingAnalyticsItems 
+                        ? 'bg-red-500/20 text-red-400 border-red-500/40' 
+                        : 'bg-[var(--dash-card)] text-slate-400 hover:text-white border-[var(--dash-border)]'
+                    }`}
+                    title={isManagingAnalyticsItems ? "Cancel" : "Delete Analytics Images"}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {isManagingAnalyticsItems && (
+                  <div className="flex items-center justify-between bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl p-3 mb-4 shadow-xl">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-200">
+                      {selectedAnalyticsItemIds.length} item(s) selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          setIsManagingAnalyticsItems(false);
+                          setSelectedAnalyticsItemIds([]);
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        disabled={selectedAnalyticsItemIds.length === 0}
+                        onClick={handleDeleteAnalyticsItems}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-500 text-white disabled:opacity-40 flex items-center gap-1.5 shadow"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete Selected
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
                   {topProducts.map(({ product, quantity }) => (
                     <TopProductItem 
@@ -2021,6 +2116,15 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                       product={product}
                       quantity={quantity}
                       showImages={Boolean(perms.analytics.productImages)}
+                      isDeleteMode={isManagingAnalyticsItems}
+                      isSelected={selectedAnalyticsItemIds.includes(product.id)}
+                      onToggleSelect={() => {
+                        setSelectedAnalyticsItemIds(prev => 
+                          prev.includes(product.id) 
+                            ? prev.filter(id => id !== product.id)
+                            : [...prev, product.id]
+                        );
+                      }}
                     />
                   ))}
                 </div>

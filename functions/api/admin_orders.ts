@@ -127,7 +127,7 @@ export async function onRequestGet(context: any) {
     }
 
     // Now filter for the Orders List directly in SQL
-    let listQuery = `SELECT data FROM orders WHERE type = 'standard'`;
+    let listQuery = `SELECT data FROM orders WHERE type = 'standard' AND (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1)`;
     const params: any[] = [];
 
     if (search) {

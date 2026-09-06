@@ -23,7 +23,7 @@ export async function onRequestGet(context: any) {
             p.variants.forEach((v: any) => delete v.buyPrice);
         }
         return p;
-    });
+    }).filter((p: any) => !p.isDeleted);
 
     const settings: Record<string, any> = {};
     for (const r of settingsRes.results) {

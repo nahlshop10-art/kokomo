@@ -51,6 +51,7 @@ export interface Product {
   hasVariants?: boolean;
   qtyRules?: QtyPriceRule[];
   isNew?: boolean;
+  isDeleted?: boolean;
 }
 
 export interface CartItem {
@@ -304,6 +305,7 @@ export interface WebsiteSettings {
     connectedMasterUrl?: string;
     connectedMasterApiKey?: string;
   };
+  hiddenAnalyticsItemIds?: string[];
   telegramNotification?: TelegramNotificationSettings;
 }
 
@@ -573,4 +575,5 @@ export interface Order {
   trackingNumber?: string;
   bdCourierStatus?: 'pending' | 'success' | 'failed';
   bdCourierData?: BdCourierData;
+  isDeleted?: boolean;
 }

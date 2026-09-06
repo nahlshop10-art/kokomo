@@ -15,12 +15,8 @@ export async function onRequestPost({ request, env }: any) {
         await env.DB.batch(stmts.slice(i, i + 50));
       }
     } else if (action === 'delete') {
-      const ids = items.map((i: any) => i.id);
-      for (let i = 0; i < ids.length; i += 50) {
-        const chunk = ids.slice(i, i + 50);
-        const placeholders = chunk.map(() => '?').join(',');
-        await env.DB.prepare(`DELETE FROM customers WHERE id IN (${placeholders})`).bind(...chunk).run();
-      }
+      // Customer CRM data is strictly protected and permanent; deletion is rejected.
+      return Response.json({ success: true, message: 'Customer CRM records are permanently protected and cannot be deleted.' });
     }
 
     return Response.json({ success: true });

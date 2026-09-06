@@ -25,9 +25,13 @@ export async function onRequestGet(context: any) {
         )
       ORDER BY o.updated_at DESC LIMIT 1000
     `).all();
-    const incompleteOrders = incompleteOrdersRes.results.map((r: any) => JSON.parse(r.data));
+    const incompleteOrders = incompleteOrdersRes.results
+      .map((r: any) => JSON.parse(r.data))
+      .filter((o: any) => !o.isDeleted);
 
-    const products = productsRes.results.map((r: any) => JSON.parse(r.data));
+    const products = productsRes.results
+      .map((r: any) => JSON.parse(r.data))
+      .filter((p: any) => !p.isDeleted);
     const adminUsers = settingsRes.results.length > 0 ? JSON.parse(settingsRes.results[0].value) : null;
     const customers = customersRes.results.map((r: any) => JSON.parse(r.data));
     
