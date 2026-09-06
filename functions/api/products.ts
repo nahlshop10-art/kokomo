@@ -27,7 +27,9 @@ export async function onRequestPost(context: any) {
 
           const urls: string[] = [];
           if (prodData.image) urls.push(prodData.image);
+          if (prodData.thumbnail) urls.push(prodData.thumbnail);
           if (Array.isArray(prodData.images)) urls.push(...prodData.images);
+          if (Array.isArray(prodData.thumbnails)) urls.push(...prodData.thumbnails);
           if (Array.isArray(prodData.colors)) prodData.colors.forEach((c: any) => c?.image && urls.push(c.image));
           if (Array.isArray(prodData.variants)) prodData.variants.forEach((v: any) => v?.image && urls.push(v.image));
 
