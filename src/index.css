@@ -44,7 +44,16 @@ html.scroll-locked, body.scroll-locked {
 /* Vercel performance rule: rendering-content-visibility for fast 60fps scrolling */
 .product-card-contain {
   content-visibility: auto;
-  contain-intrinsic-size: auto 280px;
+  contain-intrinsic-size: auto 286px;
+}
+
+.rounded-b-20px {
+  border-bottom-left-radius: 20px !important;
+  border-bottom-right-radius: 20px !important;
+}
+
+.contain-strict {
+  contain: strict;
 }
 
 .btn-gradient {

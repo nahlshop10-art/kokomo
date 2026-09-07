@@ -563,17 +563,17 @@ export default function ProductDetails({
           <h2 className="text-[1.35rem] font-bold text-[var(--theme-black)] mb-5 text-center px-4">
             {isFallback ? "You may also like" : "Similar Products"}
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 px-1 pb-1 lg:gap-4 lg:p-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0.5 sm:gap-2 lg:gap-1 xl:gap-2 px-1 pb-1 lg:p-4">
             {similar.slice(0, visibleSimilarLimit).map(({ product: p, matchedKeyword }) => {
               const pCartItem = cart.find(item => item.product.id === p.id);
               
               return (
                 <div 
                   key={p.id} 
-                  className="bg-[var(--theme-white)] rounded-lg overflow-hidden shadow-sm border border-gray-100 flex flex-col group"
+                  className="product-card-contain relative bg-[var(--theme-white)] rounded-lg rounded-b-[20px] rounded-b-20px overflow-hidden border border-gray-100 xl:p-1 flex flex-col group cursor-pointer"
                   onClick={() => onProductSelect?.(p)}
                 >
-                  <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
+                  <div className="relative aspect-square w-full overflow-hidden bg-gray-100 group contain-strict xl:rounded-md">
                     <img 
                       src={p.thumbnail || p.image} 
                       alt={p.title} 
@@ -602,7 +602,7 @@ export default function ProductDetails({
                       </div>
                     )}
                   </div>
-                  <div className="p-[2px] flex flex-col flex-grow gap-[2px]">
+                  <div className="pl-1 lg:pl-2 pt-1 flex flex-col flex-grow">
                     {p.material && p.material !== 'Unknown' && (
                       <div className="text-xs text-yellow-600 font-medium">{p.material}</div>
                     )}
@@ -614,7 +614,9 @@ export default function ProductDetails({
                       {p.title}
                     </div>
                     <div className="font-bold text-[16px] lg:text-lg">{formatPrice(p.price)}</div>
+                  </div>
 
+                  <div className="p-0.5 pt-0 mt-auto">
                     {pCartItem ? (
                       <div className="flex items-center justify-between w-full h-[36px] lg:h-[40px]" onClick={(e) => e.stopPropagation()}>
                         <button 

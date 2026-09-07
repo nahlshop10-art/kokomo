@@ -58,10 +58,10 @@ const StorefrontProductCard = React.memo(function StorefrontProductCard({
 }: StorefrontProductCardProps) {
   return (
     <div 
-      className="product-card-contain bg-[var(--theme-white)] rounded-lg overflow-hidden shadow-sm border border-gray-100 flex flex-col group cursor-pointer"
+      className="product-card-contain relative bg-[var(--theme-white)] rounded-lg rounded-b-[20px] rounded-b-20px overflow-hidden border border-gray-100 xl:p-1 flex flex-col group cursor-pointer"
       onClick={() => onSelect(product)}
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-gray-100 group">
+      <div className="relative aspect-square w-full overflow-hidden bg-gray-100 group contain-strict xl:rounded-md">
         <img 
           src={product.thumbnail || product.image} 
           alt={product.title} 
@@ -90,7 +90,7 @@ const StorefrontProductCard = React.memo(function StorefrontProductCard({
           </div>
         )}
       </div>
-      <div className="p-[2px] flex flex-col flex-grow gap-[2px]">
+      <div className="pl-1 lg:pl-2 pt-1 flex flex-col flex-grow">
         {product.material && product.material !== 'Unknown' && (
           <div className="text-xs text-yellow-600 font-medium">{product.material}</div>
         )}
@@ -102,9 +102,11 @@ const StorefrontProductCard = React.memo(function StorefrontProductCard({
           {product.title}
         </div>
         <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
+      </div>
 
+      <div className="p-0.5 pt-0 mt-auto">
         {cartItem && (!product.hasVariants || !product.variants?.length) ? (
-          <div className="w-full flex justify-center mt-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full flex justify-center" onClick={(e) => e.stopPropagation()}>
             <div 
               className="flex items-center justify-between" 
               style={{
@@ -169,7 +171,7 @@ const StorefrontProductCard = React.memo(function StorefrontProductCard({
             </div>
           </div>
         ) : (
-          <div className="w-full flex justify-center mt-auto">
+          <div className="w-full flex justify-center">
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -738,7 +740,7 @@ export default function App() {
   const rowCount = Math.ceil(filteredProducts.length / cols);
   
   const estimateRowHeight = React.useCallback(() => {
-    return windowWidth >= 1024 ? 380 : windowWidth >= 768 ? 320 : 250;
+    return windowWidth >= 1024 ? 380 : windowWidth >= 768 ? 320 : 286;
   }, [windowWidth]);
 
   const virtualizer = useWindowVirtualizer({
@@ -1679,7 +1681,7 @@ export default function App() {
                   width: '100%',
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                className={cn("grid gap-1 px-1 pb-1 lg:gap-4 lg:p-4", cols === 4 ? "grid-cols-4" : cols === 3 ? "grid-cols-3" : "grid-cols-2")}
+                className={cn("grid gap-0.5 sm:gap-2 lg:gap-1 xl:gap-2", cols === 4 ? "grid-cols-4" : cols === 3 ? "grid-cols-3" : "grid-cols-2")}
               >
                 {Array.from({ length: cols }).map((_, i) => {
                   const productIndex = virtualRow.index * cols + i;
