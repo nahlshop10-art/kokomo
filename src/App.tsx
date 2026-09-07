@@ -1668,7 +1668,7 @@ export default function App() {
           </div>
 
           {/* Product Grid */}
-          <div ref={listRef} className="w-full relative px-1 pb-1" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          <div ref={listRef} className="w-full relative pb-1" style={{ height: `${virtualizer.getTotalSize()}px` }}>
             {virtualizer.getVirtualItems().map((virtualRow) => (
               <div
                 key={virtualRow.index}
@@ -1681,7 +1681,7 @@ export default function App() {
                   width: '100%',
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                className={cn("grid gap-0.5 sm:gap-2 lg:gap-1 xl:gap-2", cols === 4 ? "grid-cols-4" : cols === 3 ? "grid-cols-3" : "grid-cols-2")}
+                className={cn("grid gap-0.5 sm:gap-2 lg:gap-1 xl:gap-2 px-1 lg:px-4", cols === 4 ? "grid-cols-4" : cols === 3 ? "grid-cols-3" : "grid-cols-2")}
               >
                 {Array.from({ length: cols }).map((_, i) => {
                   const productIndex = virtualRow.index * cols + i;
