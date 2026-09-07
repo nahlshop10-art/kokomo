@@ -71,7 +71,7 @@ export default function ActionButtonsCustomiser({ settings, setSettings }: Actio
                     width: currentSettings.width === 'auto' ? 'auto' : (currentSettings.width || '100%'),
                     borderRadius: currentSettings.borderRadius || '9999px',
                     background: 'var(--theme-primary-gradient)',
-                    boxShadow: 'var(--theme-primary-shadow)',
+                    boxShadow: 'inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45)',
                     color: 'rgb(254, 243, 245)',
                   }}
                   className="font-semibold text-sm flex items-center justify-center px-4 transition-all"
@@ -86,7 +86,7 @@ export default function ActionButtonsCustomiser({ settings, setSettings }: Actio
                     width: currentSettings.width === 'auto' ? 'auto' : (currentSettings.width || '100%'),
                     borderRadius: currentSettings.borderRadius || '9999px',
                     background: 'var(--theme-primary-gradient)',
-                    boxShadow: 'var(--theme-primary-shadow)',
+                    boxShadow: 'inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45)',
                     color: 'rgb(254, 243, 245)',
                   }}
                   className="font-semibold text-sm flex items-center justify-center gap-1.5 px-4 transition-all"

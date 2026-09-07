@@ -58,7 +58,7 @@ html.scroll-locked, body.scroll-locked {
 
 .btn-gradient {
   background: var(--theme-primary-gradient);
-  box-shadow: var(--theme-primary-shadow);
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45);
   color: rgb(254, 243, 245);
   font-family: 'Manrope', sans-serif;
   font-weight: 600;
@@ -69,7 +69,8 @@ html.scroll-locked, body.scroll-locked {
   justify-content: center;
   border-radius: var(--btn-add-radius, 9999px);
   padding: 8px 16px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
 }
 
 .btn-add-to-cart {
@@ -80,7 +81,8 @@ html.scroll-locked, body.scroll-locked {
 }
 
 .btn-gradient:hover {
-  opacity: 0.96;
+  filter: brightness(1.03);
+  opacity: 0.98;
 }
 
 .btn-gradient:active {

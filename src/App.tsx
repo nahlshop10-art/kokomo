@@ -223,7 +223,8 @@ export default function App() {
       const root = document.documentElement;
       root.style.setProperty('--theme-primary', websiteSettings.themeColors?.primary || '#ff4d6d');
       root.style.setProperty('--theme-primary-hover', `color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 80%, black)`);
-      root.style.setProperty('--theme-primary-gradient', `linear-gradient(90deg, color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 76%, white 24%) 0%, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 45%, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 100%)`);
+      const primaryColor = websiteSettings.themeColors?.primary || '#ff4d6d';
+      root.style.setProperty('--theme-primary-gradient', `linear-gradient(to top left, ${primaryColor} 20%, color-mix(in srgb, ${primaryColor} 55%, white 45%))`);
       root.style.setProperty('--theme-primary-shadow', `0 4px 14px color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 28%, transparent)`);
       root.style.setProperty('--theme-black', websiteSettings.themeColors?.black || '#000000');
       root.style.setProperty('--theme-white', websiteSettings.themeColors?.white || '#ffffff');
@@ -1439,7 +1440,7 @@ export default function App() {
   const themeVars = {
     '--theme-primary': websiteSettings.themeColors?.primary || '#ff4d6d',
     '--theme-primary-hover': `color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 80%, black)`,
-    '--theme-primary-gradient': `linear-gradient(90deg, color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 76%, white 24%) 0%, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 45%, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 100%)`,
+    '--theme-primary-gradient': `linear-gradient(to top left, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 20%, color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 55%, white 45%))`,
     '--theme-primary-shadow': `0 4px 14px color-mix(in srgb, ${websiteSettings.themeColors?.primary || '#ff4d6d'} 28%, transparent)`,
     '--theme-black': websiteSettings.themeColors?.black || '#000000',
     '--theme-white': websiteSettings.themeColors?.white || '#ffffff',
