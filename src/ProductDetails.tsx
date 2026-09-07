@@ -10,6 +10,7 @@ import { Product, CartItem, WebsiteSettings, DEFAULT_ACTION_BUTTONS } from './ty
 import { CopyButton } from './components/CopyButton';
 import ActionBtn from './components/ActionBtn';
 import { useScrollLock } from './hooks/useScrollLock';
+import { PaikarixMessageIcon } from './components/FloatingSocialButtons';
 
 interface ProductDetailsProps {
   key?: React.Key;
@@ -285,7 +286,7 @@ export default function ProductDetails({
                     <img src={link.icon} alt="social" className="w-full h-full object-contain" />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600">
-                      <MessageCircle size={16} />
+                      <PaikarixMessageIcon className="w-4 h-4" />
                     </div>
                   )}
                 </a>

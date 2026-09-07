@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Antigravity
+Comment=Antigravity Coding Assistant & IDE
+Exec=/usr/local/bin/antigravity %U
+Icon=/usr/share/pixmaps/antigravity.png
+Terminal=false
+Categories=Development;IDE;
+StartupNotify=true

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { WebsiteSettings, SocialLink } from './types';
 import { ChevronLeft, Plus, Trash2, Save, Check, Share2, Globe } from 'lucide-react';
 import { cloudStore } from './lib/cloudStore';
+import { PaikarixMessageIcon } from './components/FloatingSocialButtons';
 
 export default function SocialMediaManager({
   websiteSettings,
@@ -126,7 +127,7 @@ export default function SocialMediaManager({
               {mainIcon ? (
                 <img src={mainIcon} alt="Main Hub" className="w-10 h-10 object-contain" />
               ) : (
-                <Share2 size={24} className="text-indigo-400" />
+                <PaikarixMessageIcon className="w-8 h-8 text-[#fff8f0]" />
               )}
               <input 
                 type="file" 

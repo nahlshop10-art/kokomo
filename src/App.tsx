@@ -30,7 +30,7 @@ import { VariantModal } from './components/VariantModal';
 import { downloadReceiptAsJPG, downloadReceiptAsPDF } from './lib/downloadReceipt';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import ActionBtn from './components/ActionBtn';
-import FloatingSocialButtons from './components/FloatingSocialButtons';
+import FloatingSocialButtons, { PaikarixMessageIcon } from './components/FloatingSocialButtons';
 import { useScrollLock, forceUnlockAllScroll } from './hooks/useScrollLock';
 import { useHistoryModal } from './hooks/useHistoryModal';
 import { DEFAULT_ACTION_BUTTONS } from './types';
@@ -1521,7 +1521,7 @@ export default function App() {
                             <img src={link.icon} alt="social" className="w-full h-full object-contain" />
                           ) : (
                             <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600">
-                              <MessageCircle size={16} />
+                              <PaikarixMessageIcon className="w-4 h-4" />
                             </div>
                           )}
                         </a>

@@ -12,6 +12,25 @@ interface FloatingSocialButtonsProps {
   isCartVisible?: boolean;
 }
 
+export function PaikarixMessageIcon({ className = "w-6 h-6 sm:w-7 sm:h-7", ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1.75em"
+      height="1.75em"
+      className={className}
+      fill="currentColor"
+      {...props}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2S2 6.477 2 12c0 1.6.376 3.112 1.043 4.453c.178.356.237.763.134 1.148l-.595 2.226a1.3 1.3 0 0 0 1.591 1.592l2.226-.596a1.63 1.63 0 0 1 1.149.133A9.96 9.96 0 0 0 12 22m-4-8.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5zm-.75-2.75A.75.75 0 0 1 8 9.75h8a.75.75 0 0 1 0 1.5H8a.75.75 0 0 1-.75-.75"
+      />
+    </svg>
+  );
+}
+
 export default function FloatingSocialButtons({ links, mainIcon, config = DEFAULT_ACTION_BUTTONS.viewCart, isCartVisible = false }: FloatingSocialButtonsProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -34,10 +53,6 @@ export default function FloatingSocialButtons({ links, mainIcon, config = DEFAUL
     zIndex: 60,
     transition: 'bottom 0.3s ease-in-out'
   };
-
-  // If there are no links, just pressing the button could still open chat? 
-  // No, if no links and no mainIcon, maybe don't show. Wait, the prompt says show ONLY custom Message button default.
-  // We'll show the button even if there are no links, so they can use it or at least see the icon.
 
   return (
     <div 
@@ -66,7 +81,7 @@ export default function FloatingSocialButtons({ links, mainIcon, config = DEFAUL
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.8 }}
                 transition={{ duration: 0.2, delay: (links.length - 1 - i) * 0.05 }}
-                className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform overflow-hidden relative"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform overflow-hidden relative"
               >
                 {link.icon ? (
                   <img src={link.icon} alt="Social icon" className="w-full h-full object-contain absolute inset-0" />
@@ -86,9 +101,13 @@ export default function FloatingSocialButtons({ links, mainIcon, config = DEFAUL
           }
         }}
         className={cn(
-          "w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-xl flex items-center justify-center text-white transition-transform active:scale-95 bg-[#222222] overflow-hidden relative"
+          "w-11 h-11 sm:w-12 sm:h-12 rounded-full shadow-xl flex items-center justify-center text-[#fff8f0] transition-transform active:scale-95 bg-[#29241f] border border-white/15 overflow-hidden relative cursor-pointer"
         )}
+        aria-label="Contacts"
       >
+        {/* Subtle shiny border highlight */}
+        <span className="absolute inset-0 rounded-full border border-white/10 pointer-events-none" />
+
         <AnimatePresence mode="wait">
           {isOpen ? (
             <motion.div
@@ -97,23 +116,25 @@ export default function FloatingSocialButtons({ links, mainIcon, config = DEFAUL
               animate={{ opacity: 1, rotate: 0 }}
               exit={{ opacity: 0, rotate: 90 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-0 flex items-center justify-center"
+              className="absolute inset-0 flex items-center justify-center text-[#fff8f0]"
             >
-              <X size={24} />
+              <svg viewBox="0 0 24 24" width="20" height="20" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
             </motion.div>
           ) : (
             <motion.div
               key="open"
               initial={{ opacity: 0, rotate: 90 }}
               animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: -90 }}
+              exit={{ opacity: 0, rotate: 90 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-0 flex items-center justify-center"
+              className="absolute inset-0 flex items-center justify-center text-[#fff8f0]"
             >
               {mainIcon ? (
                 <img src={mainIcon} alt="Message" className="w-full h-full object-cover" />
               ) : (
-                <MessageCircle size={24} className="fill-current text-white transform -scale-x-100" />
+                <PaikarixMessageIcon className="w-6 h-6 sm:w-7 sm:h-7 text-[#fff8f0]" />
               )}
             </motion.div>
           )}
