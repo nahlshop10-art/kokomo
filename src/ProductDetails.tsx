@@ -473,7 +473,13 @@ export default function ProductDetails({
 
         {/* Cart Controls */}
         {isOutOfStock ? (
-           <div className="w-full py-3.5 bg-gray-200 text-gray-500 rounded-full font-bold text-center border-none mt-2">
+           <div 
+             className="w-full bg-gray-200 text-gray-500 font-bold text-center border-none mt-2 flex items-center justify-center"
+             style={{
+               height: 'var(--btn-add-height, 38px)',
+               borderRadius: 'var(--btn-add-radius, 9999px)'
+             }}
+           >
              Out of stock
            </div>
         ) : cartQuantity === 0 ? (
@@ -482,10 +488,10 @@ export default function ProductDetails({
               disabled={product.hasVariants && !selectedVariant}
               onClick={handleAddToCart}
               className={cn(
-                "btn-add-to-cart gap-1.5",
+                "btn-view-product gap-1.5",
                 product.hasVariants && !selectedVariant
                  ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none font-semibold text-sm flex items-center justify-center"
-                 : "btn-gradient"
+                 : "btn-gradient cursor-pointer"
               )}
             >
               {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
@@ -618,57 +624,76 @@ export default function ProductDetails({
 
                   <div className="p-0.5 pt-0 mt-auto">
                     {pCartItem ? (
-                      <div className="flex items-center justify-between w-full h-[36px] lg:h-[40px]" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); removeFromCart(pCartItem.id); }} 
-                          className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-red-500 border border-red-200 rounded-full bg-red-50"
+                      <div className="w-full flex justify-center" onClick={(e) => e.stopPropagation()}>
+                        <div 
+                          className="flex items-center justify-between" 
+                          style={{
+                            width: 'var(--btn-add-width, 100%)',
+                            height: 'var(--btn-add-height, 38px)',
+                          }}
                         >
-                          <Trash2 size={16} />
-                        </button>
-                        <div className="flex items-center border border-gray-200 rounded-full h-full bg-[var(--theme-white)]" onClick={(e) => e.stopPropagation()}>
                           <button 
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(pCartItem.id, -1); }} 
-                            className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-l-full"
+                            onClick={(e) => { e.stopPropagation(); removeFromCart(pCartItem.id); }} 
+                            className="flex items-center justify-center text-red-500 border border-red-200 bg-red-50 cursor-pointer shrink-0"
+                            style={{
+                              width: 'var(--btn-add-height, 38px)',
+                              height: 'var(--btn-add-height, 38px)',
+                              borderRadius: 'var(--btn-add-radius, 9999px)'
+                            }}
                           >
-                            <Minus size={16} />
+                            <Trash2 size={16} />
                           </button>
-                          <input 
-                            type="number" 
-                            className="w-10 text-center font-medium text-sm appearance-none border-none outline-none focus:outline-none bg-transparent p-0 m-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            value={pCartItem.quantity === 0 ? '' : (pCartItem.quantity || '')}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              const val = e.target.value;
-                              if (val === '') {
-                                updateQuantity(pCartItem.id, 0, false);
-                                return;
-                              }
-                              const num = parseInt(val);
-                              if (!isNaN(num)) {
-                                updateQuantity(pCartItem.id, num, false);
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (isNaN(val) || val < 1) {
-                                updateQuantity(pCartItem.id, 1, false);
-                              }
-                            }}
+                          <div 
+                            className="flex items-center border border-gray-200 h-full bg-[var(--theme-white)] overflow-hidden" 
+                            style={{ borderRadius: 'var(--btn-add-radius, 9999px)' }}
                             onClick={(e) => e.stopPropagation()}
-                          />
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(pCartItem.id, 1); }} 
-                            className="w-[36px] lg:w-[40px] h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 rounded-r-full"
                           >
-                            <Plus size={16} />
-                          </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(pCartItem.id, -1); }} 
+                              className="px-2 lg:px-2.5 h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer"
+                              style={{ borderTopLeftRadius: 'var(--btn-add-radius, 9999px)', borderBottomLeftRadius: 'var(--btn-add-radius, 9999px)' }}
+                            >
+                              <Minus size={16} />
+                            </button>
+                            <input 
+                              type="number" 
+                              className="w-10 text-center font-medium text-sm appearance-none border-none outline-none focus:outline-none bg-transparent p-0 m-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              value={pCartItem.quantity === 0 ? '' : (pCartItem.quantity || '')}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const val = e.target.value;
+                                if (val === '') {
+                                  updateQuantity(pCartItem.id, 0, false);
+                                  return;
+                                }
+                                const num = parseInt(val);
+                                if (!isNaN(num)) {
+                                  updateQuantity(pCartItem.id, num, false);
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (isNaN(val) || val < 1) {
+                                  updateQuantity(pCartItem.id, 1, false);
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(pCartItem.id, 1); }} 
+                              className="px-2 lg:px-2.5 h-full flex items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer"
+                              style={{ borderTopRightRadius: 'var(--btn-add-radius, 9999px)', borderBottomRightRadius: 'var(--btn-add-radius, 9999px)' }}
+                            >
+                              <Plus size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <div className="w-full flex justify-center">
                         <button 
                           onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                          className="btn-gradient btn-add-to-cart gap-1.5"
+                          className="btn-gradient btn-add-to-cart gap-1.5 cursor-pointer"
                         >
                           {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
                         </button>
@@ -800,7 +825,7 @@ export default function ProductDetails({
                 <div className="w-full flex justify-center mt-2">
                   <button 
                     onClick={handleAddToCart}
-                    className="btn-gradient btn-add-to-cart gap-1.5"
+                    className="btn-gradient btn-view-product gap-1.5 cursor-pointer"
                   >
                     {isAddingToOrder ? <><Plus size={15} /> Add to Order</> : "Add to cart"}
                   </button>
