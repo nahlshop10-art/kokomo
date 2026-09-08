@@ -19,7 +19,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import JSZip from 'jszip';
-import { Product, Category, WebsiteSettings } from '../types';
+import { Product, Category, WebsiteSettings, DEFAULT_ACTION_BUTTONS } from '../types';
 import { cn } from '../lib/utils';
 
 interface FbZipExportModalProps {
@@ -70,7 +70,7 @@ export function generateProductCaption(
   const price = Math.round(Number(product.price) || 0);
   const moqPrice = Math.max(0, price - moqDiscount);
 
-  return `${categoryUpper}\n----------------------\n${price} TK / PER PIECES \n${moqPrice} TK / MOQ-6\n----------------------`;
+  return `✨${categoryUpper}✨\n\n${price} TK / PER PIECES\n${moqPrice} TK / MOQ-6`;
 }
 
 function getExtension(url: string, blob?: Blob): string {
@@ -170,6 +170,9 @@ export default function FbZipExportModal({
   themePrimary = '#6366F1' 
 }: FbZipExportModalProps) {
   const primaryColor = '#6366F1';
+  const checkoutBtnConfig = websiteSettings?.actionButtons?.checkout || DEFAULT_ACTION_BUTTONS.checkout;
+  const checkoutBtnHeight = checkoutBtnConfig?.height || '48px';
+  const checkoutBtnRadius = checkoutBtnConfig?.borderRadius || '9999px';
 
   const [moqDiscount, setMoqDiscount] = useState<number>(5);
   const [fallbackCategory, setFallbackCategory] = useState<string>('GENERAL');
@@ -775,19 +778,15 @@ export default function FbZipExportModal({
 
       {/* 3. Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 md:left-[334px] px-4 py-3 bg-[var(--dash-bg)]/95 backdrop-blur-md border-t border-[var(--dash-border)]/70 z-[110] shadow-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <button 
-            onClick={onClose}
-            disabled={exportState === 'exporting'}
-            className="px-5 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-200 hover:text-white font-semibold hover:bg-white/10 transition-colors text-xs sm:text-sm disabled:opacity-40 cursor-pointer"
-          >
-            Back
-          </button>
-
+        <div className="max-w-2xl mx-auto flex items-center">
           <button 
             onClick={handleStartExport}
             disabled={exportState === 'exporting' || inStockProducts.length === 0}
-            className="flex-1 py-3 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-98 font-bold text-xs sm:text-sm text-white transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              height: checkoutBtnHeight,
+              borderRadius: checkoutBtnRadius,
+            }}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-98 font-bold text-sm text-white transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportState === 'exporting' ? (
               <>
@@ -796,8 +795,8 @@ export default function FbZipExportModal({
               </>
             ) : (
               <>
-                <Download size={17} strokeWidth={2.4} />
-                <span>Download FB Zip ({inStockProducts.length} In-Stock Products)</span>
+                <Download size={18} strokeWidth={2.4} />
+                <span>Download</span>
               </>
             )}
           </button>

@@ -622,6 +622,7 @@ export default function CustomiseManager({
           onClose={() => setShowLocalFbZipModal(false)}
           products={products}
           categories={categories}
+          websiteSettings={draftSettings}
           themePrimary={themeColors.primary}
         />
       )}
