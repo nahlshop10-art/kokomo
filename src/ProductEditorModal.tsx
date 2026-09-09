@@ -528,7 +528,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     : '';
 
   const hasChanges = isNewProduct 
-    ? (title !== '' || images.length > 0 || buyPrice !== '' || sellPrice !== '' || category !== '')
+    ? (title !== '' || images.length > 0 || buyPrice !== '' || sellPrice !== '' || category !== '' || code1688 !== '' || link1688 !== '')
     : (
         title !== (initialProduct?.title || '') ||
         category !== (initialProduct?.category || '') ||
@@ -538,6 +538,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         buyPrice !== initialBuyPriceValue ||
         sellPrice !== (initialProduct?.price?.toString() || '') ||
         stock !== (initialProduct?.stock?.toString() || '') ||
+        code1688 !== (initialProduct?.code1688 || '') ||
+        link1688 !== (initialProduct?.link1688 || '') ||
         JSON.stringify(currentImages) !== JSON.stringify(initialImages) ||
         JSON.stringify(options) !== JSON.stringify(initialProduct?.options || []) ||
         JSON.stringify(variants) !== JSON.stringify(initialProduct?.variants || []) ||

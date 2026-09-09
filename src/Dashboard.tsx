@@ -1613,7 +1613,13 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
       {/* Tap-to-Inspect Quick Card Modal */}
       <AnimatePresence>
-        {inspectingItem && (
+        {inspectingItem && (() => {
+          const currentProduct = products.find(p => p.id === inspectingItem.product.id) || inspectingItem.product;
+          let targetUrl = currentProduct.link1688?.trim() || '';
+          if (targetUrl && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+            targetUrl = `https://${targetUrl}`;
+          }
+          return (
           <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }} 
@@ -1633,19 +1639,19 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <img 
-                    src={inspectingItem.product.thumbnail || inspectingItem.product.image || ''} 
-                    alt={inspectingItem.product.title} 
+                    src={currentProduct.thumbnail || currentProduct.image || ''} 
+                    alt={currentProduct.title} 
                     className="w-16 h-16 rounded-xl object-cover border border-[var(--dash-border)] shrink-0"
                   />
                   <div className="min-w-0">
-                    <h4 className="text-white font-bold text-base line-clamp-1">{inspectingItem.product.title}</h4>
+                    <h4 className="text-white font-bold text-base line-clamp-1">{currentProduct.title}</h4>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-gray-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
-                        {inspectingItem.product.category || 'Uncategorized'}
+                        {currentProduct.category || 'Uncategorized'}
                       </span>
-                      {inspectingItem.product.supplier && (
+                      {currentProduct.supplier && (
                         <span className="text-xs text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-800/40">
-                          {inspectingItem.product.supplier}
+                          {currentProduct.supplier}
                         </span>
                       )}
                     </div>
@@ -1663,7 +1669,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <div className="grid grid-cols-2 gap-3 pt-1">
                 {/* Remaining Stock */}
                 {(() => {
-                  const stock = getAvailableStock(inspectingItem.product);
+                  const stock = getAvailableStock(currentProduct);
                   let stockBg = "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
                   let stockText = "Healthy Stock";
                   let stockDot = "bg-emerald-400";
@@ -1702,9 +1708,9 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                   <span className="text-xs text-gray-400">System Product ID:</span>
                   <div className="flex items-center gap-1.5">
                     <code className="text-xs font-mono text-gray-200 bg-black/40 px-2 py-0.5 rounded border border-gray-800">
-                      {inspectingItem.product.id}
+                      {currentProduct.id}
                     </code>
-                    <CopyButton text={inspectingItem.product.id} className="p-1 text-gray-400 hover:text-white" />
+                    <CopyButton text={currentProduct.id} className="p-1 text-gray-400 hover:text-white" />
                   </div>
                 </div>
 
@@ -1713,12 +1719,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                   <span className="text-xs text-gray-400 flex items-center gap-1">
                     <span className="text-orange-400 font-semibold">1688</span> Product Code:
                   </span>
-                  {inspectingItem.product.code1688 ? (
+                  {currentProduct.code1688 ? (
                     <div className="flex items-center gap-1.5">
                       <code className="text-xs font-mono text-orange-300 bg-orange-950/40 px-2 py-0.5 rounded border border-orange-800/40">
-                        {inspectingItem.product.code1688}
+                        {currentProduct.code1688}
                       </code>
-                      <CopyButton text={inspectingItem.product.code1688} className="p-1 text-orange-400 hover:text-orange-300" />
+                      <CopyButton text={currentProduct.code1688} className="p-1 text-orange-400 hover:text-orange-300" />
                     </div>
                   ) : (
                     <span className="text-xs text-gray-500 italic">Not set</span>
@@ -1730,62 +1736,50 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-[11px] text-gray-400">Buy Price</div>
-                  <div className="text-sm font-bold text-gray-200">৳{inspectingItem.product.buyPrice || Math.floor(inspectingItem.product.price * 0.4)}</div>
+                  <div className="text-sm font-bold text-gray-200">৳{currentProduct.buyPrice || Math.floor(currentProduct.price * 0.4)}</div>
                 </div>
                 <div>
                   <div className="text-[11px] text-gray-400">Sell Price</div>
-                  <div className="text-sm font-bold text-white">৳{inspectingItem.product.price}</div>
+                  <div className="text-sm font-bold text-white">৳{currentProduct.price}</div>
                 </div>
                 <div>
                   <div className="text-[11px] text-emerald-400">Profit / pc</div>
                   <div className="text-sm font-bold text-emerald-400">
-                    ৳{inspectingItem.product.price - (inspectingItem.product.buyPrice || Math.floor(inspectingItem.product.price * 0.4))}
+                    ৳{currentProduct.price - (currentProduct.buyPrice || Math.floor(currentProduct.price * 0.4))}
                   </div>
                 </div>
               </div>
 
-              {/* Actions: Order Now on 1688 & Edit Product */}
-              <div className="flex items-center gap-2 pt-2">
-                {inspectingItem.product.link1688 ? (
+              {/* Actions: Order Now on 1688 */}
+              <div className="pt-2">
+                {targetUrl ? (
                   <a 
-                    href={inspectingItem.product.link1688}
+                    href={targetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs md:text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all active:scale-95"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all active:scale-95 cursor-pointer"
                   >
                     <span>Order Now</span>
-                    <ExternalLink size={15} />
+                    <ExternalLink size={16} />
                   </a>
                 ) : (
                   <button 
                     type="button"
                     onClick={() => {
-                      const query = encodeURIComponent(inspectingItem.product.code1688 || inspectingItem.product.title);
+                      const query = encodeURIComponent(currentProduct.code1688 || currentProduct.title);
                       window.open(`https://m.1688.com/top/.html?keywords=${query}`, '_blank');
                     }}
-                    className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 font-bold rounded-xl text-xs md:text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+                    className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                   >
                     <span>Search on 1688</span>
-                    <ExternalLink size={15} />
+                    <ExternalLink size={16} />
                   </button>
                 )}
-
-                <button 
-                  type="button"
-                  onClick={() => {
-                    const p = inspectingItem.product;
-                    setInspectingItem(null);
-                    setEditingProduct(p);
-                  }}
-                  className="px-4 py-2.5 bg-[var(--dash-border)] hover:bg-slate-700 text-gray-200 font-semibold rounded-xl text-xs md:text-sm flex items-center justify-center gap-1.5 transition-all"
-                >
-                  <Edit size={15} />
-                  <span>Edit</span>
-                </button>
               </div>
             </motion.div>
           </div>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
       {/* Confirm Action Modal */}
