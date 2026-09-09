@@ -900,7 +900,6 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                   <input 
                     value={code1688}
                     onChange={e => setCode1688(e.target.value)}
-                    placeholder="e.g. 688090438918"
                     className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] p-2 text-sm focus:outline-none focus:border-[#fafafa] text-gray-300"
                     style={inputBorderRadiusStyle}
                   />
@@ -910,7 +909,6 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                   <input 
                     value={link1688}
                     onChange={e => setLink1688(e.target.value)}
-                    placeholder="https://detail.1688.com/..."
                     className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] p-2 text-sm focus:outline-none focus:border-[#fafafa] text-gray-300"
                     style={inputBorderRadiusStyle}
                   />

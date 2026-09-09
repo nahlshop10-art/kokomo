@@ -390,7 +390,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [inspectingItem, setInspectingItem] = useState<{ product: Product; quantity: number } | null>(null);
   const [selectedAnalyticsCategory, setSelectedAnalyticsCategory] = useState<string>('All');
-  const [showAnalyticsCategoryDropdown, setShowAnalyticsCategoryDropdown] = useState<boolean>(false);
   useHistoryModal(!!inspectingItem, () => setInspectingItem(null), 'inspect-item');
   const [isManagingAnalyticsItems, setIsManagingAnalyticsItems] = useState(false);
   const [selectedAnalyticsItemIds, setSelectedAnalyticsItemIds] = useState<string[]>([]);
@@ -2177,43 +2176,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           </div>
 
           <div className="relative flex items-center gap-2 flex-1 min-w-0 md:flex-none md:max-w-md md:ml-auto">
-            {/* Category Filter beside Calendar */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowAnalyticsCategoryDropdown(!showAnalyticsCategoryDropdown)}
-                style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white min-h-[40px] cursor-pointer shadow-sm text-xs font-medium whitespace-nowrap"
-                title="Filter Items by Category"
-              >
-                <Tag size={14} className="text-indigo-400 shrink-0" />
-                <span className="truncate max-w-[80px] sm:max-w-[110px]">{selectedAnalyticsCategory}</span>
-                <ChevronDown size={14} className="text-gray-400 shrink-0" />
-              </button>
-
-              {showAnalyticsCategoryDropdown && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowAnalyticsCategoryDropdown(false)} />
-                  <div className="absolute top-full left-0 mt-2 w-44 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                    {analyticsCategories.map(cat => (
-                      <button
-                        type="button"
-                        key={cat}
-                        onClick={() => {
-                          setSelectedAnalyticsCategory(cat);
-                          setShowAnalyticsCategoryDropdown(false);
-                        }}
-                        className="w-full text-left px-3.5 py-2 text-xs md:text-sm hover:bg-[var(--dash-border)] flex items-center justify-between text-gray-300"
-                      >
-                        <span className={selectedAnalyticsCategory === cat ? 'text-indigo-400 font-bold' : ''}>{cat}</span>
-                        {selectedAnalyticsCategory === cat && <Check size={14} className="text-indigo-400" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
             <button 
               onClick={() => setShowCalendar(!showCalendar)} 
               style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
