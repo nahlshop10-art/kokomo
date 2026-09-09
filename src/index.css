@@ -96,5 +96,27 @@ html.scroll-locked, body.scroll-locked {
   transform: scale(0.98);
 }
 
+/* Lightweight hardware-accelerated 3D card flip utilities */
+.card-flip-container {
+  perspective: 1000px;
+}
+.card-flip-inner {
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+}
+.card-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+.card-flip-front,
+.card-flip-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-flip-back {
+  transform: rotateY(180deg);
+}
+
 
 

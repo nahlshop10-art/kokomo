@@ -71,7 +71,7 @@ type TopBarMode = 'default' | 'search' | 'category' | 'filter' | 'move' | 'visib
 
 let hasRunCleanup = false;
 
-// Memoized Top Product item for lag-free Analytics Items Grid
+// Memoized Top Product item with lightweight hardware-accelerated 3D Card Flip
 const TopProductItem = React.memo(({ 
   product, 
   quantity, 
@@ -79,7 +79,6 @@ const TopProductItem = React.memo(({
   isDeleteMode,
   isSelected,
   onToggleSelect,
-  onInspect
 }: { 
   product: Product; 
   quantity: number; 
@@ -87,8 +86,15 @@ const TopProductItem = React.memo(({
   isDeleteMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
-  onInspect?: (product: Product, quantity: number) => void;
 }) => {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  useEffect(() => {
+    if (isDeleteMode && isFlipped) {
+      setIsFlipped(false);
+    }
+  }, [isDeleteMode, isFlipped]);
+
   if (!product) return null;
   const stock = getAvailableStock(product);
 
@@ -100,54 +106,129 @@ const TopProductItem = React.memo(({
     stockBadgeColor = "bg-amber-400 text-black shadow-amber-400/30 font-black";
   }
 
+  let targetUrl = clean1688Url(product.link1688);
+  if (targetUrl && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+    targetUrl = `https://${targetUrl}`;
+  }
+
+  const handleCardClick = () => {
+    if (isDeleteMode) {
+      onToggleSelect && onToggleSelect();
+    } else {
+      setIsFlipped(prev => !prev);
+    }
+  };
+
   return (
     <div 
-      onClick={isDeleteMode ? onToggleSelect : () => onInspect && onInspect(product, quantity)}
-      className={`relative overflow-hidden rounded-xl bg-[var(--dash-card)] border aspect-square transition-all ${
-        isDeleteMode ? 'cursor-pointer hover:opacity-90' : 'cursor-pointer hover:border-slate-500 hover:shadow-lg hover:scale-[1.02]'
-      } ${
-        isSelected 
-          ? 'border-red-500 ring-2 ring-red-500/50' 
-          : 'border-[var(--dash-border)]'
+      onClick={handleCardClick}
+      className={`card-flip-container relative aspect-square select-none cursor-pointer rounded-xl transition-all ${
+        isDeleteMode ? 'hover:opacity-90' : 'hover:scale-[1.02]'
       }`}
     >
-      {showImages && (
-        <img 
-          src={product.thumbnail || product.image || ''} 
-          alt={product.title || ''} 
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
-      {isDeleteMode && (
-        <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center z-10 transition-colors ${
-          isSelected ? 'bg-red-500 text-white' : 'bg-black/60 border border-white/40 text-transparent'
-        }`}>
-          <svg className="w-3 h-3 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="3">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+      <div 
+        className={`card-flip-inner relative w-full h-full rounded-xl ${
+          isFlipped ? 'is-flipped' : ''
+        }`}
+      >
+        {/* FRONT FACE: Thumbnail + Stock + Sales */}
+        <div 
+          className={`card-flip-front absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-[var(--dash-card)] border transition-colors ${
+            isSelected 
+              ? 'border-red-500 ring-2 ring-red-500/50' 
+              : 'border-[var(--dash-border)] hover:border-slate-500 hover:shadow-lg'
+          }`}
+        >
+          {showImages && (
+            <img 
+              src={product.thumbnail || product.image || ''} 
+              alt={product.title || ''} 
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+          )}
+          {isDeleteMode && (
+            <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center z-10 transition-colors ${
+              isSelected ? 'bg-red-500 text-white' : 'bg-black/60 border border-white/40 text-transparent'
+            }`}>
+              <svg className="w-3 h-3 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          )}
+
+          {/* Stock Quantity Badge with dynamic color (0-5 Red, 6-15 Yellow, 16+ Green) */}
+          <div 
+            title={`Remaining Stock: ${stock}`}
+            className={`absolute ${isDeleteMode ? 'bottom-1 left-1' : 'top-1 left-1'} ${stockBadgeColor} text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full z-10 shadow-md min-w-[18px] sm:min-w-[20px] text-center border border-black/10 pointer-events-none`}
+          >
+            {stock}
+          </div>
+
+          {/* Sales Quantity Badge (Top-Right) */}
+          <div 
+            title={`Sold in Period: ${quantity}`}
+            className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full z-10 shadow-md border border-black/10 pointer-events-none"
+          >
+            {quantity}
+          </div>
         </div>
-      )}
 
-      {/* Stock Quantity Badge with dynamic color (0-5 Red, 6-15 Yellow, 16+ Green) */}
-      <div 
-        title={`Remaining Stock: ${stock}`}
-        className={`absolute ${isDeleteMode ? 'bottom-1 left-1' : 'top-1 left-1'} ${stockBadgeColor} text-xs font-bold px-1.5 py-0.5 rounded-full z-10 shadow-md min-w-[20px] text-center border border-black/10`}
-      >
-        {stock}
-      </div>
+        {/* BACK FACE: 1688 Code & Order Now Button */}
+        <div 
+          className="card-flip-back absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-slate-900/95 border border-orange-500/50 p-2 sm:p-2.5 flex flex-col justify-between items-center text-center shadow-xl backdrop-blur-sm select-none"
+        >
+          {/* Top: 1688 Product Code */}
+          <div className="w-full flex flex-col items-center justify-center pt-1 min-w-0">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-400 tracking-tight flex items-center gap-1">
+              <span className="text-orange-400 font-bold">1688</span> Code
+            </span>
+            {product.code1688 ? (
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 flex items-center justify-center gap-1 max-w-full px-1.5 py-0.5 rounded bg-black/60 border border-orange-500/30 text-orange-300 font-mono text-[11px] sm:text-xs font-bold shadow-inner"
+              >
+                <span className="truncate max-w-[55px] sm:max-w-[75px]">{product.code1688}</span>
+                <CopyButton text={product.code1688} className="p-0.5 text-orange-400 hover:text-white shrink-0" />
+              </div>
+            ) : (
+              <span className="mt-1 text-[10px] text-gray-500 italic">No code</span>
+            )}
+          </div>
 
-      {/* Sales Quantity Badge (Top-Right) */}
-      <div 
-        title={`Sold in Period: ${quantity}`}
-        className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-md border border-black/10"
-      >
-        {quantity}
+          {/* Bottom: Order Now Button */}
+          <div className="w-full pb-0.5" onClick={(e) => e.stopPropagation()}>
+            {targetUrl ? (
+              <a 
+                href={targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-1.5 px-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 active:scale-95 text-white font-bold rounded-lg text-[11px] sm:text-xs flex items-center justify-center gap-1 shadow-md shadow-orange-600/30 transition-all cursor-pointer"
+              >
+                <span>Order Now</span>
+                <ExternalLink size={11} className="shrink-0" />
+              </a>
+            ) : (
+              <button 
+                type="button"
+                onClick={() => {
+                  const query = encodeURIComponent(product.code1688 || product.title);
+                  window.open(`https://m.1688.com/top/.html?keywords=${query}`, '_blank');
+                }}
+                className="w-full py-1.5 px-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-orange-400 border border-orange-500/40 font-bold rounded-lg text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <span>Order Now</span>
+                <ExternalLink size={11} className="shrink-0" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 });
+
 
 // Memoized Product Card for lag-free Virtualized Products Grid
 interface DashboardProductGridCardProps {
@@ -388,10 +469,10 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [showFbZipExport, setShowFbZipExport] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
-  const [inspectingItem, setInspectingItem] = useState<{ product: Product; quantity: number } | null>(null);
   const [selectedAnalyticsCategory, setSelectedAnalyticsCategory] = useState<string>('All');
-  useHistoryModal(!!inspectingItem, () => setInspectingItem(null), 'inspect-item');
+
   const [isManagingAnalyticsItems, setIsManagingAnalyticsItems] = useState(false);
+
   const [selectedAnalyticsItemIds, setSelectedAnalyticsItemIds] = useState<string[]>([]);
 
   useHistoryModal(isAddingProduct, () => setIsAddingProduct(false), 'add-product');
@@ -1611,176 +1692,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         inputBorderRadius={websiteSettings?.actionButtons?.checkout?.borderRadius}
       />
 
-      {/* Tap-to-Inspect Quick Card Modal */}
-      <AnimatePresence>
-        {inspectingItem && (() => {
-          const currentProduct = products.find(p => p.id === inspectingItem.product.id) || inspectingItem.product;
-          let targetUrl = clean1688Url(currentProduct.link1688);
-          if (targetUrl && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-            targetUrl = `https://${targetUrl}`;
-          }
-          return (
-          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setInspectingItem(null)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-auto"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-md bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl p-5 z-10 space-y-4 max-h-[90vh] overflow-y-auto pointer-events-auto text-left"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <img 
-                    src={currentProduct.thumbnail || currentProduct.image || ''} 
-                    alt={currentProduct.title} 
-                    className="w-16 h-16 rounded-xl object-cover border border-[var(--dash-border)] shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <h4 className="text-white font-bold text-base line-clamp-1">{currentProduct.title}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
-                        {currentProduct.category || 'Uncategorized'}
-                      </span>
-                      {currentProduct.supplier && (
-                        <span className="text-xs text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-800/40">
-                          {currentProduct.supplier}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setInspectingItem(null)}
-                  className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[var(--dash-border)] transition-colors shrink-0"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Stock & Sales Pill Grid */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                {/* Remaining Stock */}
-                {(() => {
-                  const stock = getAvailableStock(currentProduct);
-                  let stockBg = "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
-                  let stockText = "Healthy Stock";
-                  let stockDot = "bg-emerald-400";
-                  if (stock <= 5) {
-                    stockBg = "bg-red-500/10 border-red-500/30 text-red-400";
-                    stockText = stock === 0 ? "Out of Stock" : "Critical Stock";
-                    stockDot = "bg-red-400";
-                  } else if (stock <= 15) {
-                    stockBg = "bg-amber-400/10 border-amber-400/30 text-amber-400";
-                    stockText = "Low Stock";
-                    stockDot = "bg-amber-400";
-                  }
-                  return (
-                    <div className={`p-3 rounded-xl border ${stockBg} space-y-1`}>
-                      <div className="flex items-center gap-1.5 text-xs font-semibold">
-                        <span className={`w-2 h-2 rounded-full ${stockDot} animate-pulse`} />
-                        {stockText}
-                      </div>
-                      <div className="text-2xl font-black">{stock} <span className="text-xs font-normal opacity-80">pcs left</span></div>
-                    </div>
-                  );
-                })()}
-
-                {/* Sold Count in Period */}
-                <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 space-y-1">
-                  <div className="text-xs font-semibold flex items-center gap-1">
-                    <TrendingUp size={14} /> Sold in Period
-                  </div>
-                  <div className="text-2xl font-black">{inspectingItem.quantity} <span className="text-xs font-normal opacity-80">units</span></div>
-                </div>
-              </div>
-
-              {/* Product IDs Section */}
-              <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">System Product ID:</span>
-                  <div className="flex items-center gap-1.5">
-                    <code className="text-xs font-mono text-gray-200 bg-black/40 px-2 py-0.5 rounded border border-gray-800">
-                      {currentProduct.id}
-                    </code>
-                    <CopyButton text={currentProduct.id} className="p-1 text-gray-400 hover:text-white" />
-                  </div>
-                </div>
-
-                {/* 1688 Code */}
-                <div className="flex items-center justify-between border-t border-[var(--dash-border)] pt-2">
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <span className="text-orange-400 font-semibold">1688</span> Product Code:
-                  </span>
-                  {currentProduct.code1688 ? (
-                    <div className="flex items-center gap-1.5">
-                      <code className="text-xs font-mono text-orange-300 bg-orange-950/40 px-2 py-0.5 rounded border border-orange-800/40">
-                        {currentProduct.code1688}
-                      </code>
-                      <CopyButton text={currentProduct.code1688} className="p-1 text-orange-400 hover:text-orange-300" />
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-500 italic">Not set</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Price & Profit Breakdown */}
-              <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="text-[11px] text-gray-400">Buy Price</div>
-                  <div className="text-sm font-bold text-gray-200">৳{currentProduct.buyPrice || Math.floor(currentProduct.price * 0.4)}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] text-gray-400">Sell Price</div>
-                  <div className="text-sm font-bold text-white">৳{currentProduct.price}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] text-emerald-400">Profit / pc</div>
-                  <div className="text-sm font-bold text-emerald-400">
-                    ৳{currentProduct.price - (currentProduct.buyPrice || Math.floor(currentProduct.price * 0.4))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions: Order Now on 1688 */}
-              <div className="pt-2">
-                {targetUrl ? (
-                  <a 
-                    href={targetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all active:scale-95 cursor-pointer"
-                  >
-                    <span>Order Now</span>
-                    <ExternalLink size={16} />
-                  </a>
-                ) : (
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      const query = encodeURIComponent(currentProduct.code1688 || currentProduct.title);
-                      window.open(`https://m.1688.com/top/.html?keywords=${query}`, '_blank');
-                    }}
-                    className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-                  >
-                    <span>Search on 1688</span>
-                    <ExternalLink size={16} />
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          </div>
-          );
-        })()}
-      </AnimatePresence>
 
       {/* Confirm Action Modal */}
       <AnimatePresence>
@@ -2357,7 +2268,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                       showImages={Boolean(perms.analytics.productImages)}
                       isDeleteMode={isManagingAnalyticsItems}
                       isSelected={selectedAnalyticsItemIds.includes(product.id)}
-                      onInspect={(p, qty) => setInspectingItem({ product: p, quantity: qty })}
                       onToggleSelect={() => {
                         setSelectedAnalyticsItemIds(prev => 
                           prev.includes(product.id) 
