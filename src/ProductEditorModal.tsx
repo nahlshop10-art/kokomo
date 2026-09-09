@@ -55,6 +55,22 @@ interface ProductEditorModalProps {
   inputBorderRadius?: string;
 }
 
+export const clean1688Url = (input?: string): string => {
+  if (!input) return '';
+  let str = input.trim();
+  const match = str.match(/https?:\/\/[^\s\u4e00-\u9fa5\uff00-\uffef]+/);
+  if (match) {
+    let url = match[0];
+    url = url.replace(/[,，\.。;；!?！？\)\>）】]+$/, '');
+    return url;
+  }
+  if (str.startsWith('qr.1688.com') || str.startsWith('detail.1688.com') || str.startsWith('m.1688.com')) {
+    const clean = str.split(/\s+/)[0];
+    return 'https://' + clean;
+  }
+  return str;
+};
+
 export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, initialProduct, categories, priceCalculatorSettings, products, suppliers = [], perms, inputBorderRadius }: ProductEditorModalProps) {
   const inputBorderRadiusStyle = { borderRadius: inputBorderRadius || DEFAULT_ACTION_BUTTONS.checkout.borderRadius };
   const [productId, setProductId] = useState('');
@@ -483,7 +499,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       isNew: isNew,
       qtyRules: qtyRules,
       code1688: code1688.trim() || undefined,
-      link1688: link1688.trim() || undefined,
+      link1688: clean1688Url(link1688) || undefined,
     };
     onSave(updatedProduct);
   };
@@ -910,7 +926,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                   <label className="text-xs text-gray-400">1688 Product Link</label>
                   <input 
                     value={link1688}
-                    onChange={e => setLink1688(e.target.value)}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      const cleaned = clean1688Url(raw);
+                      setLink1688(cleaned || raw);
+                    }}
                     className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] p-2 text-sm focus:outline-none focus:border-[#fafafa] text-gray-300"
                     style={inputBorderRadiusStyle}
                   />

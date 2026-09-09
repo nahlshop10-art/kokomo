@@ -22,7 +22,7 @@ import { Receipt } from './components/Receipt';
 
 import { cloudStore } from './lib/cloudStore';
 import { getDefaultImageOptimization, setDefaultImageOptimization, ImageOptimizationConfig } from './lib/imageOptimizationWorker';
-import ProductEditorModal from './ProductEditorModal';
+import ProductEditorModal, { clean1688Url } from './ProductEditorModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import ZipImportModal from './components/ZipImportModal';
 import FbZipExportModal from './components/FbZipExportModal';
@@ -1615,7 +1615,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       <AnimatePresence>
         {inspectingItem && (() => {
           const currentProduct = products.find(p => p.id === inspectingItem.product.id) || inspectingItem.product;
-          let targetUrl = currentProduct.link1688?.trim() || '';
+          let targetUrl = clean1688Url(currentProduct.link1688);
           if (targetUrl && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
             targetUrl = `https://${targetUrl}`;
           }
