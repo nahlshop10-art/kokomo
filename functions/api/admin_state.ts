@@ -33,7 +33,8 @@ export async function onRequestGet(context: any) {
       .map((r: any) => JSON.parse(r.data))
       .filter((p: any) => !p.isDeleted);
     const adminUsers = settingsRes.results.length > 0 ? JSON.parse(settingsRes.results[0].value) : null;
-    const customers = customersRes.results.map((r: any) => JSON.parse(r.data));
+    const isOwner = Boolean(context.data?.isOwner);
+    const customers = isOwner ? customersRes.results.map((r: any) => JSON.parse(r.data)) : [];
     
     const settings: Record<string, any> = {};
     for (const r of allSettingsRes.results) {

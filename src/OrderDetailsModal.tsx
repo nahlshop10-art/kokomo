@@ -18,9 +18,10 @@ interface OrderDetailsModalProps {
   onDelete: (orderId: string) => void;
   onRetryBdCourier?: () => void;
   isSyncingBdCourier?: boolean;
+  isOwner?: boolean;
 }
 
-export default function OrderDetailsModal({ order, orders, products, perms, courierSettings, websiteSettings, onClose, onUpdate, onDelete, onRetryBdCourier, isSyncingBdCourier }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ order, orders, products, perms, courierSettings, websiteSettings, onClose, onUpdate, onDelete, onRetryBdCourier, isSyncingBdCourier, isOwner }: OrderDetailsModalProps) {
   const [status, setStatus] = useState<OrderStatus>(order.status);
   const [items, setItems] = useState(order.items);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
@@ -227,7 +228,9 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
           </div>
           <div className="flex gap-1.5 items-center">
             <button className="p-2 text-slate-300 hover:text-white rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] transition-colors cursor-pointer"><Download size={18} /></button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="p-2 text-red-400 hover:text-red-300 rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] transition-colors cursor-pointer"><Trash2 size={18} /></button>
+            {isOwner && (
+              <button onClick={() => setShowDeleteConfirm(true)} className="p-2 text-red-400 hover:text-red-300 rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] transition-colors cursor-pointer" title="Delete Order"><Trash2 size={18} /></button>
+            )}
             <button onClick={handleOpenMessage} className="p-2 text-gray-400 hover:text-white rounded-xl bg-[var(--dash-card)] border border-[var(--dash-border)] relative transition-colors cursor-pointer">
               <MessageSquareText size={18} />
               {order.userInfo.customerNote && !isNoteRead && (
@@ -1050,9 +1053,9 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - Strictly Owner Only */}
       <AnimatePresence>
-        {showDeleteConfirm && (
+        {showDeleteConfirm && isOwner && (
           <div className="fixed inset-0 z-[200] bg-[var(--dash-bg)]/80 flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1065,6 +1068,7 @@ export default function OrderDetailsModal({ order, orders, products, perms, cour
               <div className="flex flex-col gap-3">
                 <button 
                   onClick={() => {
+                    if (!isOwner) return;
                     onDelete(order.id);
                     setShowDeleteConfirm(false);
                     onClose();

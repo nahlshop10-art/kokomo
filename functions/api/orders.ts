@@ -9,6 +9,11 @@ export async function onRequestPost(context: any) {
     }
 
     if (action === 'delete') {
+      // High-security check: Only Owner account can delete standard orders
+      if (type === 'standard' && !context.data?.isOwner) {
+        return new Response(JSON.stringify({ error: 'Forbidden: Only the Owner account can delete orders.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
+
       const ids = items.map((i: any) => String(i.id || i)).filter(Boolean);
       if (ids.length > 0) {
         const r2KeysToDelete: string[] = [];

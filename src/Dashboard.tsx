@@ -578,7 +578,15 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     order: { ...DEFAULT_ADMIN_PERMISSIONS.order, ...(currentAdmin?.permissions?.order || {}) },
     analytics: { ...DEFAULT_ADMIN_PERMISSIONS.analytics, ...(currentAdmin?.permissions?.analytics || {}) },
   };
-  const isOwner = currentAdmin?.role === 'Owner' || !currentAdmin?.role;
+  const currentDbUser = adminUsers.find(u => 
+    (currentAdmin?.id && u.id === currentAdmin.id) || 
+    (currentAdmin?.email && u.email?.trim().toLowerCase() === currentAdmin.email.trim().toLowerCase())
+  );
+  const effectiveRole = currentDbUser?.role || currentAdmin?.role;
+  const isOwner = Boolean(
+    (effectiveRole === 'Owner' || currentAdmin?.email?.trim().toLowerCase() === 'max@gmail.com') &&
+    (currentDbUser ? (currentDbUser.isApproved && !currentDbUser.isBlocked) : true)
+  );
 
   // Enforce Permissions on Route/Tab changes
   React.useEffect(() => {
@@ -605,7 +613,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
     // Check specific settings views
     if (activeTab === 'Settings' || settingsView !== 'main') {
-      if (settingsView === 'customers' && !perms.sections.customers) {
+      if (settingsView === 'customers' && (!perms.sections.customers || !isOwner)) {
         setSettingsView('main');
       }
       // If settings tab is completely disabled, then any settings view is disallowed
@@ -613,7 +621,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         setSettingsView('main');
       }
     }
-  }, [activeTab, settingsView, perms]);
+  }, [activeTab, settingsView, perms, isOwner]);
 
   React.useEffect(() => {
     if (currentAdmin) {
@@ -1123,6 +1131,10 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   };
 
   const handleDeleteAnalyticsItems = () => {
+    if (!isOwner) {
+      alert('Permission denied: Only the Owner account can delete analytics items.');
+      return;
+    }
     if (selectedAnalyticsItemIds.length === 0) return;
     setConfirmAction({
       title: 'Delete Analytics Images',
@@ -2198,20 +2210,24 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-8"></div>
                   <h3 className="text-xl font-bold text-white flex items-center justify-center">Items</h3>
-                  <button 
-                    onClick={() => {
-                      setIsManagingAnalyticsItems(prev => !prev);
-                      setSelectedAnalyticsItemIds([]);
-                    }}
-                    className={`p-2 rounded-xl border transition-all ${
-                      isManagingAnalyticsItems 
-                        ? 'bg-red-500/20 text-red-400 border-red-500/40' 
-                        : 'bg-[var(--dash-card)] text-slate-400 hover:text-white border-[var(--dash-border)]'
-                    }`}
-                    title={isManagingAnalyticsItems ? "Cancel" : "Delete Analytics Images"}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isOwner ? (
+                    <button 
+                      onClick={() => {
+                        setIsManagingAnalyticsItems(prev => !prev);
+                        setSelectedAnalyticsItemIds([]);
+                      }}
+                      className={`p-2 rounded-xl border transition-all ${
+                        isManagingAnalyticsItems 
+                          ? 'bg-red-500/20 text-red-400 border-red-500/40' 
+                          : 'bg-[var(--dash-card)] text-slate-400 hover:text-white border-[var(--dash-border)]'
+                      }`}
+                      title={isManagingAnalyticsItems ? "Cancel" : "Delete Analytics Images"}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <div className="w-8"></div>
+                  )}
                 </div>
 
                 {isManagingAnalyticsItems && (
@@ -3050,8 +3066,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                     <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
                   </div>
 
-                  {/* Customers */}
-                  {perms.sections.customers && (
+                  {/* Customers - Strictly Owner Only */}
+                  {isOwner && perms.sections.customers && (
                     <div 
                       onClick={() => setSettingsView('customers')}
                       className="flex items-center justify-between py-3.5 px-3.5 md:py-4 md:px-5 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors group select-none"
@@ -3455,8 +3471,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <ChevronRight size={13} className="text-slate-500 shrink-0" />
             </div>
 
-            {/* 16. Customers CRM */}
-            {perms.sections.customers && (
+            {/* 16. Customers CRM - Strictly Owner Only */}
+            {isOwner && perms.sections.customers && (
               <div 
                 onClick={() => setSettingsView('customers')}
                 className={cn(
@@ -3722,7 +3738,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             cloudStore.upsertOrder(updatedOrder, 'standard').catch(console.error);
             setSelectedOrder(updatedOrder);
           }}
+          isOwner={isOwner}
           onDelete={(orderId) => {
+            if (!isOwner) {
+              alert('Permission denied: Only the Owner account can delete orders.');
+              return;
+            }
             const orderToDel = orders.find(o => o.id === orderId);
             setOrders(orders.filter(o => o.id !== orderId));
             setPaginatedOrders(prev => prev.filter(o => o.id !== orderId));
@@ -3756,7 +3777,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       {settingsView === 'courier' && perms.sections.settings && (
         <CourierManager settings={courierSettings} setSettings={setCourierSettings} onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
       )}
-      {settingsView === 'customers' && perms.sections.settings && perms.sections.customers && (
+      {settingsView === 'customers' && perms.sections.settings && perms.sections.customers && isOwner && (
         <CustomersManager orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers} websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} isOwner={isOwner} />
       )}
       {settingsView === 'incompleteOrders' && perms.sections.settings && (

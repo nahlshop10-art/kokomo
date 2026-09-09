@@ -1,4 +1,22 @@
-export async function onRequestPost({ request, env }: any) {
+export async function onRequestGet(context: any) {
+  if (!context.data?.isOwner) {
+    return new Response(JSON.stringify({ error: 'Forbidden: Only the Owner account can access Customer CRM.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+  const { env } = context;
+  try {
+    const customersRes = await env.DB.prepare('SELECT data FROM customers ORDER BY updated_at DESC LIMIT 2000').all();
+    const customers = customersRes.results.map((r: any) => JSON.parse(r.data));
+    return Response.json({ success: true, customers });
+  } catch (e: any) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+}
+
+export async function onRequestPost(context: any) {
+  if (!context.data?.isOwner) {
+    return new Response(JSON.stringify({ error: 'Forbidden: Only the Owner account can access Customer CRM.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+  const { request, env } = context;
   try {
     const { action, items } = await request.json();
     

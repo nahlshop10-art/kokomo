@@ -36,9 +36,17 @@ export async function onRequestPost(context: any) {
         }
     }
 
+    // Ensure max@gmail.com always has Role: Owner
+    if (user && user.email.trim().toLowerCase() === 'max@gmail.com' && user.role !== 'Owner') {
+        user.role = 'Owner';
+        await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+            .bind('adminUsers', JSON.stringify(adminUsers)).run();
+    }
+
     // Additional check: if they register max@gmail.com but it's not approved, approve it
-    if (user && !user.isApproved && user.email === 'max@gmail.com') {
+    if (user && !user.isApproved && user.email.trim().toLowerCase() === 'max@gmail.com') {
         user.isApproved = true;
+        user.role = 'Owner';
         await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
             .bind('adminUsers', JSON.stringify(adminUsers)).run();
     }

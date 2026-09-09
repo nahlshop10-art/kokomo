@@ -6,6 +6,11 @@ export async function onRequestPost(context: any) {
       return Response.json({ success: false, error: 'Invalid payload' }, { status: 400 });
     }
 
+    // High-security check: Only Owner account can delete analytics items
+    if (!context.data?.isOwner) {
+      return Response.json({ success: false, error: 'Forbidden: Only the Owner account can delete analytics items.' }, { status: 403 });
+    }
+
     // 1. Load websiteSettings to update hiddenAnalyticsItemIds
     const settingsRes = await env.DB.prepare("SELECT value FROM settings WHERE key = 'websiteSettings'").first();
     const settings = settingsRes && settingsRes.value ? JSON.parse(settingsRes.value as string) : {};

@@ -83,9 +83,20 @@ export async function onRequest(context: any) {
     if (!user || user.isBlocked || !user.isApproved) {
         return new Response(JSON.stringify({ error: 'Unauthorized or blocked admin' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
+
+    const isOwner = Boolean(
+      (user.role === 'Owner' || user.email?.toLowerCase() === 'max@gmail.com') &&
+      !user.isBlocked &&
+      user.isApproved
+    );
+
+    context.data = context.data || {};
+    context.data.user = user;
+    context.data.isOwner = isOwner;
   } catch (e) {
     return new Response(JSON.stringify({ error: 'Unauthorized - Invalid Token' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
+
 
   const response = await next();
   

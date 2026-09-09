@@ -20,7 +20,7 @@ export default function AccountControlManager({ adminUsers, setAdminUsers, curre
 
   const users = draftAdminUsers.map(u => ({
     ...u,
-    role: u.role || (u.id === currentAdmin.id ? 'Owner' : 'Manager'),
+    role: u.role || (u.email?.trim().toLowerCase() === 'max@gmail.com' ? 'Owner' : 'Manager'),
     permissions: u.permissions || JSON.parse(JSON.stringify(DEFAULT_ADMIN_PERMISSIONS))
   }));
 
@@ -66,7 +66,7 @@ export default function AccountControlManager({ adminUsers, setAdminUsers, curre
     }
   };
 
-  const isOwner = currentAdmin.role === 'Owner' || !currentAdmin.role;
+  const isOwner = currentAdmin.role === 'Owner' || currentAdmin.email?.trim().toLowerCase() === 'max@gmail.com';
 
   if (selectedUser) {
     return (
