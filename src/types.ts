@@ -52,6 +52,8 @@ export interface Product {
   qtyRules?: QtyPriceRule[];
   isNew?: boolean;
   isDeleted?: boolean;
+  code1688?: string;
+  link1688?: string;
 }
 
 export interface CartItem {

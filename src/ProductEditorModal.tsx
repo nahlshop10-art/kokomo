@@ -72,6 +72,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
   const [options, setOptions] = useState<ProductOption[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [qtyRules, setQtyRules] = useState<{quantity: number, price: number}[]>([]);
+  const [code1688, setCode1688] = useState('');
+  const [link1688, setLink1688] = useState('');
   
   const [editingOptionIdx, setEditingOptionIdx] = useState<number | null>(null);
   const [editingOption, setEditingOption] = useState<{name: string, values: string[]} | null>(null);
@@ -130,6 +132,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         setQtyRules(initialProduct.qtyRules || []);
         setIsVisible(initialProduct.isVisible !== false);
         setIsNew(initialProduct.isNew ?? false);
+        setCode1688(initialProduct.code1688 || '');
+        setLink1688(initialProduct.link1688 || '');
         setHasManuallySelectedCategory(true);
       } else {
         setProductId('');
@@ -141,6 +145,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         setBuyPrice('');
         setSellPrice('');
         setStock('');
+        setCode1688('');
+        setLink1688('');
         setImages([]);
         setOptions([]);
         setVariants([]);
@@ -476,6 +482,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       isVisible: isVisible,
       isNew: isNew,
       qtyRules: qtyRules,
+      code1688: code1688.trim() || undefined,
+      link1688: link1688.trim() || undefined,
     };
     onSave(updatedProduct);
   };
@@ -878,6 +886,36 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* 1688 Sourcing Info (Internal Dashboard Only) */}
+            <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-300">1688 Sourcing Details</span>
+                <span className="text-[10px] text-gray-500 font-medium">Internal Only</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">1688 Product ID</label>
+                  <input 
+                    value={code1688}
+                    onChange={e => setCode1688(e.target.value)}
+                    placeholder="e.g. 688090438918"
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] p-2 text-sm focus:outline-none focus:border-[#fafafa] text-gray-300"
+                    style={inputBorderRadiusStyle}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">1688 Product Link</label>
+                  <input 
+                    value={link1688}
+                    onChange={e => setLink1688(e.target.value)}
+                    placeholder="https://detail.1688.com/..."
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] p-2 text-sm focus:outline-none focus:border-[#fafafa] text-gray-300"
+                    style={inputBorderRadiusStyle}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Variants */}

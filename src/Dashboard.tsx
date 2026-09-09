@@ -14,7 +14,7 @@ import {
   Building, Percent, Send, MessageCircle, Box, Image
 } from 'lucide-react';
 import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, PixelBatchSettings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
-import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff } from './lib/stockUtils';
+import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff, getAvailableStock } from './lib/stockUtils';
 import { cn, formatPrice, useScrollRestore, slugify } from './lib/utils';
 import { useHistoryModal } from './hooks/useHistoryModal';
 import { downloadReceiptAsJPG } from './lib/downloadReceipt';
@@ -78,7 +78,8 @@ const TopProductItem = React.memo(({
   showImages,
   isDeleteMode,
   isSelected,
-  onToggleSelect
+  onToggleSelect,
+  onInspect
 }: { 
   product: Product; 
   quantity: number; 
@@ -86,13 +87,24 @@ const TopProductItem = React.memo(({
   isDeleteMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  onInspect?: (product: Product, quantity: number) => void;
 }) => {
   if (!product) return null;
+  const stock = getAvailableStock(product);
+
+  // Dynamic stock badge color: 0-5 Red, 6-15 Yellow, 16+ Green
+  let stockBadgeColor = "bg-emerald-500 text-white shadow-emerald-500/30";
+  if (stock <= 5) {
+    stockBadgeColor = "bg-red-500 text-white shadow-red-500/30";
+  } else if (stock <= 15) {
+    stockBadgeColor = "bg-amber-400 text-black shadow-amber-400/30 font-black";
+  }
+
   return (
     <div 
-      onClick={isDeleteMode ? onToggleSelect : undefined}
+      onClick={isDeleteMode ? onToggleSelect : () => onInspect && onInspect(product, quantity)}
       className={`relative overflow-hidden rounded-xl bg-[var(--dash-card)] border aspect-square transition-all ${
-        isDeleteMode ? 'cursor-pointer hover:opacity-90' : ''
+        isDeleteMode ? 'cursor-pointer hover:opacity-90' : 'cursor-pointer hover:border-slate-500 hover:shadow-lg hover:scale-[1.02]'
       } ${
         isSelected 
           ? 'border-red-500 ring-2 ring-red-500/50' 
@@ -117,7 +129,20 @@ const TopProductItem = React.memo(({
           </svg>
         </div>
       )}
-      <div className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-md">
+
+      {/* Stock Quantity Badge with dynamic color (0-5 Red, 6-15 Yellow, 16+ Green) */}
+      <div 
+        title={`Remaining Stock: ${stock}`}
+        className={`absolute ${isDeleteMode ? 'bottom-1 left-1' : 'top-1 left-1'} ${stockBadgeColor} text-xs font-bold px-1.5 py-0.5 rounded-full z-10 shadow-md min-w-[20px] text-center border border-black/10`}
+      >
+        {stock}
+      </div>
+
+      {/* Sales Quantity Badge (Top-Right) */}
+      <div 
+        title={`Sold in Period: ${quantity}`}
+        className="absolute top-1 right-1 bg-[#fafafa] text-[var(--dash-bg)] text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-md border border-black/10"
+      >
         {quantity}
       </div>
     </div>
@@ -363,6 +388,10 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [showFbZipExport, setShowFbZipExport] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [inspectingItem, setInspectingItem] = useState<{ product: Product; quantity: number } | null>(null);
+  const [selectedAnalyticsCategory, setSelectedAnalyticsCategory] = useState<string>('All');
+  const [showAnalyticsCategoryDropdown, setShowAnalyticsCategoryDropdown] = useState<boolean>(false);
+  useHistoryModal(!!inspectingItem, () => setInspectingItem(null), 'inspect-item');
   const [isManagingAnalyticsItems, setIsManagingAnalyticsItems] = useState(false);
   const [selectedAnalyticsItemIds, setSelectedAnalyticsItemIds] = useState<string[]>([]);
 
@@ -1045,7 +1074,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     const cleanSearchQuery = searchQuery.replace(/#/g, '').toLowerCase();
     displayProducts = displayProducts.filter(p => 
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.id.replace(/#/g, '').toLowerCase().includes(cleanSearchQuery)
+      p.id.replace(/#/g, '').toLowerCase().includes(cleanSearchQuery) ||
+      (p.code1688 && p.code1688.toLowerCase().includes(cleanSearchQuery))
     );
   }
 
@@ -1217,6 +1247,27 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const topProducts = Array.from(productSales.values())
     .filter(p => p && p.product && p.quantity > 0 && !hiddenAnalyticsItemIds.includes(p.product.id))
     .sort((a, b) => b.quantity - a.quantity);
+
+  const analyticsCategories = React.useMemo(() => {
+    const defaultCats = ['All', 'Necklaces', 'Bracelets', 'Earrings', 'Rings'];
+    const storeCats = categories.map(c => c.name?.trim()).filter(Boolean);
+    return ['All', ...new Set([...defaultCats.slice(1), ...storeCats])];
+  }, [categories]);
+
+  const filteredTopProducts = React.useMemo(() => {
+    if (selectedAnalyticsCategory === 'All') return topProducts;
+    const sel = selectedAnalyticsCategory.toLowerCase();
+    return topProducts.filter(({ product }) => {
+      const cat = product.category?.trim()?.toLowerCase() || '';
+      const title = product.title?.toLowerCase() || '';
+      if (cat === sel) return true;
+      if (sel === 'necklaces' && (cat.includes('neck') || cat.includes('chain') || title.includes('necklace') || title.includes('chain') || title.includes('项链') || title.includes('锁骨链'))) return true;
+      if (sel === 'bracelets' && (cat.includes('brace') || cat.includes('bangle') || title.includes('bracelet') || title.includes('bangle') || title.includes('手链') || title.includes('手镯'))) return true;
+      if (sel === 'earrings' && (cat.includes('ear') || title.includes('earring') || title.includes('ear') || title.includes('耳环') || title.includes('耳钉'))) return true;
+      if (sel === 'rings' && (cat.includes('ring') || title.includes('ring') || title.includes('戒指') || title.includes('对戒'))) return true;
+      return cat.includes(sel) || title.includes(sel);
+    });
+  }, [topProducts, selectedAnalyticsCategory]);
 
   const toggleProductSelection = (id: string) => {
     if (topBarMode === 'delete' && !isOwner) {
@@ -1560,6 +1611,183 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         perms={perms.product}
         inputBorderRadius={websiteSettings?.actionButtons?.checkout?.borderRadius}
       />
+
+      {/* Tap-to-Inspect Quick Card Modal */}
+      <AnimatePresence>
+        {inspectingItem && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setInspectingItem(null)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-auto"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-md bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl p-5 z-10 space-y-4 max-h-[90vh] overflow-y-auto pointer-events-auto text-left"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img 
+                    src={inspectingItem.product.thumbnail || inspectingItem.product.image || ''} 
+                    alt={inspectingItem.product.title} 
+                    className="w-16 h-16 rounded-xl object-cover border border-[var(--dash-border)] shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <h4 className="text-white font-bold text-base line-clamp-1">{inspectingItem.product.title}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
+                        {inspectingItem.product.category || 'Uncategorized'}
+                      </span>
+                      {inspectingItem.product.supplier && (
+                        <span className="text-xs text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-800/40">
+                          {inspectingItem.product.supplier}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setInspectingItem(null)}
+                  className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[var(--dash-border)] transition-colors shrink-0"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Stock & Sales Pill Grid */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                {/* Remaining Stock */}
+                {(() => {
+                  const stock = getAvailableStock(inspectingItem.product);
+                  let stockBg = "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+                  let stockText = "Healthy Stock";
+                  let stockDot = "bg-emerald-400";
+                  if (stock <= 5) {
+                    stockBg = "bg-red-500/10 border-red-500/30 text-red-400";
+                    stockText = stock === 0 ? "Out of Stock" : "Critical Stock";
+                    stockDot = "bg-red-400";
+                  } else if (stock <= 15) {
+                    stockBg = "bg-amber-400/10 border-amber-400/30 text-amber-400";
+                    stockText = "Low Stock";
+                    stockDot = "bg-amber-400";
+                  }
+                  return (
+                    <div className={`p-3 rounded-xl border ${stockBg} space-y-1`}>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold">
+                        <span className={`w-2 h-2 rounded-full ${stockDot} animate-pulse`} />
+                        {stockText}
+                      </div>
+                      <div className="text-2xl font-black">{stock} <span className="text-xs font-normal opacity-80">pcs left</span></div>
+                    </div>
+                  );
+                })()}
+
+                {/* Sold Count in Period */}
+                <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 space-y-1">
+                  <div className="text-xs font-semibold flex items-center gap-1">
+                    <TrendingUp size={14} /> Sold in Period
+                  </div>
+                  <div className="text-2xl font-black">{inspectingItem.quantity} <span className="text-xs font-normal opacity-80">units</span></div>
+                </div>
+              </div>
+
+              {/* Product IDs Section */}
+              <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">System Product ID:</span>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-xs font-mono text-gray-200 bg-black/40 px-2 py-0.5 rounded border border-gray-800">
+                      {inspectingItem.product.id}
+                    </code>
+                    <CopyButton text={inspectingItem.product.id} className="p-1 text-gray-400 hover:text-white" />
+                  </div>
+                </div>
+
+                {/* 1688 Code */}
+                <div className="flex items-center justify-between border-t border-[var(--dash-border)] pt-2">
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <span className="text-orange-400 font-semibold">1688</span> Product Code:
+                  </span>
+                  {inspectingItem.product.code1688 ? (
+                    <div className="flex items-center gap-1.5">
+                      <code className="text-xs font-mono text-orange-300 bg-orange-950/40 px-2 py-0.5 rounded border border-orange-800/40">
+                        {inspectingItem.product.code1688}
+                      </code>
+                      <CopyButton text={inspectingItem.product.code1688} className="p-1 text-orange-400 hover:text-orange-300" />
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-500 italic">Not set</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Price & Profit Breakdown */}
+              <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-[11px] text-gray-400">Buy Price</div>
+                  <div className="text-sm font-bold text-gray-200">৳{inspectingItem.product.buyPrice || Math.floor(inspectingItem.product.price * 0.4)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-gray-400">Sell Price</div>
+                  <div className="text-sm font-bold text-white">৳{inspectingItem.product.price}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-emerald-400">Profit / pc</div>
+                  <div className="text-sm font-bold text-emerald-400">
+                    ৳{inspectingItem.product.price - (inspectingItem.product.buyPrice || Math.floor(inspectingItem.product.price * 0.4))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions: Order Now on 1688 & Edit Product */}
+              <div className="flex items-center gap-2 pt-2">
+                {inspectingItem.product.link1688 ? (
+                  <a 
+                    href={inspectingItem.product.link1688}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs md:text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all active:scale-95"
+                  >
+                    <span>Order Now</span>
+                    <ExternalLink size={15} />
+                  </a>
+                ) : (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const query = encodeURIComponent(inspectingItem.product.code1688 || inspectingItem.product.title);
+                      window.open(`https://m.1688.com/top/.html?keywords=${query}`, '_blank');
+                    }}
+                    className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 font-bold rounded-xl text-xs md:text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+                  >
+                    <span>Search on 1688</span>
+                    <ExternalLink size={15} />
+                  </button>
+                )}
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const p = inspectingItem.product;
+                    setInspectingItem(null);
+                    setEditingProduct(p);
+                  }}
+                  className="px-4 py-2.5 bg-[var(--dash-border)] hover:bg-slate-700 text-gray-200 font-semibold rounded-xl text-xs md:text-sm flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Edit size={15} />
+                  <span>Edit</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Confirm Action Modal */}
       <AnimatePresence>
@@ -1949,6 +2177,43 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           </div>
 
           <div className="relative flex items-center gap-2 flex-1 min-w-0 md:flex-none md:max-w-md md:ml-auto">
+            {/* Category Filter beside Calendar */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAnalyticsCategoryDropdown(!showAnalyticsCategoryDropdown)}
+                style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] transition-colors text-white min-h-[40px] cursor-pointer shadow-sm text-xs font-medium whitespace-nowrap"
+                title="Filter Items by Category"
+              >
+                <Tag size={14} className="text-indigo-400 shrink-0" />
+                <span className="truncate max-w-[80px] sm:max-w-[110px]">{selectedAnalyticsCategory}</span>
+                <ChevronDown size={14} className="text-gray-400 shrink-0" />
+              </button>
+
+              {showAnalyticsCategoryDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAnalyticsCategoryDropdown(false)} />
+                  <div className="absolute top-full left-0 mt-2 w-44 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                    {analyticsCategories.map(cat => (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() => {
+                          setSelectedAnalyticsCategory(cat);
+                          setShowAnalyticsCategoryDropdown(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs md:text-sm hover:bg-[var(--dash-border)] flex items-center justify-between text-gray-300"
+                      >
+                        <span className={selectedAnalyticsCategory === cat ? 'text-indigo-400 font-bold' : ''}>{cat}</span>
+                        {selectedAnalyticsCategory === cat && <Check size={14} className="text-indigo-400" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <button 
               onClick={() => setShowCalendar(!showCalendar)} 
               style={{ borderRadius: websiteSettings?.actionButtons?.checkout?.borderRadius || '9999px' }}
@@ -2109,8 +2374,26 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                   </div>
                 )}
 
+                {/* Category Filter Chips for Items */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 mb-3">
+                  {analyticsCategories.map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedAnalyticsCategory(cat)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                        selectedAnalyticsCategory === cat
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                          : 'bg-[var(--dash-card)] text-gray-400 hover:text-white border border-[var(--dash-border)] hover:bg-[var(--dash-border)]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
-                  {topProducts.map(({ product, quantity }) => (
+                  {filteredTopProducts.map(({ product, quantity }) => (
                     <TopProductItem 
                       key={product.id}
                       product={product}
@@ -2118,6 +2401,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                       showImages={Boolean(perms.analytics.productImages)}
                       isDeleteMode={isManagingAnalyticsItems}
                       isSelected={selectedAnalyticsItemIds.includes(product.id)}
+                      onInspect={(p, qty) => setInspectingItem({ product: p, quantity: qty })}
                       onToggleSelect={() => {
                         setSelectedAnalyticsItemIds(prev => 
                           prev.includes(product.id) 
@@ -2128,6 +2412,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                     />
                   ))}
                 </div>
+
+                {filteredTopProducts.length === 0 && (
+                  <div className="text-center py-10 text-gray-400 text-xs sm:text-sm bg-[var(--dash-card)] rounded-xl border border-[var(--dash-border)]">
+                    No best-selling items found in category <span className="text-white font-semibold">"{selectedAnalyticsCategory}"</span> for this date range.
+                  </div>
+                )}
               </div>
             )}
           </>
