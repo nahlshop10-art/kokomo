@@ -2245,289 +2245,139 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             {displayOrders.length === 0 ? (
               <div className="text-center text-gray-500 mt-10">No orders found</div>
             ) : (
-              <>
-                {/* Desktop View: Clean Horizontal Rows (matching reference picture) */}
-                <div className="hidden md:flex flex-col gap-2 max-w-5xl mx-auto w-full">
-                  {displayOrders.map(order => {
-                    let completed = 0;
-                    let totalResolved = 0;
-                    let percentage = 0;
-
-                    if (order.bdCourierData?.summary) {
-                      completed = order.bdCourierData.summary.success_parcel || 0;
-                      totalResolved = order.bdCourierData.summary.total_parcel || 0;
-                      percentage = order.bdCourierData.summary.success_ratio || 0;
-                    } else {
-                      const customerOrders = orders.filter(o => o.userInfo.phone === order.userInfo.phone);
-                      completed = customerOrders.filter(o => o.status === 'Completed').length;
-                      const failed = customerOrders.filter(o => o.status === 'Canceled' || o.status === 'Returned' || o.status === 'Complete Return' || o.status === 'Unreachable').length;
-                      totalResolved = completed + failed;
-                      if (totalResolved > 0) percentage = (completed / totalResolved) * 100;
-                    }
-
-                    const percentageFormatted = percentage % 1 === 0 ? percentage : Number(percentage.toFixed(2));
-
-                    return (
-                      <div 
-                        key={order.id} 
-                        className="bg-[var(--dash-card)]/90 hover:bg-[var(--dash-card)] border border-[var(--dash-border)]/60 rounded-xl px-5 py-3.5 flex items-center justify-between gap-4 transition-all shadow-sm"
-                      >
-                        {/* Left: Checkbox + Customer + Time + Price */}
-                        <div className="flex items-center gap-3.5 min-w-[260px]">
-                          <div onClick={(e) => toggleOrderSelection(order.id, e)} className="cursor-pointer shrink-0">
-                            {selectedOrders.includes(order.id) ? (
-                              <div className="w-5 h-5 rounded-full bg-cyan-400 flex items-center justify-center">
-                                <Check size={12} className="text-[var(--dash-bg)] font-bold" />
-                              </div>
-                            ) : (
-                              <div className="w-5 h-5 rounded-full border border-gray-500 hover:border-gray-300 flex items-center justify-center transition-colors" />
-                            )}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <div className="font-bold text-white text-sm flex items-center gap-2">
-                              <span className="truncate">{perms.order.customerName ? order.userInfo.name : '***'}</span>
-                              <span className="text-gray-500 font-mono text-[10px] font-normal">#{order.id}</span>
-                            </div>
-                            <div className="text-[11px] text-gray-400 mt-0.5">{order.date}</div>
-                            <div className="font-extrabold text-white text-base mt-0.5 tracking-tight">
-                              {perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Middle: Delivery Success Ratio & Progress Bar */}
-                        <div className="flex flex-col items-center justify-center flex-1 max-w-[260px] px-2">
-                          {totalResolved > 0 ? (
-                            <div className="flex flex-col items-center gap-1 w-full">
-                              <div className="text-[11px] font-mono font-medium text-gray-300 tracking-tight flex items-center justify-center">
-                                <span>{completed} / {totalResolved}</span>
-                                <span className="mx-1 text-gray-500">-</span>
-                                <span className="font-bold text-white">{percentageFormatted}%</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden border border-white/5">
-                                <div 
-                                  className={cn("h-full rounded-full transition-all duration-500", percentage >= 70 ? "bg-emerald-400" : (percentage >= 40 ? "bg-amber-400" : "bg-rose-500"))} 
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                            </div>
-                          ) : order.bdCourierStatus === 'pending' ? (
-                            <RefreshCw size={14} className="animate-spin text-gray-500" />
-                          ) : (
-                            <div className="text-[11px] text-gray-600 font-mono">No delivery history</div>
-                          )}
-                        </div>
-
-                        {/* Right: Status Pill + Courier Info + Payment Toggle + Details Action */}
-                        <div className="flex items-center gap-3 justify-end shrink-0 min-w-[280px]">
-                          <div className="flex flex-col items-end gap-1">
-                            <div className="flex items-center gap-1.5">
-                              {order.status === 'Pending' && <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold flex items-center gap-1"><Clock size={12}/> pending</span>}
-                              {order.status === 'Canceled' && <span className="px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold flex items-center gap-1"><X size={12}/> canceled</span>}
-                              {order.status === 'Unreachable' && <span className="px-2.5 py-1 rounded-md bg-gray-500/10 border border-gray-500/20 text-gray-400 text-xs font-semibold flex items-center gap-1"><EyeOff size={12}/> unreachable</span>}
-                              {order.status === 'Returned' && <span className="px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> returned</span>}
-                              {order.status === 'Complete Return' && <span className="px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> complete return</span>}
-                              {order.status === 'Shipping' && <span className="px-2.5 py-1 rounded-md bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> shipping</span>}
-                              {order.status === 'Completed' && <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center gap-1"><Check size={12}/> completed</span>}
-                              {order.status === 'Preparing' && <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1"><Package size={12}/> preparing</span>}
-                              
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
-                                  const updated = { ...order, paymentStatus: newStatus } as Order;
-                                  setOrders(orders.map(o => o.id === order.id ? updated : o));
-                                  setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
-                                  cloudStore.upsertOrder(updated, 'standard').catch(console.error);
-                                }}
-                                className={cn(
-                                  "w-[18px] h-[18px] rounded-full flex items-center justify-center transition-all duration-300 ml-1 shadow-sm cursor-pointer",
-                                  order.paymentStatus === 'Paid' ? "bg-green-500" : "bg-red-500"
-                                )}
-                                title={order.paymentStatus === 'Paid' ? "Paid" : "Unpaid"}
-                              >
-                                {order.paymentStatus === 'Paid' ? <Check size={10} className="text-white" strokeWidth={3} /> : <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                              </button>
-                            </div>
-
-                            {order.userInfo.city && (
-                              <div className="text-[10px] text-amber-300/80 font-medium">
-                                To {order.userInfo.city}
-                              </div>
-                            )}
-                          </div>
-
-                          <button 
-                            onClick={() => setSelectedOrder(order)}
-                            className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
-                          >
-                            Details <ChevronRight size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Mobile View: Exact Original Card List */}
-                <div className="md:hidden flex flex-col gap-1">
+              <div className="flex flex-col gap-3 max-w-4xl mx-auto w-full">
                   {displayOrders.map(order => (
-                    <div key={order.id} className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 flex flex-col gap-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div onClick={(e) => toggleOrderSelection(order.id, e)} className="cursor-pointer">
+                    <div 
+                      key={order.id} 
+                      onClick={() => setSelectedOrder(order)}
+                      className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-2xl p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:border-slate-500/40 transition-colors shadow-sm"
+                    >
+                      {/* Top Row: Left (Checkbox, Name, #ID, Copy, Calendar, Date) & Right (Status Pill, Payment circle) */}
+                      <div className="flex items-start justify-between gap-2">
+                        {/* Left: Circle + Customer Info + Date */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Selection Circle */}
+                          <div 
+                            onClick={(e) => toggleOrderSelection(order.id, e)} 
+                            className="cursor-pointer shrink-0"
+                          >
                             {selectedOrders.includes(order.id) ? (
-                              <div className="w-5 h-5 rounded-full bg-[#fafafa] flex items-center justify-center">
-                                <Check size={12} className="text-[var(--dash-bg)]" />
+                              <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center transition-all">
+                                <Check size={14} className="text-[var(--dash-bg)] stroke-[3]" />
                               </div>
                             ) : (
-                              <div className="w-5 h-5 rounded-full border border-gray-500 flex items-center justify-center" />
+                              <div className="w-6 h-6 rounded-full border border-slate-500/70 hover:border-slate-300 transition-colors" />
                             )}
                           </div>
-                          <div>
-                            <div className="font-bold text-white flex items-center gap-2">
-                              {perms.order.customerName ? order.userInfo.name : '***'}
-                              <span className="text-gray-500 font-normal text-[10px] flex items-center gap-0.5">#{order.id} <CopyButton text={order.id} className="p-0.5 text-gray-500 hover:text-white" /></span>
-                            </div>
-                            <div className="text-xs text-gray-500">{order.date}</div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <div className="flex items-center gap-2 text-xs mb-1">
-                            {order.status === 'Pending' && <span className="text-blue-400 flex items-center gap-1"><span className="text-[10px]">🎉</span> pending</span>}
-                            {order.status === 'Canceled' && <span className="text-red-500 flex items-center gap-1"><X size={12}/> canceled</span>}
-                            {order.status === 'Unreachable' && <span className="text-gray-400 flex items-center gap-1"><EyeOff size={12}/> unreachable</span>}
-                            {order.status === 'Returned' && <span className="text-red-400 flex items-center gap-1"><Package size={12}/> returned</span>}
-                            {order.status === 'Complete Return' && <span className="text-red-500 flex items-center gap-1"><Package size={12}/> <Check size={10}/> complete return</span>}
-                            {order.status === 'Shipping' && <span className="text-pink-400 flex items-center gap-1"><Package size={12}/> shipping</span>}
-                            {order.status === 'Completed' && <span className="text-green-400 flex items-center gap-1"><Check size={12}/> completed</span>}
-                            {order.status === 'Preparing' && <span className="text-orange-400 flex items-center gap-1"><Package size={12}/> preparing</span>}
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
-                                const updated = { ...order, paymentStatus: newStatus } as Order;
-                                setOrders(orders.map(o => o.id === order.id ? updated : o));
-                                setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
-                                cloudStore.upsertOrder(updated, 'standard').catch(console.error);
-                              }}
-                              className={cn(
-                                "w-[18px] h-[18px] rounded-full flex items-center justify-center transition-all duration-300 ml-1 shadow-sm",
-                                order.paymentStatus === 'Paid' ? "bg-green-500" : "bg-red-500"
-                              )}
-                            >
-                              {order.paymentStatus === 'Paid' ? (
-                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                                  <Check size={12} className="text-white" strokeWidth={3} />
-                                </motion.div>
-                              ) : (
-                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                              )}
-                            </button>
-                          </div>
-                          {order.trackingNumber && (
-                            <div className="text-[10px] text-blue-400 underline">
-                              {order.trackingNumber}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-between items-end mt-2 relative min-h-[32px]">
-                        <div className="flex flex-col z-10">
-                          <div className="font-bold text-white text-lg leading-none">{perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}</div>
-                          {order.steadfast && (order.steadfast.consignmentId || order.steadfast.trackingCode) && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <Truck size={12} className="text-[#fafafa]" />
-                              <span className="text-[11px] font-bold text-[#fafafa] tracking-wide font-mono uppercase">
-                                #{order.steadfast.consignmentId ? String(order.steadfast.consignmentId).replace(/(.{3})/g, '$1-').replace(/-$/, '') : order.steadfast.trackingCode}
+
+                          {/* Customer Name, ID, Copy, Date */}
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-white text-base sm:text-[17px] tracking-tight truncate">
+                                {perms.order.customerName ? (order.userInfo?.name || 'Anonymous') : '***'}
                               </span>
+                              <span className="text-slate-400 font-normal text-sm">
+                                #{order.id}
+                              </span>
+                              <CopyButton text={order.id} className="p-0.5 text-slate-400 hover:text-white" />
                             </div>
+                            <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1">
+                              <CalendarIcon size={13} className="text-slate-400 shrink-0" />
+                              <span className="truncate">{order.date}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Status Pill + Payment Circle */}
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          {order.status === 'Pending' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">🎉</span> Pending
+                            </span>
                           )}
-                        </div>
-                        
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex flex-col items-center justify-end z-0 w-[140px]">
-                          {(() => {
-                            if (order.bdCourierStatus === 'failed') {
-                              return (
-                                <button onClick={() => checkBdCourierFraud(order.id)} title="Retry Fraud Check" className="p-1 text-gray-500 hover:text-white transition-colors border border-[var(--dash-border)] bg-[var(--dash-bg)] rounded-full mb-1">
-                                  <RefreshCw size={14} className={isSyncingBdCourier ? "animate-spin" : ""} />
-                                </button>
-                              );
-                            }
-                            
-                            const reports = order.bdCourierData?.reports || [];
-                            const hasWarning = reports.length > 0;
+                          {order.status === 'Preparing' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">📦</span> Preparing
+                            </span>
+                          )}
+                          {order.status === 'Shipping' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">🚚</span> Shipping
+                            </span>
+                          )}
+                          {order.status === 'Completed' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">✅</span> Completed
+                            </span>
+                          )}
+                          {order.status === 'Canceled' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">❌</span> Canceled
+                            </span>
+                          )}
+                          {order.status === 'Returned' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">↩️</span> Returned
+                            </span>
+                          )}
+                          {order.status === 'Complete Return' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">🔄</span> Complete Return
+                            </span>
+                          )}
+                          {order.status === 'Unreachable' && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-slate-700/30 border border-slate-600/30 text-slate-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                              <span className="text-[12px]">📵</span> Unreachable
+                            </span>
+                          )}
 
-                            let completed = 0;
-                            let totalResolved = 0;
-                            let percentage = 0;
-
-                            if (order.bdCourierData?.summary) {
-                              completed = order.bdCourierData.summary.success_parcel || 0;
-                              totalResolved = order.bdCourierData.summary.total_parcel || 0;
-                              percentage = order.bdCourierData.summary.success_ratio || 0;
-                            } else {
-                              // Fallback to local history
-                              const customerOrders = orders.filter(o => o.userInfo.phone === order.userInfo.phone);
-                              completed = customerOrders.filter(o => o.status === 'Completed').length;
-                              const failed = customerOrders.filter(o => o.status === 'Canceled' || o.status === 'Returned' || o.status === 'Complete Return' || o.status === 'Unreachable').length;
-                              totalResolved = completed + failed;
-                              if (totalResolved > 0) percentage = (completed / totalResolved) * 100;
-                            }
-
-                            const percentageFormatted = percentage % 1 === 0 ? percentage : Number(percentage.toFixed(2));
-
-                            if (totalResolved > 0) {
-                              return (
-                                <div className="flex flex-col items-center gap-1 w-[80px] pb-0.5">
-                                  <div className="flex items-center justify-center relative w-full">
-                                    {hasWarning && (
-                                      <button onClick={(e) => {
-                                          e.stopPropagation();
-                                          alert(reports.map(r => `${r.courierName}: ${r.details}`).join('\n'));
-                                        }} 
-                                        className="text-red-500 hover:text-red-400 absolute left-[-16px]" title="Fraud Warning"
-                                      >
-                                        <ShieldAlert size={12} />
-                                      </button>
-                                    )}
-                                    <div className="text-[9px] font-mono font-medium text-gray-300 tracking-tight flex items-center justify-center whitespace-nowrap">
-                                      {completed} / {totalResolved} <span className="mx-1 text-gray-500">•</span> <span className="font-bold text-white">{percentageFormatted}%</span>
-                                    </div>
-                                    {order.bdCourierStatus === 'pending' && (
-                                       <RefreshCw size={10} className="animate-spin text-gray-500 absolute right-[-14px]" />
-                                    )}
-                                  </div>
-                                  <div className="w-full h-[3px] bg-[var(--dash-border)] rounded-full overflow-hidden">
-                                    <div 
-                                      className={cn("h-full rounded-full transition-all duration-500", percentage > 50 ? "bg-[#fafafa]" : "bg-red-500")} 
-                                      style={{ width: `${percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            } else if (order.bdCourierStatus === 'pending') {
-                               return <RefreshCw size={14} className="animate-spin text-gray-500 mb-1" />;
-                            }
-                            
-                            return null;
-                          })()}
-                        </div>
-                        
-                        <div className="flex justify-end z-10 pl-2">
+                          {/* Payment Circle Button (Red with white dot when unpaid, Green with check when paid) */}
                           <button 
-                            onClick={() => setSelectedOrder(order)}
-                            className="text-[13px] text-gray-300 flex items-center gap-1 hover:text-white"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
+                              const updated = { ...order, paymentStatus: newStatus } as Order;
+                              setOrders(orders.map(o => o.id === order.id ? updated : o));
+                              setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
+                              cloudStore.upsertOrder(updated, 'standard').catch(console.error);
+                            }}
+                            className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-sm cursor-pointer shrink-0",
+                              order.paymentStatus === 'Paid' ? "bg-emerald-500" : "bg-red-500"
+                            )}
+                            title={order.paymentStatus === 'Paid' ? "Paid" : "Unpaid"}
                           >
-                            Details <ChevronRight size={16} />
+                            {order.paymentStatus === 'Paid' ? (
+                              <Check size={12} className="text-white stroke-[3]" />
+                            ) : (
+                              <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                            )}
                           </button>
                         </div>
+                      </div>
+
+                      {/* Bottom Row: Left (Price) & Right (Details Button) */}
+                      <div className="flex items-center justify-between mt-4 pt-1">
+                        <div className="text-2xl sm:text-[26px] font-bold text-white tracking-tight leading-none">
+                          {perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}
+                        </div>
+
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order);
+                          }}
+                          className="px-4 py-1.5 rounded-full bg-[#1e2b42] hover:bg-[#253552] border border-[#2a3c5d]/60 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
+                        >
+                          <span>Details</span>
+                          <ChevronRight size={14} className="text-slate-300" strokeWidth={2.5} />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              </>
             )}
 
             {activeTab === 'Orders' && paginatedOrdersHasMore && displayOrders.length > 0 && (
