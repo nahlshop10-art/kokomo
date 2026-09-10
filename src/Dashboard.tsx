@@ -32,7 +32,7 @@ import CustomersManager from './CustomersManager';
 import AccountControlManager from './AccountControlManager';
 import CustomiseManager from './CustomiseManager';
 import SupplierManager from './SupplierManager';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { DashboardProductsGrid } from './components/DashboardProductsGrid';
 import BulkPriceManager from './BulkPriceManager';
 import IncompleteOrdersManager from './IncompleteOrdersManager';
 import AntiSpamManager from './AntiSpamManager';
@@ -223,137 +223,6 @@ const TopProductItem = React.memo(({
               </button>
             )}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-
-// Memoized Product Card for lag-free Virtualized Products Grid
-interface DashboardProductGridCardProps {
-  product: Product;
-  topBarMode: TopBarMode;
-  isOutOfStock: boolean;
-  isSelected: boolean;
-  isVisible: boolean;
-  perms: any;
-  onEdit: (p: Product) => void;
-  onToggleSelection: (id: string) => void;
-  onToggleVisibility: (id: string) => void;
-  onMoveProducts: (e: React.MouseEvent, id: string) => void;
-}
-
-const DashboardProductGridCard = React.memo(({
-  product,
-  topBarMode,
-  isOutOfStock,
-  isSelected,
-  isVisible,
-  perms,
-  onEdit,
-  onToggleSelection,
-  onToggleVisibility,
-  onMoveProducts
-}: DashboardProductGridCardProps) => {
-  if (!product) return null;
-  const buyPriceVal = product.buyPrice ?? (product.price ? Math.floor(product.price * 0.4) : 0);
-  const sellPriceVal = product.price || 0;
-  const profitVal = sellPriceVal - buyPriceVal;
-
-  return (
-    <div 
-      className="rounded-xl overflow-hidden border flex flex-col relative cursor-pointer bg-[var(--dash-card)] border-[var(--dash-border)]"
-      onClick={() => {
-        if (topBarMode === 'default') {
-          onEdit(product);
-        } else if (topBarMode === 'move' || topBarMode === 'delete') {
-          onToggleSelection(product.id);
-        } else if (topBarMode === 'visibility') {
-          if (!isOutOfStock) {
-            onToggleVisibility(product.id);
-          }
-        }
-      }}
-    >
-      <div className="relative aspect-square w-full overflow-hidden bg-[var(--dash-card)]">
-        <img 
-          src={product.thumbnail || product.image || ''} 
-          alt={product.title || ''} 
-          loading="lazy"
-          decoding="async"
-          className={cn("absolute inset-0 w-full h-full object-cover", (product.isVisible === false || isOutOfStock) ? "opacity-75 grayscale" : "")} 
-        />
-        
-        {/* Stock Out Overlay/Label */}
-        {isOutOfStock && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[var(--dash-bg)]/20 pointer-events-none transition-opacity duration-200">
-             <div className="w-8 h-8 rounded-full border border-[#ff4d4f] flex items-center justify-center bg-[var(--dash-bg)]/90 text-[#ff4d4f] shadow-lg shadow-[#ff4d4f]/20 backdrop-blur-sm">
-                <PackageX size={14} strokeWidth={2} />
-             </div>
-          </div>
-        )}
-        
-        {/* Mode Specific Overlays */}
-        {(topBarMode === 'move' || topBarMode === 'delete') && (
-          <div className="absolute top-2 left-2 w-6 h-6 rounded border-2 border-[var(--dash-border)] bg-[var(--dash-bg)]/50 flex items-center justify-center z-10">
-            {isSelected && <Check size={16} className="text-[#fafafa]" />}
-          </div>
-        )}
-
-        {topBarMode === 'visibility' && (
-          <div className={cn("absolute top-2 left-2 w-8 h-8 rounded flex items-center justify-center z-10", 
-            isVisible ? "bg-[#fafafa] text-[var(--dash-bg)]" : "bg-red-500 text-white"
-          )}>
-            {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-          </div>
-        )}
-
-        {topBarMode === 'move' && (
-          <button 
-            onClick={(e) => onMoveProducts(e, product.id)}
-            className="absolute bottom-2 left-2 bg-[var(--dash-bg)]/80 text-white text-xs font-medium px-3 py-1.5 rounded z-10"
-          >
-            Insert
-          </button>
-        )}
-
-        {/* Default Overlays */}
-        {topBarMode === 'default' && (
-          <>
-            <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-              {product.isNew && <div className="bg-[var(--dash-bg)]/80 text-white text-[10px] font-bold px-2 py-1 rounded w-fit">NEW</div>}
-            </div>
-            <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
-              <div className="bg-[var(--dash-bg)]/80 text-white text-[10px] font-bold px-2 py-1 rounded w-fit flex items-center gap-1">
-                ID: {product.id} <CopyButton text={product.id} className="p-0 text-gray-300 hover:text-white" />
-              </div>
-            </div>
-          </>
-        )}
-        
-        <div className="absolute bottom-2 right-2 bg-[#ff4d6d] text-white text-xs font-bold px-2 py-1 rounded z-10">
-          ¥{product.autoPrice || 0}
-        </div>
-        {topBarMode !== 'move' && !isOutOfStock && (
-          <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border z-10 shadow-md bg-[#fafafa] text-[var(--dash-bg)] border-[#fafafa]/20">
-            <Package size={14} />
-            {perms?.product?.stock !== false ? (product.stock || 0) : '***'}
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-3 text-center text-[10px] border-t border-[var(--dash-border)] divide-x divide-[var(--dash-border)]">
-        <div className="py-1">
-          <div className="text-gray-500">BUY</div>
-          <div className="font-medium text-white">{perms?.product?.buyPrice !== false ? buyPriceVal : '***'}</div>
-        </div>
-        <div className="py-1">
-          <div className="text-gray-500">SELL</div>
-          <div className="font-medium text-white">{perms?.product?.sellPrice !== false ? sellPriceVal : '***'}</div>
-        </div>
-        <div className="py-1">
-          <div className="text-gray-500">PROFIT</div>
-          <div className="font-medium text-white">{perms?.product?.profit !== false ? profitVal : '***'}</div>
         </div>
       </div>
     </div>
@@ -572,12 +441,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     return null;
   });
 
-  const perms = {
+  const perms = React.useMemo(() => ({
     sections: { ...DEFAULT_ADMIN_PERMISSIONS.sections, ...(currentAdmin?.permissions?.sections || {}) },
     product: { ...DEFAULT_ADMIN_PERMISSIONS.product, ...(currentAdmin?.permissions?.product || {}) },
     order: { ...DEFAULT_ADMIN_PERMISSIONS.order, ...(currentAdmin?.permissions?.order || {}) },
     analytics: { ...DEFAULT_ADMIN_PERMISSIONS.analytics, ...(currentAdmin?.permissions?.analytics || {}) },
-  };
+  }), [currentAdmin?.permissions]);
   const currentDbUser = adminUsers.find(u => 
     (currentAdmin?.id && u.id === currentAdmin.id) || 
     (currentAdmin?.email && u.email?.trim().toLowerCase() === currentAdmin.email.trim().toLowerCase())
@@ -654,6 +523,37 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       }
     }
   }, [currentAdmin, adminUsers, websiteSettings?.autoLogoutDays]);
+
+  const navStyleContent = React.useMemo(() => `
+    :root {
+      --glass-border: rgba(255, 255, 255, ${websiteSettings?.dashboardNav?.borderWhiteness !== undefined ? websiteSettings.dashboardNav.borderWhiteness / 100 : 0.40});
+    }
+    @media (max-width: 767px) {
+      .mobile-dashboard-nav {
+         bottom: ${websiteSettings?.dashboardNav?.bottomOffset ?? 10}px !important;
+         height: ${websiteSettings?.dashboardNav?.height ?? 64}px !important;
+         width: ${websiteSettings?.dashboardNav?.width ?? 92}% !important;
+         left: 50% !important;
+         transform: translateX(-50%) translateZ(0) !important;
+         will-change: transform;
+         backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
+         -webkit-backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
+      }
+      .mobile-fab-glass {
+         backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
+         -webkit-backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
+         bottom: calc(${websiteSettings?.dashboardNav?.bottomOffset ?? 10}px + ${websiteSettings?.dashboardNav?.height ?? 64}px + 16px) !important;
+         transform: translateZ(0) !important;
+         will-change: transform;
+      }
+    }
+  `, [
+    websiteSettings?.dashboardNav?.borderWhiteness,
+    websiteSettings?.dashboardNav?.bottomOffset,
+    websiteSettings?.dashboardNav?.height,
+    websiteSettings?.dashboardNav?.width,
+    websiteSettings?.dashboardNav?.blur
+  ]);
   
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date();
@@ -1159,62 +1059,70 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     });
   };
 
-  let displayProducts = [...products];
+  // Memoized Products filtering and sorting for 60fps scrolling
+  const displayProducts = React.useMemo(() => {
+    let result = [...products];
 
-  // Search
-  if (searchQuery) {
-    const cleanSearchQuery = searchQuery.replace(/#/g, '').toLowerCase();
-    displayProducts = displayProducts.filter(p => 
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.id.replace(/#/g, '').toLowerCase().includes(cleanSearchQuery) ||
-      (p.code1688 && p.code1688.toLowerCase().includes(cleanSearchQuery))
-    );
-  }
+    // Search
+    if (searchQuery) {
+      const cleanSearchQuery = searchQuery.replace(/#/g, '').toLowerCase();
+      result = result.filter(p => 
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.id.replace(/#/g, '').toLowerCase().includes(cleanSearchQuery) ||
+        (p.code1688 && p.code1688.toLowerCase().includes(cleanSearchQuery))
+      );
+    }
 
-  // Category
-  if (selectedCategory !== 'All') {
-    displayProducts = displayProducts.filter(p => p.category?.trim()?.toLowerCase() === selectedCategory.trim().toLowerCase());
-  }
+    // Category
+    if (selectedCategory !== 'All') {
+      result = result.filter(p => p.category?.trim()?.toLowerCase() === selectedCategory.trim().toLowerCase());
+    }
 
-  // Filter
-  switch (selectedFilter) {
-    case 'Visible':
-      displayProducts = displayProducts.filter(p => p.isVisible !== false);
-      break;
-    case 'Hidden':
-      displayProducts = displayProducts.filter(p => p.isVisible === false);
-      break;
-    case 'In Stock':
-      displayProducts = displayProducts.filter(p => (p.stock || 0) > 0);
-      break;
-    case 'Stockouts':
-      displayProducts = displayProducts.filter(p => (p.stock || 0) === 0);
-      break;
-    case 'High -> Low (Stock)':
-      displayProducts.sort((a, b) => (b.stock || 0) - (a.stock || 0));
-      break;
-    case 'Low -> High (Stock)':
-      displayProducts.sort((a, b) => (a.stock || 0) - (b.stock || 0));
-      break;
-    case 'High -> Low (Price)':
-      displayProducts.sort((a, b) => b.price - a.price);
-      break;
-    case 'Low -> High (Price)':
-      displayProducts.sort((a, b) => a.price - b.price);
-      break;
-  }
+    // Filter
+    switch (selectedFilter) {
+      case 'Visible':
+        return result.filter(p => p.isVisible !== false);
+      case 'Hidden':
+        return result.filter(p => p.isVisible === false);
+      case 'In Stock':
+        return result.filter(p => (p.stock || 0) > 0);
+      case 'Stockouts':
+        return result.filter(p => (p.stock || 0) === 0);
+      case 'High -> Low (Stock)':
+        return [...result].sort((a, b) => (b.stock || 0) - (a.stock || 0));
+      case 'Low -> High (Stock)':
+        return [...result].sort((a, b) => (a.stock || 0) - (b.stock || 0));
+      case 'High -> Low (Price)':
+        return [...result].sort((a, b) => b.price - a.price);
+      case 'Low -> High (Price)':
+        return [...result].sort((a, b) => a.price - b.price);
+      default:
+        return result;
+    }
+  }, [products, searchQuery, selectedCategory, selectedFilter]);
 
-  // Stats calculation for Products tab
-  const totalItems = displayProducts.length;
-  const totalStock = displayProducts.reduce((acc, p) => acc + (p.stock || 0), 0);
-  const totalBuy = displayProducts.reduce((acc, p) => acc + ((p.buyPrice || 0) * (p.stock || 1)), 0);
-  const totalSell = displayProducts.reduce((acc, p) => acc + (p.price * (p.stock || 1)), 0);
-  const totalProfit = totalSell - totalBuy;
+  // Stats calculation for Products tab (memoized)
+  const { totalItems, totalStock, totalBuy, totalSell, totalProfit } = React.useMemo(() => {
+    const items = displayProducts.length;
+    let stock = 0;
+    let buy = 0;
+    let sell = 0;
+    for (let i = 0; i < items; i++) {
+      const p = displayProducts[i];
+      const s = p.stock || 0;
+      stock += s;
+      buy += (p.buyPrice || 0) * (s || 1);
+      sell += p.price * (s || 1);
+    }
+    return {
+      totalItems: items,
+      totalStock: stock,
+      totalBuy: buy,
+      totalSell: sell,
+      totalProfit: sell - buy,
+    };
+  }, [displayProducts]);
 
-  const cols = windowWidth >= 1536 ? 6 : (windowWidth >= 1280 ? 5 : (windowWidth >= 1024 ? 4 : (windowWidth >= 768 ? 3 : 2)));
-  const rowCount = Math.ceil(displayProducts.length / cols);
-  
-  const listRef = useRef<HTMLDivElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(() => scrollRef.current);
 
   const setScrollContainerRef = React.useCallback((node: HTMLDivElement | null) => {
@@ -1229,116 +1137,125 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       setScrollEl(scrollRef.current);
     }
   }, [currentAdmin, activeTab, scrollEl]);
-  
-  const estimateRowHeight = React.useCallback(() => {
-    if (typeof window === 'undefined') return 240;
-    const w = window.innerWidth;
-    if (w < 768) {
-      return Math.round((w - 16) / 2 + 45);
-    }
-    return 300;
-  }, []);
-
-  const getScrollElement = React.useCallback(() => scrollEl || scrollRef.current, [scrollEl]);
-
-  const virtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement,
-    estimateSize: estimateRowHeight,
-    overscan: 8,
-  });
 
   // Orders filtering
   let displayOrders = paginatedOrders;
 
-  // Stats calculation for Dashboard tab
-  const [rangeStartStr, rangeEndStr] = dateRange.split(' / ');
-  const rangeStart = new Date(rangeStartStr + 'T00:00:00');
-  const rangeEnd = new Date(rangeEndStr + 'T23:59:59.999');
+  // Stats calculation for Dashboard tab (memoized to avoid re-parsing on every render)
+  const dashboardStats = React.useMemo(() => {
+    const [rangeStartStr, rangeEndStr] = dateRange.split(' / ');
+    const rangeStart = new Date(rangeStartStr + 'T00:00:00');
+    const rangeEnd = new Date(rangeEndStr + 'T23:59:59.999');
 
-  const filteredOrders = orders.filter(o => {
-    // o.date is like "Monday, 04/08/2026, 05:30 PM"
-    const datePart = o.date ? o.date.split(', ')[1] : null; // "04/08/2026"
-    if (!datePart) return true;
-    const [month, day, year] = datePart.split('/');
-    const orderDate = new Date(Number(year), Number(month) - 1, Number(day));
-    return orderDate >= rangeStart && orderDate <= rangeEnd;
-  });
-
-  const totalOrders = adminStats ? adminStats.totalOrders : filteredOrders.length;
-  const completedOrders = adminStats ? adminStats.completedOrders : filteredOrders.filter(o => o.status === 'Completed').length;
-  const canceledOrders = adminStats ? adminStats.canceledOrders : filteredOrders.filter(o => o.status === 'Canceled').length;
-  
-  const totalSellAmount = adminStats ? adminStats.totalSellAmount : filteredOrders.reduce((acc, o) => acc + (o.subtotal - (o.discount || 0)), 0);
-  const completedSellAmount = adminStats ? adminStats.completedSellAmount : filteredOrders.filter(o => o.status === 'Completed').reduce((acc, o) => acc + (o.subtotal - (o.discount || 0)), 0);
-  
-  // Calculate profit based on orders
-  const rawTotalProfitAmount = filteredOrders.reduce((acc, o) => {
-    if (o.profit !== undefined) return acc + o.profit;
-    const orderCost = o.items.reduce((cost, item) => cost + ((item.variantBuyPrice ?? (item.product.buyPrice || Math.floor((item.variantPrice ?? item.product.price) * 0.4))) * item.quantity), 0);
-    return acc + (o.subtotal - (o.discount || 0) - orderCost - (o.extraCosts || 0) - (o.returnCost || 0));
-  }, 0);
-  
-  const rawCompletedProfitAmount = filteredOrders.filter(o => o.status === 'Completed').reduce((acc, o) => {
-    if (o.profit !== undefined) return acc + o.profit;
-    const orderCost = o.items.reduce((cost, item) => cost + ((item.variantBuyPrice ?? (item.product.buyPrice || Math.floor((item.variantPrice ?? item.product.price) * 0.4))) * item.quantity), 0);
-    return acc + (o.subtotal - (o.discount || 0) - orderCost - (o.extraCosts || 0) - (o.returnCost || 0));
-  }, 0);
-
-  // Return Cost calculation
-  const totalReturnedCost = adminStats ? adminStats.totalReturnedCost : filteredOrders.reduce((acc, o) => {
-    return acc + (o.returnCost || 0);
-  }, 0);
-
-  const totalProfitAmount = adminStats ? adminStats.totalProfitAmount : rawTotalProfitAmount;
-  const completedProfitAmount = adminStats ? adminStats.completedProfitAmount : rawCompletedProfitAmount;
-
-  const totalQuantity = adminStats ? adminStats.totalQuantity : filteredOrders.reduce((acc, o) => acc + (o.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0), 0);
-  
-  // Unique items sold
-  const uniqueItemIds = new Set<string>();
-  filteredOrders.forEach(o => {
-    (o.items || []).forEach(item => {
-      if (item?.product?.id) {
-        uniqueItemIds.add(item.product.id);
-      }
+    const filtered = orders.filter(o => {
+      const datePart = o.date ? o.date.split(', ')[1] : null;
+      if (!datePart) return true;
+      const [month, day, year] = datePart.split('/');
+      const orderDate = new Date(Number(year), Number(month) - 1, Number(day));
+      return orderDate >= rangeStart && orderDate <= rangeEnd;
     });
-  });
-  const uniqueItemsCount = adminStats ? (adminStats.uniqueItemIds?.length || 0) : uniqueItemIds.size;
 
-  // Product Sales Calculation
-  const productSales = new Map<string, { product: Product, quantity: number }>();
-  if (adminStats && adminStats.productSales) {
-      Object.entries(adminStats.productSales).forEach(([productId, quantity]) => {
-          const latestProduct = products.find(p => p.id === productId);
-          if (latestProduct) {
-              productSales.set(productId, { product: latestProduct, quantity: Number(quantity) || 0 });
-          }
+    const totOrders = adminStats ? adminStats.totalOrders : filtered.length;
+    const compOrders = adminStats ? adminStats.completedOrders : filtered.filter(o => o.status === 'Completed').length;
+    const cancOrders = adminStats ? adminStats.canceledOrders : filtered.filter(o => o.status === 'Canceled').length;
+
+    const totSell = adminStats ? adminStats.totalSellAmount : filtered.reduce((acc, o) => acc + (o.subtotal - (o.discount || 0)), 0);
+    const compSell = adminStats ? adminStats.completedSellAmount : filtered.filter(o => o.status === 'Completed').reduce((acc, o) => acc + (o.subtotal - (o.discount || 0)), 0);
+
+    const rawTotalProfit = filtered.reduce((acc, o) => {
+      if (o.profit !== undefined) return acc + o.profit;
+      const orderCost = o.items.reduce((cost, item) => cost + ((item.variantBuyPrice ?? (item.product.buyPrice || Math.floor((item.variantPrice ?? item.product.price) * 0.4))) * item.quantity), 0);
+      return acc + (o.subtotal - (o.discount || 0) - orderCost - (o.extraCosts || 0) - (o.returnCost || 0));
+    }, 0);
+
+    const rawCompProfit = filtered.filter(o => o.status === 'Completed').reduce((acc, o) => {
+      if (o.profit !== undefined) return acc + o.profit;
+      const orderCost = o.items.reduce((cost, item) => cost + ((item.variantBuyPrice ?? (item.product.buyPrice || Math.floor((item.variantPrice ?? item.product.price) * 0.4))) * item.quantity), 0);
+      return acc + (o.subtotal - (o.discount || 0) - orderCost - (o.extraCosts || 0) - (o.returnCost || 0));
+    }, 0);
+
+    const totReturned = adminStats ? adminStats.totalReturnedCost : filtered.reduce((acc, o) => {
+      return acc + (o.returnCost || 0);
+    }, 0);
+
+    const totProfit = adminStats ? adminStats.totalProfitAmount : rawTotalProfit;
+    const compProfit = adminStats ? adminStats.completedProfitAmount : rawCompProfit;
+
+    const totQty = adminStats ? adminStats.totalQuantity : filtered.reduce((acc, o) => acc + (o.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0), 0);
+
+    const uItemIds = new Set<string>();
+    filtered.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (item?.product?.id) {
+          uItemIds.add(item.product.id);
+        }
       });
-  } else {
-      filteredOrders.forEach(order => {
+    });
+    const uItemsCount = adminStats ? (adminStats.uniqueItemIds?.length || 0) : uItemIds.size;
+
+    const pSales = new Map<string, { product: Product, quantity: number }>();
+    if (adminStats && adminStats.productSales) {
+      Object.entries(adminStats.productSales).forEach(([productId, quantity]) => {
+        const latestProduct = products.find(p => p.id === productId);
+        if (latestProduct) {
+          pSales.set(productId, { product: latestProduct, quantity: Number(quantity) || 0 });
+        }
+      });
+    } else {
+      filtered.forEach(order => {
         if (order.status !== 'Canceled' && order.status !== 'Returned' && order.status !== 'Complete Return') {
           (order.items || []).forEach(item => {
             const pId = item?.product?.id;
             if (!pId) return;
-            const existing = productSales.get(pId);
+            const existing = pSales.get(pId);
             if (existing) {
               existing.quantity += (item.quantity || 0);
             } else {
               const latestProduct = products.find(p => p.id === pId) || item.product;
               if (latestProduct) {
-                productSales.set(pId, { product: latestProduct, quantity: (item.quantity || 0) });
+                pSales.set(pId, { product: latestProduct, quantity: (item.quantity || 0) });
               }
             }
           });
         }
       });
-  }
+    }
 
-  const hiddenAnalyticsItemIds = websiteSettings?.hiddenAnalyticsItemIds || [];
-  const topProducts = Array.from(productSales.values())
-    .filter(p => p && p.product && p.quantity > 0 && !hiddenAnalyticsItemIds.includes(p.product.id))
-    .sort((a, b) => b.quantity - a.quantity);
+    const hiddenIds = websiteSettings?.hiddenAnalyticsItemIds || [];
+    const topProds = Array.from(pSales.values())
+      .filter(p => p && p.product && p.quantity > 0 && !hiddenIds.includes(p.product.id))
+      .sort((a, b) => b.quantity - a.quantity);
+
+    return {
+      filteredOrders: filtered,
+      totalOrders: totOrders,
+      completedOrders: compOrders,
+      canceledOrders: cancOrders,
+      totalSellAmount: totSell,
+      completedSellAmount: compSell,
+      totalReturnedCost: totReturned,
+      totalProfitAmount: totProfit,
+      completedProfitAmount: compProfit,
+      totalQuantity: totQty,
+      uniqueItemsCount: uItemsCount,
+      topProducts: topProds,
+    };
+  }, [dateRange, orders, adminStats, products, websiteSettings?.hiddenAnalyticsItemIds]);
+
+  const {
+    filteredOrders,
+    totalOrders,
+    completedOrders,
+    canceledOrders,
+    totalSellAmount,
+    completedSellAmount,
+    totalReturnedCost,
+    totalProfitAmount,
+    completedProfitAmount,
+    totalQuantity,
+    uniqueItemsCount,
+    topProducts,
+  } = dashboardStats;
 
   const analyticsCategories = React.useMemo(() => {
     const defaultCats = ['All', 'Necklaces', 'Bracelets', 'Earrings', 'Rings'];
@@ -1361,7 +1278,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     });
   }, [topProducts, selectedAnalyticsCategory]);
 
-  const toggleProductSelection = (id: string) => {
+  const toggleProductSelection = React.useCallback((id: string) => {
     if (topBarMode === 'delete' && !isOwner) {
       setSelectedProducts(prev => 
         prev.includes(id) ? [] : [id]
@@ -1372,15 +1289,15 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setSelectedProducts(prev => 
       prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
     );
-  };
+  }, [topBarMode, isOwner]);
 
-  const toggleVisibility = (id: string) => {
+  const toggleVisibility = React.useCallback((id: string) => {
     setVisibilityChanges(prev => {
       const product = products.find(p => p.id === id);
       const currentVis = prev[id] !== undefined ? prev[id] : (product?.isVisible !== false);
       return { ...prev, [id]: !currentVis };
     });
-  };
+  }, [products]);
 
   const handleDeleteSelected = async () => {
     const productsToDel = products.filter(p => selectedProducts.includes(p.id));
@@ -1415,7 +1332,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setTopBarMode('default');
   };
 
-  const handleMoveProducts = (e: React.MouseEvent, targetProductId: string) => {
+  const handleMoveProducts = React.useCallback((e: React.MouseEvent, targetProductId: string) => {
     e.stopPropagation();
     if (selectedProducts.length === 0) return;
 
@@ -1440,7 +1357,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     cloudStore.syncAllProducts(newProducts).catch(console.error);
     setSelectedProducts([]);
     setTopBarMode('default');
-  };
+  }, [selectedProducts, products]);
 
   const toggleOrderSelection = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -2307,54 +2224,19 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
         {/* Products Grid */}
         {activeTab === 'Products' && perms.sections.products && (
-          <div 
-            ref={listRef} 
-            className="w-full relative px-1 pb-1" 
-            style={{ 
-              height: `${virtualizer.getTotalSize()}px`,
-              transform: 'translateZ(0)',
-              willChange: 'transform'
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => (
-              <div
-                key={virtualRow.index}
-                className={`absolute top-0 left-0 w-full grid grid-cols-2 gap-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-4 md:px-4`}
-                style={{
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                  {Array.from({ length: cols }).map((_, i) => {
-                    const productIndex = virtualRow.index * cols + i;
-                    const product = displayProducts[productIndex];
-                    if (!product) return <div key={i} />;
-
-                    const isOutOfStock = product.variants && product.variants.length > 0 
-                      ? !product.variants.some(v => v.stock !== undefined && v.stock !== null && Number(v.stock) > 0)
-                      : (product.stock === undefined || product.stock === null || Number(product.stock) <= 0);
-
-                    const isSelected = selectedProducts.includes(product.id);
-                    const isVisible = visibilityChanges[product.id] !== undefined ? visibilityChanges[product.id] : product.isVisible !== false;
-
-                    return (
-                      <DashboardProductGridCard
-                        key={product.id}
-                        product={product}
-                        topBarMode={topBarMode}
-                        isOutOfStock={isOutOfStock}
-                        isSelected={isSelected}
-                        isVisible={isVisible}
-                        perms={perms}
-                        onEdit={setEditingProduct}
-                        onToggleSelection={toggleProductSelection}
-                        onToggleVisibility={toggleVisibility}
-                        onMoveProducts={handleMoveProducts}
-                      />
-                    );
-                  })}
-              </div>
-            ))}
-          </div>
+          <DashboardProductsGrid
+            displayProducts={displayProducts}
+            scrollEl={scrollEl || scrollRef.current}
+            windowWidth={windowWidth}
+            topBarMode={topBarMode}
+            selectedProducts={selectedProducts}
+            visibilityChanges={visibilityChanges}
+            perms={perms}
+            onEdit={setEditingProduct}
+            onToggleSelection={toggleProductSelection}
+            onToggleVisibility={toggleVisibility}
+            onMoveProducts={handleMoveProducts}
+          />
         )}
 
         {/* Orders List */}
@@ -3150,30 +3032,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       </div>
 
       {/* Bottom Nav / Sidebar */}
-      <style>{`
-        :root {
-          --glass-border: rgba(255, 255, 255, ${websiteSettings?.dashboardNav?.borderWhiteness !== undefined ? websiteSettings.dashboardNav.borderWhiteness / 100 : 0.40});
-        }
-        @media (max-width: 767px) {
-          .mobile-dashboard-nav {
-             bottom: ${websiteSettings?.dashboardNav?.bottomOffset ?? 10}px !important;
-             height: ${websiteSettings?.dashboardNav?.height ?? 64}px !important;
-             width: ${websiteSettings?.dashboardNav?.width ?? 92}% !important;
-             left: 50% !important;
-             transform: translateX(-50%) translateZ(0) !important;
-             will-change: transform;
-             backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
-             -webkit-backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
-          }
-          .mobile-fab-glass {
-             backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
-             -webkit-backdrop-filter: blur(${websiteSettings?.dashboardNav?.blur ?? 4}px) saturate(1.8) !important;
-             bottom: calc(${websiteSettings?.dashboardNav?.bottomOffset ?? 10}px + ${websiteSettings?.dashboardNav?.height ?? 64}px + 16px) !important;
-             transform: translateZ(0) !important;
-             will-change: transform;
-          }
-        }
-      `}</style>
+      <style>{navStyleContent}</style>
       <div className="mobile-dashboard-nav fixed bg-[var(--dash-bg)]/70 border-2 border-[var(--glass-border)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] shadow-black/50 rounded-[32px] flex justify-around items-center px-2 z-40 md:top-0 md:bottom-0 md:left-0 md:right-auto md:w-[84px] md:h-screen md:flex-col md:justify-start md:border-y-0 md:border-l-0 md:border-[var(--dash-border)] md:border-r md:px-2 md:py-6 md:gap-3 md:rounded-none md:bg-[var(--dash-bg)] md:backdrop-blur-none md:transform-none md:saturate-100 md:shadow-none overflow-y-auto">
         <div className="hidden md:flex items-center justify-center w-full mb-3">
           <div 
