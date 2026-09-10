@@ -1967,7 +1967,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             {!isOrderSearchMode && (
               <div className="flex-grow overflow-x-auto no-scrollbar flex gap-2">
                 {['All', 'Pending', 'Unreachable', 'Preparing', 'Shipping', 'Completed', 'Canceled', 'Returned', 'Complete Return'].map(filter => {
-                  const count = filter === 'All' ? orders.length : orders.filter(o => o.status === filter).length;
                   const isActive = orderFilter === filter;
                   return (
                   <button
@@ -1975,19 +1974,13 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                     onClick={() => setOrderFilter(filter as OrderStatus | 'All')}
                     style={{ borderRadius: websiteSettings?.actionButtons?.placeOrder?.borderRadius || '9999px' }}
                     className={cn(
-                      "px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 border",
+                      "px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all flex items-center justify-center border",
                       isActive 
                         ? "bg-[#fafafa] border-[#fafafa] text-[var(--dash-bg)] shadow-[0_0_15px_rgba(250, 250, 250,0.15)]" 
                         : "bg-[var(--dash-card)] border-[var(--dash-border)] text-gray-300 hover:bg-[var(--dash-border)] hover:text-white"
                     )}
                   >
                    <span>{filter}</span>
-                   <span className={cn(
-                     "text-[11px] font-bold px-2 py-0.5 rounded-full",
-                     isActive ? "bg-[var(--dash-bg)]/20 text-[var(--dash-bg)]" : "bg-[var(--dash-border)] text-gray-400"
-                   )}>
-                     {count}
-                   </span>
                   </button>
                 )})}
               </div>
