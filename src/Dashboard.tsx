@@ -2089,7 +2089,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         ref={setScrollContainerRef} 
         className={cn(
           "flex-grow min-h-0 overflow-y-auto relative z-0 md:p-8 overscroll-y-contain", 
-          activeTab === 'Dashboard' ? 'px-1.5 pt-1 pb-20' : activeTab === 'Settings' ? 'px-2.5 pt-2 pb-20' : 'px-4 pt-4 pb-20'
+          activeTab === 'Dashboard' ? 'px-1.5 pt-1 pb-20' : (activeTab === 'Settings' || activeTab === 'Orders') ? 'px-2.5 pt-2 pb-20' : 'px-4 pt-4 pb-20'
         )}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
