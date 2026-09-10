@@ -2250,116 +2250,92 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                     <div 
                       key={order.id} 
                       onClick={() => setSelectedOrder(order)}
-                      className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-2xl p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:border-slate-500/40 transition-colors shadow-sm"
+                      className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between cursor-pointer hover:border-slate-500/40 transition-colors shadow-sm"
                     >
-                      {/* Top Row: Left (Checkbox, Name, #ID, Copy, Calendar, Date) & Right (Status Pill, Payment circle) */}
+                      {/* Top Row: Left (Checkbox, Name, #ID, Copy, Calendar, Date) & Right (Status Pill in place of the removed red dot) */}
                       <div className="flex items-start justify-between gap-2">
                         {/* Left: Circle + Customer Info + Date */}
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           {/* Selection Circle */}
                           <div 
                             onClick={(e) => toggleOrderSelection(order.id, e)} 
                             className="cursor-pointer shrink-0"
                           >
                             {selectedOrders.includes(order.id) ? (
-                              <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center transition-all">
-                                <Check size={14} className="text-[var(--dash-bg)] stroke-[3]" />
+                              <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center transition-all">
+                                <Check size={12} className="text-[var(--dash-bg)] stroke-[3]" />
                               </div>
                             ) : (
-                              <div className="w-6 h-6 rounded-full border border-slate-500/70 hover:border-slate-300 transition-colors" />
+                              <div className="w-5 h-5 rounded-full border border-slate-500/70 hover:border-slate-300 transition-colors" />
                             )}
                           </div>
 
                           {/* Customer Name, ID, Copy, Date */}
                           <div className="flex flex-col min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-white text-base sm:text-[17px] tracking-tight truncate">
+                              <span className="font-semibold text-white text-sm sm:text-[15px] tracking-tight truncate">
                                 {perms.order.customerName ? (order.userInfo?.name || 'Anonymous') : '***'}
                               </span>
-                              <span className="text-slate-400 font-normal text-sm">
+                              <span className="text-slate-400 font-normal text-xs">
                                 #{order.id}
                               </span>
                               <CopyButton text={order.id} className="p-0.5 text-slate-400 hover:text-white" />
                             </div>
-                            <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1">
-                              <CalendarIcon size={13} className="text-slate-400 shrink-0" />
+                            <div className="flex items-center gap-1 text-slate-400 text-[11px] sm:text-xs mt-0.5">
+                              <CalendarIcon size={12} className="text-slate-400 shrink-0" />
                               <span className="truncate">{order.date}</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Right: Status Pill + Payment Circle */}
-                        <div className="flex items-center gap-2.5 shrink-0">
+                        {/* Right: Status Pill (Placed where the red dot was, consistent with other buttons) */}
+                        <div className="flex items-center shrink-0">
                           {order.status === 'Pending' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">🎉</span> Pending
                             </span>
                           )}
                           {order.status === 'Preparing' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">📦</span> Preparing
                             </span>
                           )}
                           {order.status === 'Shipping' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">🚚</span> Shipping
                             </span>
                           )}
                           {order.status === 'Completed' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">✅</span> Completed
                             </span>
                           )}
                           {order.status === 'Canceled' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">❌</span> Canceled
                             </span>
                           )}
                           {order.status === 'Returned' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">↩️</span> Returned
                             </span>
                           )}
                           {order.status === 'Complete Return' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">🔄</span> Complete Return
                             </span>
                           )}
                           {order.status === 'Unreachable' && (
-                            <span className="px-3.5 py-1.5 rounded-full bg-slate-700/30 border border-slate-600/30 text-slate-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                            <span className="px-3.5 py-1.5 rounded-full bg-slate-700/30 border border-slate-600/30 text-slate-400 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm">
                               <span className="text-[12px]">📵</span> Unreachable
                             </span>
                           )}
-
-                          {/* Payment Circle Button (Red with white dot when unpaid, Green with check when paid) */}
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const newStatus: "Paid" | "Unpaid" = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
-                              const updated = { ...order, paymentStatus: newStatus } as Order;
-                              setOrders(orders.map(o => o.id === order.id ? updated : o));
-                              setPaginatedOrders(prev => prev.map(o => o.id === order.id ? updated : o));
-                              cloudStore.upsertOrder(updated, 'standard').catch(console.error);
-                            }}
-                            className={cn(
-                              "w-6 h-6 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-sm cursor-pointer shrink-0",
-                              order.paymentStatus === 'Paid' ? "bg-emerald-500" : "bg-red-500"
-                            )}
-                            title={order.paymentStatus === 'Paid' ? "Paid" : "Unpaid"}
-                          >
-                            {order.paymentStatus === 'Paid' ? (
-                              <Check size={12} className="text-white stroke-[3]" />
-                            ) : (
-                              <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                            )}
-                          </button>
                         </div>
                       </div>
 
-                      {/* Bottom Row: Left (Price) & Right (Details Button) */}
-                      <div className="flex items-center justify-between mt-4 pt-1">
-                        <div className="text-2xl sm:text-[26px] font-bold text-white tracking-tight leading-none">
+                      {/* Bottom Row: Left (Price - reduced to perfect balanced size) & Right (Details Button) */}
+                      <div className="flex items-center justify-between mt-3.5 pt-0.5">
+                        <div className="text-lg sm:text-xl font-bold text-white tracking-tight leading-none">
                           {perms.order.customerOrderAmount ? formatPrice(order.total) : '***'}
                         </div>
 
@@ -2369,7 +2345,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                             e.stopPropagation();
                             setSelectedOrder(order);
                           }}
-                          className="px-4 py-1.5 rounded-full bg-[#1e2b42] hover:bg-[#253552] border border-[#2a3c5d]/60 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
+                          className="px-3.5 py-1.5 rounded-full bg-[#1e2b42] hover:bg-[#253552] border border-[#2a3c5d]/60 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
                         >
                           <span>Details</span>
                           <ChevronRight size={14} className="text-slate-300" strokeWidth={2.5} />
