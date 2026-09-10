@@ -1534,36 +1534,74 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setTimeout(cleanup, 20000);
   };
 
-  let selectedOrdersSummary = { total: 0, buy: 0, profit: 0, items: 0, uniqueItems: new Set<string>(), quantity: 0 };
-  if (selectedOrders.length > 0) {
-     selectedOrders.forEach(ordId => {
-        const order = orders.find(o => o.id === ordId);
-        if (order) {
-           selectedOrdersSummary.total += (order.subtotal - (order.discount || 0));
-           let orderBuyCost = 0;
-           let orderItemsCount = order.items.length;
-           let orderQty = 0;
-           order.items.forEach(item => {
-              let buyCostItem = item.variantBuyPrice ?? (item.product.buyPrice ?? Math.floor((item.variantPrice ?? item.product.price) * 0.4));
-              orderBuyCost += (buyCostItem * item.quantity);
-              selectedOrdersSummary.uniqueItems.add(item.product.id);
-              orderQty += item.quantity;
-           });
-           selectedOrdersSummary.buy += orderBuyCost;
-           selectedOrdersSummary.items += orderItemsCount;
-           selectedOrdersSummary.quantity += orderQty;
-           
-           if (order.profit !== undefined) {
-             selectedOrdersSummary.profit += order.profit;
-           } else {
-             const productRevenue = order.subtotal - (order.discount || 0);
-             const extraCosts = order.extraCosts || 0;
-             const orderReturnCost = order.returnCost || 0;
-             selectedOrdersSummary.profit += (productRevenue - orderBuyCost - extraCosts - orderReturnCost);
-           }
+  const selectedOrdersSummary = React.useMemo(() => {
+    let summary = { total: 0, buy: 0, profit: 0, items: 0, uniqueItems: new Set<string>(), quantity: 0 };
+    if (selectedOrders.length === 0) return summary;
+
+    selectedOrders.forEach(ordId => {
+      const order = paginatedOrders.find(o => o.id === ordId) || orders.find(o => o.id === ordId);
+      if (order) {
+        const productRevenue = (order.subtotal !== undefined && Number(order.subtotal) > 0)
+          ? (Number(order.subtotal) - (Number(order.discount) || 0))
+          : (Number(order.total) || 0);
+
+        summary.total += Math.max(0, productRevenue);
+
+        let itemsList: any[] = [];
+        if (Array.isArray(order.items)) {
+          itemsList = order.items;
+        } else if (typeof order.items === 'string') {
+          try {
+            itemsList = JSON.parse(order.items);
+          } catch(e) {
+            itemsList = [];
+          }
         }
-     });
-  }
+
+        let orderBuyCost = 0;
+        let orderItemsCount = itemsList.length;
+        let orderQty = 0;
+
+        if (itemsList.length > 0) {
+          itemsList.forEach((item: any) => {
+            const qty = Number(item.quantity) || 1;
+            const itemSellPrice = Number(item.variantPrice ?? item.product?.price ?? 0);
+            const buyCostItem = Number(
+              item.variantBuyPrice ?? 
+              item.product?.buyPrice ?? 
+              (itemSellPrice > 0 ? Math.floor(itemSellPrice * 0.4) : 0)
+            );
+            orderBuyCost += (buyCostItem * qty);
+            if (item.product?.id) {
+              summary.uniqueItems.add(String(item.product.id));
+            } else if (item.id) {
+              summary.uniqueItems.add(String(item.id));
+            }
+            orderQty += qty;
+          });
+        } else {
+          orderItemsCount = 1;
+          orderQty = 1;
+          orderBuyCost = Math.floor(productRevenue * 0.4);
+          summary.uniqueItems.add(order.id);
+        }
+
+        summary.buy += orderBuyCost;
+        summary.items += orderItemsCount;
+        summary.quantity += orderQty;
+        
+        if (order.profit !== undefined && order.profit !== null && !isNaN(Number(order.profit))) {
+          summary.profit += Number(order.profit);
+        } else {
+          const extraCosts = Number(order.extraCosts) || 0;
+          const orderReturnCost = Number(order.returnCost) || 0;
+          summary.profit += (productRevenue - orderBuyCost - extraCosts - orderReturnCost);
+        }
+      }
+    });
+
+    return summary;
+  }, [selectedOrders, paginatedOrders, orders]);
 
   if (!currentAdmin) {
     return (
@@ -3429,7 +3467,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               alert('Permission denied: Only the Owner account can delete orders.');
               return;
             }
-            const orderToDel = orders.find(o => o.id === orderId);
+            const orderToDel = paginatedOrders.find(o => o.id === orderId) || orders.find(o => o.id === orderId);
             setOrders(orders.filter(o => o.id !== orderId));
             setPaginatedOrders(prev => prev.filter(o => o.id !== orderId));
             if (orderToDel) cloudStore.deleteOrder(orderToDel, 'standard').catch(console.error);
@@ -3537,7 +3575,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       {activeTab === 'Orders' && selectedOrders.length > 0 && (
         <div className="fixed left-[-9999px] top-0 pointer-events-none z-[-100]">
           {selectedOrders.map(orderId => {
-            const order = orders.find(o => o.id === orderId);
+            const order = paginatedOrders.find(o => o.id === orderId) || orders.find(o => o.id === orderId);
             if (!order) return null;
             return (
               <Receipt 
