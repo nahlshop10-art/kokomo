@@ -579,3 +579,5 @@ export interface Order {
   bdCourierData?: BdCourierData;
   isDeleted?: boolean;
 }
+
+export type TopBarMode = 'default' | 'search' | 'category' | 'filter' | 'move' | 'visibility' | 'delete';

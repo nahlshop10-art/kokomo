@@ -4,6 +4,7 @@ import { Package, PackageX, Check, Eye, EyeOff } from 'lucide-react';
 import { Product, TopBarMode } from '../types';
 import { cn } from '../lib/utils';
 import { CopyButton } from './CopyButton';
+import { DashboardProductImage } from './DashboardProductImage';
 
 // Memoized Product Card for lag-free Virtualized Products Grid
 export interface DashboardProductGridCardProps {
@@ -52,12 +53,10 @@ export const DashboardProductGridCard = React.memo(({
       }}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-[var(--dash-card)]">
-        <img 
+        <DashboardProductImage 
           src={product.thumbnail || product.image || ''} 
           alt={product.title || ''} 
-          loading="lazy"
-          decoding="async"
-          className={cn("absolute inset-0 w-full h-full object-cover", (product.isVisible === false || isOutOfStock) ? "opacity-75 grayscale" : "")} 
+          dimmedOrOutOfStock={product.isVisible === false || isOutOfStock}
         />
         
         {/* Stock Out Overlay/Label */}

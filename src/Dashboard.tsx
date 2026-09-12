@@ -33,6 +33,7 @@ import AccountControlManager from './AccountControlManager';
 import CustomiseManager from './CustomiseManager';
 import SupplierManager from './SupplierManager';
 import { DashboardProductsGrid } from './components/DashboardProductsGrid';
+import { DashboardProductImage } from './components/DashboardProductImage';
 import BulkPriceManager from './BulkPriceManager';
 import IncompleteOrdersManager from './IncompleteOrdersManager';
 import AntiSpamManager from './AntiSpamManager';
@@ -140,12 +141,10 @@ const TopProductItem = React.memo(({
           }`}
         >
           {showImages && (
-            <img 
+            <DashboardProductImage 
               src={product.thumbnail || product.image || ''} 
               alt={product.title || ''} 
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              className="pointer-events-none"
             />
           )}
           {isDeleteMode && (
