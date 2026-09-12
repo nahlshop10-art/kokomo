@@ -137,12 +137,19 @@ html.scroll-locked, body.scroll-locked {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.04) 25%,
-    rgba(255, 255, 255, 0.09) 50%,
-    rgba(255, 255, 255, 0.04) 75%,
+    rgba(255, 255, 255, 0.03) 20%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 80%,
     transparent 100%
   );
   animation: dash-shimmer-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  will-change: transform;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-img-skeleton-shimmer {
+    animation: none;
+    opacity: 0.4;
+    background: rgba(255, 255, 255, 0.04);
+  }
 }
