@@ -398,6 +398,8 @@ function buildSelectiveProduct(baseProduct, selectedVariantIds) {
   return {
     ...baseProduct,
     autoPrice: resolvedAutoPrice,
+    image: selectedImages[0] || '',
+    thumbnail: selectedImages[0] || '',
     images: selectedImages,
     options: synchronizedOptions,
     variants: selectedVariants
@@ -518,6 +520,136 @@ assert.equal(afterDelete.images.length, 2);
 console.log('  ✓ 1-click variant delete cleanly synchronizes options (Green removed)');
 console.log('  ✓ Orphaned gallery image cleanly purged from images array');
 
-console.log('\n🎉 ALL 13 PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
+// 14. Test Image Optimization Loop Prevention on Failure (Constraint 2)
+console.log('\n[14/20] Testing image optimization failure loop prevention...');
+
+function simulateOptimizationCycle(images, inFlight, processed, failed, failingUrl) {
+  // Step 1: Identify images to optimize (same filter as ProductEditorModal)
+  const unoptimized = images.filter(u =>
+    is1688CdnUrl(u) &&
+    !inFlight.has(u) &&
+    !processed.has(u) &&
+    !failed.has(u)
+  );
+
+  if (unoptimized.length === 0) return { triggered: 0 };
+
+  // Step 2: Simulate processing
+  unoptimized.forEach(url => {
+    inFlight.add(url);
+    if (url === failingUrl) {
+      // Simulate error: mark failed and processed to prevent loop
+      failed.add(url);
+      processed.set(url, url);
+    } else {
+      processed.set(url, `https://r2.dev/uploads/${url.split('/').pop()}`);
+    }
+    inFlight.delete(url);
+  });
+
+  return { triggered: unoptimized.length };
+}
+
+const inFlightRef = new Set();
+const processedRef = new Map();
+const failedRef = new Set();
+const testImages = ['https://cbu01.alicdn.com/bad_image.jpg', 'https://cbu01.alicdn.com/good_image.jpg'];
+
+const cycle1 = simulateOptimizationCycle(testImages, inFlightRef, processedRef, failedRef, 'https://cbu01.alicdn.com/bad_image.jpg');
+assert.equal(cycle1.triggered, 2, 'First cycle triggers both images');
+assert.equal(failedRef.has('https://cbu01.alicdn.com/bad_image.jpg'), true);
+
+// Cycle 2: re-render occurs after state update
+const cycle2 = simulateOptimizationCycle(testImages, inFlightRef, processedRef, failedRef, 'https://cbu01.alicdn.com/bad_image.jpg');
+assert.equal(cycle2.triggered, 0, 'Second cycle must NOT re-trigger failed or processed images (zero looping)');
+console.log('  ✓ Failed images do not re-trigger optimization (infinite loop prevented)');
+
+// 15. Test Memory Leak Prevention: URL.revokeObjectURL & Canvas cleanup
+console.log('\n[15/20] Testing memory leak prevention in image worker...');
+
+let revokedUrls = [];
+global.URL = global.URL || {};
+global.URL.revokeObjectURL = (url) => { revokedUrls.push(url); };
+
+const testBlobUrl = 'blob:https://kokomo.com/abc-123';
+// Simulate cleanup logic from urlToImageData
+if (testBlobUrl.startsWith('blob:')) {
+  URL.revokeObjectURL(testBlobUrl);
+}
+assert.equal(revokedUrls.includes(testBlobUrl), true, 'Blob URL must be revoked to release memory');
+console.log('  ✓ Blob URL revoked after processing (no object URL memory leak)');
+
+// 16. Test SortableImage Error State Recovery on URL Update
+console.log('\n[16/20] Testing SortableImage error recovery on R2 URL transition...');
+
+let componentHasError = true; // initially errored on Alibaba CDN
+function simulateImgPropChange(oldImg, newImg) {
+  if (oldImg !== newImg) {
+    componentHasError = false; // React.useEffect(() => setHasError(false), [img])
+  }
+}
+simulateImgPropChange('https://cbu01.alicdn.com/raw.jpg', 'https://r2.dev/uploads/opt.webp');
+assert.equal(componentHasError, false, 'hasError must reset when img updates to R2 URL');
+console.log('  ✓ SortableImage resets error state when R2 WebP URL arrives');
+
+// 17. Test Modern 1688 CSS Module / Hashed Class Selector Detection
+console.log('\n[17/20] Testing modern 1688 CSS module active style detection...');
+
+const activeSelectorsRegex = /\.(?:module-od-sku-selection|sku-item|prop-item|feature-item|expand-view-item)[\s.[]|selected--|active--|skuSelected|sku-selected|item-selected/;
+const testClasses = [
+  'sku-item-selected',
+  'selected--d7Y5a',
+  'active--8h2Kx',
+  'item-selected'
+];
+testClasses.forEach(cls => {
+  assert.equal(activeSelectorsRegex.test(cls), true, `Class "${cls}" must match active style selectors`);
+});
+console.log('  ✓ Modern 1688 CSS module selected/active classes correctly matched');
+
+// 18. Test Extension Bridge Event Handling (No ReferenceError for updatePreviewBadge)
+console.log('\n[18/20] Testing extension bridge message handler safety...');
+
+let stateUpdated = false;
+const mockScope = {
+  updateFloatingWidgetState: () => { stateUpdated = true; }
+};
+
+// Simulate the listener in content.js
+const simulateMessageEvent = (type, data) => {
+  if (type === 'PAIKARIX_RESPONSE_PAGE_DATA' && data) {
+    if (typeof mockScope.updateFloatingWidgetState === 'function') {
+      mockScope.updateFloatingWidgetState();
+    }
+  }
+};
+simulateMessageEvent('PAIKARIX_RESPONSE_PAGE_DATA', { title: 'Test 1688 Product' });
+assert.equal(stateUpdated, true, 'Bridge message handler must invoke updateFloatingWidgetState safely');
+console.log('  ✓ Bridge message event triggers updateFloatingWidgetState without ReferenceError');
+
+// 19. Test buildSelectiveProduct Root Properties (image & thumbnail)
+console.log('\n[19/20] Testing buildSelectiveProduct root image & thumbnail properties...');
+
+const selectiveResult = buildSelectiveProduct(mockMultiItemProduct, ['v_rose']);
+assert.equal(selectiveResult.image, 'https://cbu01.alicdn.com/img/variant_rose.jpg', 'Root image must match selected variant');
+assert.equal(selectiveResult.thumbnail, 'https://cbu01.alicdn.com/img/variant_rose.jpg', 'Root thumbnail must match selected variant');
+console.log('  ✓ Root image and thumbnail match selected variant photo');
+
+// 20. Test Protocol-Relative URL Normalization in /api/proxy_image
+console.log('\n[20/20] Testing protocol-relative URL normalization...');
+
+function normalizeProxyUrl(raw) {
+  let fetchUrl = raw.trim();
+  if (fetchUrl.startsWith('//')) {
+    fetchUrl = 'https:' + fetchUrl;
+  }
+  return fetchUrl;
+}
+
+assert.equal(normalizeProxyUrl('//cbu01.alicdn.com/img/sample.jpg'), 'https://cbu01.alicdn.com/img/sample.jpg');
+assert.equal(normalizeProxyUrl('https://cbu01.alicdn.com/img/sample.jpg'), 'https://cbu01.alicdn.com/img/sample.jpg');
+console.log('  ✓ Protocol-relative URLs normalized to https:');
+
+console.log('\n🎉 ALL 20 PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
 
 

@@ -15,6 +15,11 @@ interface SortableImageProps {
 
 export function SortableImage({ id, img, index, meta, onRemove, onOptimize }: SortableImageProps) {
   const [hasError, setHasError] = useState(false);
+
+  React.useEffect(() => {
+    setHasError(false);
+  }, [img]);
+
   const {
     attributes,
     listeners,

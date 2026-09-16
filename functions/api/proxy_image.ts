@@ -1,4 +1,4 @@
-export async function onRequestGet({ request, env }: any) {
+export async function onRequestGet({ request, env, waitUntil }: any) {
   const urlObj = new URL(request.url);
   const targetUrl = urlObj.searchParams.get('url');
 
@@ -12,7 +12,17 @@ export async function onRequestGet({ request, env }: any) {
     });
   }
 
-  // 1. Try to read directly from R2 BUCKET binding if it's an uploaded asset
+  // 1. Check Cloudflare Edge Cache first to eliminate unnecessary requests
+  const cache = (typeof caches !== 'undefined' && (caches as any).default) ? (caches as any).default : null;
+  const cacheKey = new Request(request.url, request);
+  if (cache) {
+    try {
+      const cached = await cache.match(cacheKey);
+      if (cached) return cached;
+    } catch (cacheErr) {}
+  }
+
+  // 2. Try to read directly from R2 BUCKET binding if it's an uploaded asset
   if (targetUrl.includes('/uploads/')) {
     const key = 'uploads/' + targetUrl.split('/uploads/')[1].split('?')[0];
     if (env.BUCKET) {
@@ -31,7 +41,11 @@ export async function onRequestGet({ request, env }: any) {
           if (object.httpEtag) {
             headers.set('ETag', object.httpEtag);
           }
-          return new Response(object.body, { headers });
+          const resp = new Response(object.body, { headers });
+          if (cache && waitUntil) {
+            try { waitUntil(cache.put(cacheKey, resp.clone())); } catch (e) {}
+          }
+          return resp;
         }
       } catch (e) {
         console.error('R2 read error in proxy_image:', e);
@@ -39,9 +53,14 @@ export async function onRequestGet({ request, env }: any) {
     }
   }
 
-  // 2. Fallback: fetch remote URL and attach CORS headers
+  // 3. Fallback: fetch remote URL and attach CORS headers
   try {
-    const res = await fetch(targetUrl, {
+    let fetchUrl = targetUrl.trim();
+    if (fetchUrl.startsWith('//')) {
+      fetchUrl = 'https:' + fetchUrl;
+    }
+
+    const res = await fetch(fetchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Referer': 'https://detail.1688.com/'
@@ -55,12 +74,16 @@ export async function onRequestGet({ request, env }: any) {
       
       const cType = headers.get('Content-Type');
       if (!cType || cType.includes('text/html')) {
-        const ext = targetUrl.split('?')[0].split('.').pop()?.toLowerCase();
+        const ext = fetchUrl.split('?')[0].split('.').pop()?.toLowerCase();
         if (ext === 'webp') headers.set('Content-Type', 'image/webp');
         else if (ext === 'png') headers.set('Content-Type', 'image/png');
         else if (ext === 'jpg' || ext === 'jpeg') headers.set('Content-Type', 'image/jpeg');
       }
-      return new Response(res.body, { status: res.status, headers });
+      const response = new Response(res.body, { status: res.status, headers });
+      if (cache && waitUntil) {
+        try { waitUntil(cache.put(cacheKey, response.clone())); } catch (e) {}
+      }
+      return response;
     }
     return new Response('Remote image not found', { 
       status: res.status,

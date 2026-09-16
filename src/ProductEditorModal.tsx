@@ -80,6 +80,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
   const [link1688, setLink1688] = useState('');
   const [isSavingWithBarrier, setIsSavingWithBarrier] = useState(false);
   const processedImagesRef = useRef<Map<string, string>>(new Map());
+  const processedThumbnailsRef = useRef<Map<string, string>>(new Map());
+  const failedImagesRef = useRef<Set<string>>(new Set());
   const inFlightImagesRef = useRef<Set<string>>(new Set());
   const pendingOptimizationsRef = useRef<Map<string, Promise<string>>>(new Map());
   
@@ -173,6 +175,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         setLink1688(initialProduct.link1688 || '');
         setHasManuallySelectedCategory(true);
       } else if (importedData) {
+        failedImagesRef.current.clear();
         const activePriceCalc = priceCalculatorSettings || { yuanRate: 18.35, additionalCost: 20, profit: 110 };
         const initAutoPrice = importedData.autoPrice !== undefined && importedData.autoPrice !== null ? importedData.autoPrice.toString() : '';
         let initBuyPrice = importedData.buyPrice ? importedData.buyPrice.toString() : '';
@@ -402,8 +405,10 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
           thumbnailDataUrl = uploadedUrl;
         }
 
-        // Cache mapping from rawUrl to uploaded R2 URL
+        // Cache mapping from rawUrl to uploaded R2 URL and thumbnails
         processedImagesRef.current.set(rawUrl, uploadedUrl);
+        processedThumbnailsRef.current.set(rawUrl, thumbnailDataUrl || uploadedUrl);
+        processedThumbnailsRef.current.set(uploadedUrl, thumbnailDataUrl || uploadedUrl);
 
         // Replace raw URL with fast permanent R2 URL in images state
         setImages(prev => prev.map(u => u === rawUrl ? uploadedUrl : u));
@@ -423,7 +428,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                 originalSize: originalSize || meta.originalSize || result.buffer.byteLength,
                 width: result.width,
                 height: result.height,
-                thumbnailUrl: thumbnailDataUrl,
+                thumbnailUrl: thumbnailDataUrl || uploadedUrl,
                 originalDataUrl: rawUrl
               };
             }
@@ -434,6 +439,10 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         return uploadedUrl;
       } catch (err) {
         console.error('[ImageOptimizer] Optimization failed for:', rawUrl, err);
+        // Mark as failed and processed to prevent infinite retry loops on subsequent re-renders
+        failedImagesRef.current.add(rawUrl);
+        processedImagesRef.current.set(rawUrl, rawUrl);
+
         // Clear isProcessing on error so UI does not spin indefinitely
         setImagesMeta(prev => {
           const next = { ...prev };
@@ -466,7 +475,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     const unoptimizedImages = images.filter(u => 
       is1688CdnUrl(u) && 
       !inFlightImagesRef.current.has(u) && 
-      !processedImagesRef.current.has(u)
+      !processedImagesRef.current.has(u) &&
+      !failedImagesRef.current.has(u)
     );
 
     // Also identify any unoptimized images directly attached to variants
@@ -477,10 +487,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         is1688CdnUrl(u) && 
         !inFlightImagesRef.current.has(u) && 
         !processedImagesRef.current.has(u) &&
+        !failedImagesRef.current.has(u) &&
         !unoptimizedImages.includes(u)
       );
 
-    const allToOptimize = [...unoptimizedImages, ...unoptimizedVariantImages];
+    const allToOptimize = Array.from(new Set([...unoptimizedImages, ...unoptimizedVariantImages]));
     if (allToOptimize.length === 0) return;
 
     // Immediately reflect visual progress in imagesMeta for all items in images
@@ -535,10 +546,18 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     // 2. Cleanly remove orphaned gallery images
     const deletedImg = variantToDelete.image;
     if (deletedImg) {
-      const isUsedByOtherVariants = nextVariants.some(v => v.image === deletedImg);
+      const isEquivalentImage = (urlA: string, urlB: string) => {
+        if (!urlA || !urlB) return false;
+        if (urlA === urlB) return true;
+        if (processedImagesRef.current.get(urlA) === urlB) return true;
+        if (processedImagesRef.current.get(urlB) === urlA) return true;
+        return false;
+      };
+
+      const isUsedByOtherVariants = nextVariants.some(v => isEquivalentImage(v.image, deletedImg));
       if (!isUsedByOtherVariants) {
         setImages(prevImages => {
-          const removedIdx = prevImages.indexOf(deletedImg);
+          const removedIdx = prevImages.findIndex(img => isEquivalentImage(img, deletedImg));
           if (removedIdx !== -1) {
             setImagesMeta(prevMeta => {
               const arr = [];
@@ -872,16 +891,15 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     }
 
     // Safe Barrier: await active in-flight image optimizations to save with R2 URLs
-    if (pendingOptimizationsRef.current.size > 0 || inFlightImagesRef.current.size > 0) {
+    while (pendingOptimizationsRef.current.size > 0) {
       setIsSavingWithBarrier(true);
       try {
         await Promise.all(Array.from(pendingOptimizationsRef.current.values()));
       } catch (barrierErr) {
         console.warn('Image optimization barrier completed with warnings:', barrierErr);
-      } finally {
-        setIsSavingWithBarrier(false);
       }
     }
+    setIsSavingWithBarrier(false);
 
     let defaultPrice = variants.length > 0 && variants[0].price ? variants[0].price : (Math.floor(Number(sellPrice)) || 0);
 
@@ -905,6 +923,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     const resolvedImages = images.map(img => processedImagesRef.current.get(img) || img);
 
     const finalThumbnails = resolvedImages.map((imgUrl, idx) => {
+       const thumb = processedThumbnailsRef.current.get(imgUrl) || (images[idx] ? processedThumbnailsRef.current.get(images[idx]) : undefined);
+       if (thumb) return thumb;
        const meta = imagesMeta[idx];
        if (meta && meta.thumbnailUrl) return meta.thumbnailUrl;
        if (initialProduct && initialProduct.thumbnails && initialProduct.images && initialProduct.images[idx] === imgUrl && initialProduct.thumbnails[idx]) {

@@ -88,26 +88,47 @@ export function urlToImageData(url: string, maxDimension: number = 1920): Promis
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let targetW = img.width;
-      let targetH = img.height;
-      if (targetW > maxDimension || targetH > maxDimension) {
-         if (targetW > targetH) {
-           targetH = Math.round(targetH * (maxDimension / targetW));
-           targetW = maxDimension;
-         } else {
-           targetW = Math.round(targetW * (maxDimension / targetH));
-           targetH = maxDimension;
-         }
+      try {
+        const canvas = document.createElement('canvas');
+        let targetW = img.width;
+        let targetH = img.height;
+        if (targetW > maxDimension || targetH > maxDimension) {
+           if (targetW > targetH) {
+             targetH = Math.round(targetH * (maxDimension / targetW));
+             targetW = maxDimension;
+           } else {
+             targetW = Math.round(targetW * (maxDimension / targetH));
+             targetH = maxDimension;
+           }
+        }
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+          return reject(new Error("No 2d context"));
+        }
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        const data = ctx.getImageData(0, 0, targetW, targetH);
+        canvas.width = 0;
+        canvas.height = 0;
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+        resolve(data);
+      } catch (e) {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+        reject(e);
       }
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error("No 2d context"));
-      ctx.drawImage(img, 0, 0, targetW, targetH);
-      resolve(ctx.getImageData(0, 0, targetW, targetH));
     };
-    img.onerror = () => reject(new Error("Failed to load image"));
+    img.onerror = () => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+      reject(new Error("Failed to load image"));
+    };
     img.src = url;
   });
 }

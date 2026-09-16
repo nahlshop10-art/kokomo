@@ -20,7 +20,9 @@
       if (event.data.type === 'PAIKARIX_PAGE_EXTRACTOR_READY' || event.data.type === 'PAIKARIX_RESPONSE_PAGE_DATA') {
         if (event.data.data) {
           pageContextData = event.data.data;
-          updatePreviewBadge();
+          if (typeof updateFloatingWidgetState === 'function') {
+            updateFloatingWidgetState();
+          }
         }
       }
     }
@@ -704,6 +706,11 @@
       '.feature-item .selected',
       '.sku-item.selected',
       '.prop-item.selected',
+      '[class*="selected--"]',
+      '[class*="active--"]',
+      '[class*="skuSelected"]',
+      '[class*="sku-selected"]',
+      '[class*="item-selected"]',
       '[aria-selected="true"]',
       '[aria-checked="true"]'
     ];
@@ -813,6 +820,8 @@
     return {
       ...baseProduct,
       autoPrice: resolvedAutoPrice,
+      image: selectedImages[0] || '',
+      thumbnail: selectedImages[0] || '',
       images: selectedImages,
       options: synchronizedOptions,
       variants: selectedVariants
@@ -843,6 +852,8 @@
     return {
       ...baseProduct,
       autoPrice: activeStyle.price !== undefined ? activeStyle.price : baseProduct.autoPrice,
+      image: variantImage,
+      thumbnail: variantImage,
       images: images,
       options: [{ id: optId, name: 'color', values: [activeStyle.name] }],
       variants: [variant]
@@ -857,7 +868,11 @@
   const checkedVariantIds = new Set();
 
   function createFloatingButton() {
-    if (document.getElementById('paikarix-1688-floating-root')) return;
+    const existing = document.getElementById('paikarix-1688-floating-root');
+    if (existing) {
+      if (document.getElementById('paikarix-drawer')) return;
+      existing.remove();
+    }
 
     const root = document.createElement('div');
     root.id = 'paikarix-1688-floating-root';
@@ -1096,6 +1111,8 @@
       ? variants.filter(v => Object.values(v.options || {}).join(' ').toLowerCase().includes(query))
       : variants;
 
+    const prevScroll = listEl.scrollTop;
+
     listEl.innerHTML = filtered.map(v => {
       const isChecked = checkedVariantIds.has(v.id);
       const styleName = Object.values(v.options || {})[0] || 'Standard';
@@ -1130,6 +1147,8 @@
         renderDrawerList();
       });
     });
+
+    listEl.scrollTop = prevScroll;
   }
 
   function updateFloatingWidgetState() {
@@ -1173,9 +1192,11 @@
         const displayName = currentActiveStyle.name.length > 18
           ? currentActiveStyle.name.slice(0, 18) + '...'
           : currentActiveStyle.name;
-        mainTitle.textContent = `Send Selected: ${displayName}`;
-        const priceDisplay = currentActiveStyle.price !== undefined ? ` (¥${currentActiveStyle.price})` : '';
-        subTitle.textContent = `1-Click Import${priceDisplay}`;
+        const priceDisplay = (currentActiveStyle.price !== undefined && !isNaN(currentActiveStyle.price))
+          ? ` (¥${currentActiveStyle.price})`
+          : '';
+        mainTitle.textContent = `Send Selected: ${displayName}${priceDisplay}`;
+        subTitle.textContent = '1-Click Selective Import';
         mainBtn.title = `Click to import ONLY "${currentActiveStyle.name}" with its pictures and exact price`;
       } else if (mainBtn && mainTitle && subTitle) {
         mainBtn.classList.remove('paikarix-active-style-mode');
@@ -1264,7 +1285,7 @@
     createFloatingButton();
   }
 
-  // Periodic check to track SPA navigation and active style state
+  // Periodic check to track SPA navigation and maintain UI button
   let lastUrl = window.location.href;
   setInterval(() => {
     if (window.location.href !== lastUrl) {
@@ -1275,8 +1296,6 @@
     }
     if (!document.getElementById('paikarix-1688-floating-root')) {
       createFloatingButton();
-    } else {
-      updateFloatingWidgetState();
     }
   }, 1000);
 
