@@ -38,15 +38,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.windows.update(dashboardTab.windowId, { focused: true });
           }
 
-          // Try sending directly to content script
-          chrome.tabs.sendMessage(dashboardTab.id, {
-            type: 'PAIKARIX_1688_IMPORT',
-            payload: productData
-          }, () => {
-            if (chrome.runtime.lastError) {
-              // Fallback: store as pending import and reload tab if needed
-              chrome.storage.local.set({ pendingImport: productData });
-            }
+          // Store pending import as persistent backup in case tab was suspended
+          chrome.storage.local.set({ pendingImport: productData }, () => {
+            chrome.tabs.sendMessage(dashboardTab.id, {
+              type: 'PAIKARIX_1688_IMPORT',
+              payload: productData
+            }, () => {
+              if (chrome.runtime.lastError) {
+                // Background message not received directly, will be delivered via storage on tab focus/mount
+                console.log('[PaikariX Background] Tab suspended, import will deliver via storage.');
+              }
+            });
           });
 
           sendResponse({ success: true, tabId: dashboardTab.id, opened: false });

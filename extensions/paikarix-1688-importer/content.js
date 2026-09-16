@@ -46,7 +46,7 @@
   setTimeout(requestPageContextData, 1000);
 
   // 2. High-resolution Alibaba CDN Image Cleaner
-  // Strips thumbnail suffixes like _300x300.jpg, _.webp, .search.jpg, etc.
+  // Strips thumbnail suffixes like _300x300.jpg, _.webp, .search.jpg, etc., to fetch 1200x1200 master pictures
   function cleanAlibabaImageUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
     let url = rawUrl.trim();
@@ -57,9 +57,23 @@
     // Strip URL query parameters
     url = url.split('?')[0];
 
+    const isAlibaba = url.includes('alicdn.com') || url.includes('cbu01') || url.includes('1688.com');
+    if (!isAlibaba) {
+      return url;
+    }
+
+    // Remember original extension if present in raw URL
+    const extMatch = url.match(/\.(jpg|jpeg|png|webp|gif)/i);
+    const hadExt = !!extMatch;
+    const origExt = extMatch ? '.' + extMatch[1].toLowerCase() : '.jpg';
+
     // Strip .search.jpg or search suffix
     url = url.replace(/(\.(?:jpg|jpeg|png|webp))\.search(?:\.[a-z0-9]+)?$/i, '$1');
     url = url.replace(/\.search\.(jpg|png|jpeg|webp)$/i, '.$1');
+
+    // Strip dot-format thumbnail dimensions like .400x400.jpg or .jpg.400x400.jpg
+    url = url.replace(/(\.(?:jpg|jpeg|png|webp))\.\d+x\d+(?:\.[a-z0-9]+)?$/i, '$1');
+    url = url.replace(/\.\d+x\d+\.(?:jpg|jpeg|png|webp)$/i, origExt);
 
     // Specified regex to strip Alibaba CDN thumbnail suffixes to get 1200x1200 master images
     url = url.replace(/(_\d+x\d+[^.]*(\.[a-z0-9]+)?|_\.webp)$/i, '');
@@ -69,6 +83,11 @@
 
     // Deduplicate any repeated extension
     url = url.replace(/(\.(?:jpg|jpeg|png|webp))\1+$/i, '$1');
+
+    // If stripping the suffix removed the only extension, restore original extension
+    if (hadExt && !/\.(?:jpg|jpeg|png|webp|gif)$/i.test(url)) {
+      url = url + origExt;
+    }
 
     return url;
   }
@@ -120,6 +139,8 @@
       title = data.globalData.tempModel.offerTitle;
     } else if (data?.tempModel?.offerTitle) {
       title = data.tempModel.offerTitle;
+    } else if (data?.data?.subject) {
+      title = data.data.subject;
     }
 
     if (!title) {
@@ -140,24 +161,27 @@
 
     // --- B. WHOLESALE RMB PRICE (autoPrice) ---
     // User requirement: Supply RMB directly into autoPrice, no extra calculator
-    let rmbPrice = '';
+    let rawRmb = '';
     
     // Check ladder price in data
     const ladderPrices = data?.data?.offerDomain?.ladderPrice || data?.data?.ladderPrice;
     if (Array.isArray(ladderPrices) && ladderPrices.length > 0 && ladderPrices[0].price) {
-      rmbPrice = String(ladderPrices[0].price);
+      rawRmb = String(ladderPrices[0].price);
     }
 
     // Check tempModel price
-    if (!rmbPrice && data?.globalData?.tempModel?.price) {
-      rmbPrice = String(data.globalData.tempModel.price);
+    if (!rawRmb && data?.globalData?.tempModel?.price) {
+      rawRmb = String(data.globalData.tempModel.price);
     }
-    if (!rmbPrice && data?.tempModel?.price) {
-      rmbPrice = String(data.tempModel.price);
+    if (!rawRmb && data?.tempModel?.price) {
+      rawRmb = String(data.tempModel.price);
+    }
+    if (!rawRmb && data?.data?.offerDomain?.skuModel?.priceRange) {
+      rawRmb = String(data.data.offerDomain.skuModel.priceRange);
     }
 
     // Check DOM prices
-    if (!rmbPrice) {
+    if (!rawRmb) {
       const priceSelectors = [
         '.price-text',
         '.od-pc-offer-price',
@@ -173,37 +197,58 @@
         if (el) {
           const match = el.innerText.match(/([0-9]+(?:\.[0-9]+)?)/);
           if (match) {
-            rmbPrice = match[1];
+            rawRmb = match[1];
             break;
           }
         }
       }
     }
 
-    const autoPrice = rmbPrice ? parseFloat(rmbPrice) : undefined;
+    // Strip currency symbols (e.g. ¥ or ￥) to ensure valid float
+    let autoPrice = undefined;
+    if (rawRmb) {
+      const cleanMatch = String(rawRmb).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
+      if (cleanMatch) {
+        const val = parseFloat(cleanMatch[0]);
+        if (!isNaN(val)) autoPrice = val;
+      }
+    }
 
     // --- C. MASTER GALLERY IMAGES (1200x1200) ---
     const imageSet = new Set();
 
+    // Filter helper to reject tiny icons/badges
+    const isProductPhoto = (u) => {
+      if (!u || typeof u !== 'string') return false;
+      const lower = u.toLowerCase();
+      if (lower.includes('avatar') || lower.includes('badge') || lower.includes('16x16') || lower.includes('24x24')) {
+        return false;
+      }
+      return true;
+    };
+
     // From Data
     const dataImages = data?.data?.offerDomain?.image?.images || 
+      data?.data?.offerImgList ||
       data?.globalData?.tempModel?.offerImgList || 
       data?.tempModel?.offerImgList || 
       [];
     if (Array.isArray(dataImages)) {
       dataImages.forEach(img => {
-        const clean = cleanAlibabaImageUrl(img);
-        if (clean) imageSet.add(clean);
+        if (isProductPhoto(img)) {
+          const clean = cleanAlibabaImageUrl(img);
+          if (clean) imageSet.add(clean);
+        }
       });
     }
 
     // From DOM Gallery
     const galleryImgElements = document.querySelectorAll(
-      '.detail-gallery-turn-wrapper img, .od-gallery-img, .vertical-img-list img, .tab-trigger img, .mod-detail-gallery img, ul.nav-tabs img, .detail-gallery img'
+      '.detail-gallery-turn-wrapper img, .od-gallery-img, .vertical-img-list img, .tab-trigger img, .mod-detail-gallery img, ul.nav-tabs img, .detail-gallery img, [class*="gallery"] img'
     );
     galleryImgElements.forEach(img => {
-      const src = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazyload-src');
-      if (src && (src.includes('alicdn.com') || src.includes('cbu01'))) {
+      const src = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazyload-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
+      if (src && (src.includes('alicdn.com') || src.includes('cbu01')) && isProductPhoto(src)) {
         const clean = cleanAlibabaImageUrl(src);
         if (clean) imageSet.add(clean);
       }
@@ -212,15 +257,13 @@
     // Fallback: any ibank images in page
     if (imageSet.size === 0) {
       document.querySelectorAll('img').forEach(img => {
-        const src = img.getAttribute('src') || '';
-        if (src.includes('alicdn.com/img/ibank/')) {
+        const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+        if (src.includes('alicdn.com/img/ibank/') && isProductPhoto(src)) {
           const clean = cleanAlibabaImageUrl(src);
           if (clean) imageSet.add(clean);
         }
       });
     }
-
-    const images = Array.from(imageSet);
 
     // --- D. COLOR VARIANTS & PHOTOS ---
     const options = [];
@@ -233,15 +276,36 @@
       data?.skuProps || 
       [];
     
+    // Check skuInfoMap for SKU-specific prices
+    const skuInfoMap = data?.data?.offerDomain?.skuModel?.skuInfoMap || 
+      data?.skuModel?.skuInfoMap || 
+      data?.globalData?.tempModel?.skuInfoMap || 
+      null;
+
     if (Array.isArray(skuProps) && skuProps.length > 0) {
       // Find color prop (usually named 颜色 or 规格 or 款式)
       const colorProp = skuProps.find(p => /颜色|款式|规格|花色|color/i.test(p.prop || p.name || '')) || skuProps[0];
       if (colorProp && Array.isArray(colorProp.value)) {
         colorProp.value.forEach(item => {
-          const name = (item.name || item.propValue || '').trim();
+          let name = (item.name || item.propValue || '').trim();
+          name = name.split(/[\r\n¥￥]/)[0].trim();
           const imgUrl = cleanAlibabaImageUrl(item.imageUrl || item.image || '');
+
+          // Check if variant has individual price
+          let vPrice = undefined;
+          if (item.price) {
+            const vClean = String(item.price).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
+            if (vClean) vPrice = parseFloat(vClean[0]);
+          } else if (skuInfoMap) {
+            const skuObj = skuInfoMap[item.specId] || skuInfoMap[item.skuId] || skuInfoMap[name];
+            if (skuObj && skuObj.price) {
+              const vClean = String(skuObj.price).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
+              if (vClean) vPrice = parseFloat(vClean[0]);
+            }
+          }
+
           if (name) {
-            colorItems.push({ name, image: imgUrl });
+            colorItems.push({ name, image: imgUrl, price: vPrice });
           }
         });
       }
@@ -252,14 +316,15 @@
       const skuElements = document.querySelectorAll('.sku-item, .prop-item, .od-pc-attribute-item, .list-leading-item, .sku-prop-list li');
       skuElements.forEach(el => {
         let name = el.getAttribute('title') || 
-          el.querySelector('.name, .title, .prop-name')?.innerText || 
+          el.querySelector('.name, .title, .prop-name, [class*="sku-name"], [class*="prop-name"]')?.innerText || 
           el.innerText.trim();
-        name = name.replace(/[\r\n\t]+/g, ' ').trim();
+        // Clean out newline, price, and stock clutter
+        name = name.split(/[\r\n¥￥]/)[0].trim();
 
         let imgUrl = '';
         const img = el.querySelector('img');
         if (img) {
-          imgUrl = cleanAlibabaImageUrl(img.src || img.getAttribute('data-src') || '');
+          imgUrl = cleanAlibabaImageUrl(img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '');
         } else {
           const bg = el.getAttribute('style') || '';
           const bgMatch = bg.match(/url\(["']?([^"']+)["']?\)/);
@@ -269,10 +334,19 @@
         }
 
         if (name && !colorItems.some(c => c.name === name)) {
-          colorItems.push({ name, image: imgUrl });
+          colorItems.push({ name, image: imgUrl, price: undefined });
         }
       });
     }
+
+    // Also include color variant photos in master imageSet
+    colorItems.forEach(c => {
+      if (c.image) {
+        imageSet.add(c.image);
+      }
+    });
+
+    const images = Array.from(imageSet);
 
     // Populate options and variants
     if (colorItems.length > 0) {
@@ -284,15 +358,47 @@
       });
 
       colorItems.forEach(c => {
+        const itemAutoPrice = c.price !== undefined ? c.price : autoPrice;
         variants.push({
           id: Math.random().toString(36).substring(2, 11),
           options: { [optionId]: c.name },
           image: c.image || images[0] || '',
-          autoPrice: autoPrice ? String(autoPrice) : undefined,
+          autoPrice: itemAutoPrice !== undefined ? String(itemAutoPrice) : undefined,
           stock: 100,
           isVisible: true
         });
       });
+    }
+
+    // --- E. SUPPLIER / COMPANY INFO ---
+    let supplier = '';
+    if (data?.data?.offerDomain?.seller?.companyName) {
+      supplier = data.data.offerDomain.seller.companyName;
+    } else if (data?.globalData?.companyName) {
+      supplier = data.globalData.companyName;
+    } else if (data?.data?.company?.name) {
+      supplier = data.data.company.name;
+    } else if (data?.tempModel?.seller?.companyName) {
+      supplier = data.tempModel.seller.companyName;
+    }
+    if (!supplier) {
+      const compEl = document.querySelector('.company-name, .shop-name, .supplier-name, .od-pc-offer-company-name, [class*="company-name"], [class*="shop-name"]');
+      if (compEl) {
+        supplier = (compEl.innerText || compEl.getAttribute('title') || '').trim();
+      }
+    }
+
+    // --- F. DESCRIPTION / SPECIFICATIONS ---
+    let description = '';
+    const attrs = data?.data?.offerDomain?.attributes || data?.globalData?.attributes || [];
+    if (Array.isArray(attrs) && attrs.length > 0) {
+      const attrLines = attrs
+        .filter(a => (a.attributeName || a.name) && (a.value || a.attributeValue))
+        .map(a => `${a.attributeName || a.name}: ${a.value || a.attributeValue}`)
+        .slice(0, 15);
+      if (attrLines.length > 0) {
+        description = attrLines.join('\n');
+      }
     }
 
     return {
@@ -303,6 +409,8 @@
       images,
       options,
       variants,
+      supplier,
+      description,
       stock: variants.length > 0 ? undefined : 100
     };
   }
@@ -460,11 +568,18 @@
     createFloatingButton();
   }
 
-  // Periodic check to ensure button remains visible after dynamic page loads
+  // Periodic check to ensure button remains visible after dynamic page loads and track SPA URL changes
+  let lastUrl = window.location.href;
   setInterval(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
+      pageContextData = null;
+      requestPageContextData();
+      updatePreviewBadge();
+    }
     if (!document.getElementById('paikarix-1688-floating-root')) {
       createFloatingButton();
     }
-  }, 2500);
+  }, 1500);
 
 })();

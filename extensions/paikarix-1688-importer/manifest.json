@@ -9,12 +9,12 @@
     "tabs"
   ],
   "host_permissions": [
+    "*://*.1688.com/*",
     "*://detail.1688.com/*",
-    "*://*.1688.com/offer/*",
-    "*://m.1688.com/offer/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*",
+    "*://localhost/*",
+    "*://127.0.0.1/*",
     "https://*.pages.dev/*",
+    "https://paikarix.com/*",
     "https://*.paikarix.com/*"
   ],
   "background": {
@@ -25,7 +25,9 @@
       "matches": [
         "*://detail.1688.com/offer/*.html*",
         "*://*.1688.com/offer/*.html*",
-        "*://m.1688.com/offer/*.html*"
+        "*://m.1688.com/offer/*.html*",
+        "*://detail.1688.com/page/index.html*",
+        "*://*.1688.com/page/index.html*"
       ],
       "js": ["content.js"],
       "css": ["content.css"],
@@ -33,9 +35,10 @@
     },
     {
       "matches": [
-        "http://localhost/*",
-        "http://127.0.0.1/*",
+        "*://localhost/*",
+        "*://127.0.0.1/*",
         "https://*.pages.dev/*",
+        "https://paikarix.com/*",
         "https://*.paikarix.com/*"
       ],
       "js": ["dashboard-bridge.js"],

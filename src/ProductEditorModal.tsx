@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Save, ChevronUp, ChevronDown, Plus, Minus, Image as ImageIcon, X, Package, Trash2, GripVertical, Check } from 'lucide-react';
 import { Product, Category, PriceCalculatorSettings, ProductOption, ProductVariant, DEFAULT_ACTION_BUTTONS } from './types';
-import { cn, formatPrice } from './lib/utils';
+import { cn, formatPrice, cleanAlibabaImageUrl, clean1688Url } from './lib/utils';
 import ImageOptimizerModal from './components/ImageOptimizerModal';
 import { optimizeImageRun, arrayBufferToDataUrl, fileToImageData, getDefaultImageOptimization, OptimizeOptions } from './lib/imageOptimizationWorker';
 import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -56,21 +56,7 @@ interface ProductEditorModalProps {
   inputBorderRadius?: string;
 }
 
-export const clean1688Url = (input?: string): string => {
-  if (!input) return '';
-  let str = input.trim();
-  const match = str.match(/https?:\/\/[^\s\u4e00-\u9fa5\uff00-\uffef]+/);
-  if (match) {
-    let url = match[0];
-    url = url.replace(/[,，\.。;；!?！？\)\>）】]+$/, '');
-    return url;
-  }
-  if (str.startsWith('qr.1688.com') || str.startsWith('detail.1688.com') || str.startsWith('m.1688.com')) {
-    const clean = str.split(/\s+/)[0];
-    return 'https://' + clean;
-  }
-  return str;
-};
+export { clean1688Url };
 
 export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, initialProduct, importedData, categories, priceCalculatorSettings, products, suppliers = [], perms, inputBorderRadius }: ProductEditorModalProps) {
   const inputBorderRadiusStyle = { borderRadius: inputBorderRadius || DEFAULT_ACTION_BUTTONS.checkout.borderRadius };
@@ -469,13 +455,36 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       const target = e.target as HTMLElement | null;
       const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
       if (!isInput) {
-        const text = e.clipboardData?.getData('text');
+        let text = e.clipboardData?.getData('text') || '';
+        if (!text) {
+          const html = e.clipboardData?.getData('text/html') || '';
+          const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (imgMatch) {
+            text = imgMatch[1];
+          }
+        }
+
         if (text) {
           const trimmed = text.trim();
-          const urls = trimmed.split(/\r?\n|\s+/).filter(u => 
-            (/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(u)) || 
-            (u.startsWith('https://') && u.includes('alicdn.com'))
-          );
+          const rawCandidates = trimmed.split(/\r?\n|\s+/);
+          const urls: string[] = [];
+
+          for (const cand of rawCandidates) {
+            let u = cand.trim();
+            if (!u) continue;
+            if (u.startsWith('//')) {
+              u = 'https:' + u;
+            }
+            if (
+              (/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(u)) || 
+              (u.startsWith('https://') && (u.includes('alicdn.com') || u.includes('cbu01')))
+            ) {
+              // Strip CDN thumbnail suffixes to fetch full 1200x1200 master pictures
+              const cleaned = cleanAlibabaImageUrl(u) || u;
+              urls.push(cleaned);
+            }
+          }
+
           if (urls.length > 0) {
             e.preventDefault();
             setImages(prev => [...prev, ...urls]);
@@ -492,6 +501,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
 
   const handleAutoPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+    const prevAutoPrice = autoPrice;
     setAutoPrice(val);
     
     if (val && priceCalculatorSettings) {
@@ -503,10 +513,10 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         setBuyPrice(calculatedBuyPrice.toString());
         setSellPrice(calculatedSellPrice.toString());
 
-        // Also update variants that don't have custom autoPrices
+        // Update variants that follow the product default autoPrice
         if (variants.length > 0) {
           setVariants(prev => prev.map(v => {
-            if (!v.autoPrice || v.autoPrice === val) {
+            if (!v.autoPrice || v.autoPrice === prevAutoPrice) {
               return {
                 ...v,
                 autoPrice: val,
@@ -519,6 +529,26 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         }
       }
     }
+  };
+
+  const handleBulkVariantAutoPrice = (bulkVal: string) => {
+    if (!bulkVal) return;
+    const numVal = Number(bulkVal);
+    if (isNaN(numVal)) return;
+
+    let calcBuy: number | undefined;
+    let calcSell: number | undefined;
+    if (priceCalculatorSettings) {
+      calcBuy = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
+      calcSell = Math.floor(calcBuy + priceCalculatorSettings.profit);
+    }
+
+    setVariants(prev => prev.map(v => ({
+      ...v,
+      autoPrice: bulkVal,
+      buyPrice: calcBuy ?? v.buyPrice,
+      price: calcSell ?? v.price
+    })));
   };
 
   const generateVariations = (opts: ProductOption[]) => {
@@ -584,7 +614,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     }
 
     if (productId) {
-      const isDuplicate = products.some(p => p.id === productId && p.id !== initialProduct?.id);
+      const isDuplicate = products?.some(p => p.id === productId && p.id !== initialProduct?.id);
       if (isDuplicate) {
         setErrorMsg('Product ID must be unique. This ID is already in use.');
         setOpenSection('general');
@@ -632,7 +662,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       material: initialProduct?.material || '',
       price: defaultPrice,
       buyPrice: finalBuyPrice,
-      autoPrice: autoPrice ? Math.floor(Number(autoPrice)) : undefined,
+      autoPrice: autoPrice && !isNaN(Number(autoPrice)) ? Number(autoPrice) : undefined,
       stock: finalStock,
       stockOutDate: newStockOutDate,
       supplier,
@@ -1093,6 +1123,10 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                       const raw = e.target.value;
                       const cleaned = clean1688Url(raw);
                       setLink1688(cleaned || raw);
+                      if (!code1688) {
+                        const idMatch = (cleaned || raw).match(/\/offer\/(\d+)\.html/) || (cleaned || raw).match(/[?&]offerId=(\d+)/);
+                        if (idMatch) setCode1688(idMatch[1]);
+                      }
                     }}
                     className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] p-2 text-sm focus:outline-none focus:border-[#fafafa] text-gray-300"
                     style={inputBorderRadiusStyle}
@@ -1104,10 +1138,25 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
             {/* Variants */}
             {variants.length > 0 && (
               <div className="space-y-4 mt-4">
-                <div className="flex items-center gap-2 mb-2">
-                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-                  <span className="text-xl font-bold text-[#fafafa]">{variants.length}</span>
-                  <span className="text-xl font-medium text-white">Variants</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                    <span className="text-xl font-bold text-[#fafafa]">{variants.length}</span>
+                    <span className="text-xl font-medium text-white">Variants</span>
+                  </div>
+                  {perms?.buyPrice !== false && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 whitespace-nowrap">Apply RMB to All:</span>
+                      <input 
+                        type="number" 
+                        step="any"
+                        placeholder="¥ RMB" 
+                        className="w-24 bg-[var(--dash-bg)] border border-[var(--dash-border)] p-1 text-xs focus:outline-none focus:border-[#fafafa] text-gray-200"
+                        style={inputBorderRadiusStyle}
+                        onChange={e => handleBulkVariantAutoPrice(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-4">
                   {variants.map((variant, vIdx) => {

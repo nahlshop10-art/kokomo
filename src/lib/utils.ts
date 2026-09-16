@@ -10,6 +10,67 @@ export function formatPrice(price: number): string {
   return `৳${Math.floor(price)}`;
 }
 
+export function cleanAlibabaImageUrl(rawUrl?: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let url = rawUrl.trim();
+  if (url.startsWith('//')) {
+    url = 'https:' + url;
+  }
+
+  // Strip URL query parameters (e.g. ?x-oss-process=...)
+  url = url.split('?')[0];
+
+  const isAlibaba = url.includes('alicdn.com') || url.includes('cbu01') || url.includes('1688.com');
+  if (!isAlibaba) {
+    return url;
+  }
+
+  // Remember original extension if present in raw URL
+  const extMatch = url.match(/\.(jpg|jpeg|png|webp|gif)/i);
+  const hadExt = !!extMatch;
+  const origExt = extMatch ? '.' + extMatch[1].toLowerCase() : '.jpg';
+
+  // Strip .search.jpg or search suffix
+  url = url.replace(/(\.(?:jpg|jpeg|png|webp))\.search(?:\.[a-z0-9]+)?$/i, '$1');
+  url = url.replace(/\.search\.(jpg|png|jpeg|webp)$/i, '.$1');
+
+  // Strip dot-format thumbnail dimensions like .400x400.jpg or .jpg.400x400.jpg
+  url = url.replace(/(\.(?:jpg|jpeg|png|webp))\.\d+x\d+(?:\.[a-z0-9]+)?$/i, '$1');
+  url = url.replace(/\.\d+x\d+\.(?:jpg|jpeg|png|webp)$/i, origExt);
+
+  // Specified regex to strip Alibaba CDN thumbnail suffixes to get 1200x1200 master images
+  url = url.replace(/(_\d+x\d+[^.]*(\.[a-z0-9]+)?|_\.webp)$/i, '');
+
+  // Also strip additional CDN quality/size decorators like .jpg_60x60.jpg or .jpg_q90.jpg
+  url = url.replace(/(\.(?:jpg|jpeg|png|webp))_[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9]+)?$/i, '$1');
+
+  // Deduplicate any repeated extension
+  url = url.replace(/(\.(?:jpg|jpeg|png|webp))\1+$/i, '$1');
+
+  // If stripping the suffix removed the only extension, restore original extension
+  if (hadExt && !/\.(?:jpg|jpeg|png|webp|gif)$/i.test(url)) {
+    url = url + origExt;
+  }
+
+  return url;
+}
+
+export const clean1688Url = (input?: string): string => {
+  if (!input) return '';
+  let str = input.trim();
+  const match = str.match(/https?:\/\/[^\s\u4e00-\u9fa5\uff00-\uffef]+/);
+  if (match) {
+    let url = match[0];
+    url = url.replace(/[,，\.。;；!?！？\)\>）】]+$/, '');
+    return url;
+  }
+  if (str.startsWith('qr.1688.com') || str.startsWith('detail.1688.com') || str.startsWith('m.1688.com')) {
+    const clean = str.split(/\s+/)[0];
+    return 'https://' + clean;
+  }
+  return str;
+};
+
 export function formatShortTimeAgo(timestamp: number): string {
   if (!timestamp || timestamp <= 0) return 'N/A';
 

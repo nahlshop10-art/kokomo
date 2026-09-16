@@ -355,6 +355,33 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
   // Listen for 1688 Product Imports from PaikariX Chrome Extension
   useEffect(() => {
+    let lastHandledTime = 0;
+    let lastHandledOfferId = '';
+
+    const applyImport = (data: any) => {
+      if (!data) return;
+      const now = Date.now();
+      const offerId = data.code1688 || data.link1688 || data.title || '';
+      // Ignore duplicate events received within 500ms for the same item
+      if (offerId && offerId === lastHandledOfferId && (now - lastHandledTime) < 500) {
+        return;
+      }
+      lastHandledTime = now;
+      lastHandledOfferId = offerId;
+
+      console.log('[PaikariX 1688 Importer] Received product for import:', data);
+      setEditingProduct(null);
+      setImportedProductData(data);
+      setIsAddingProduct(true);
+
+      // Acknowledge receipt to dashboard-bridge
+      window.postMessage({
+        source: 'paikarix-dashboard',
+        type: 'PAIKARIX_IMPORT_ACK',
+        offerId: offerId
+      }, '*');
+    };
+
     const handleImportMessage = (event: MessageEvent) => {
       if (!event.data) return;
       let data: any = null;
@@ -365,25 +392,25 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         data = event.data.payload || event.data.data;
       }
       if (data) {
-        console.log('[PaikariX 1688 Importer] Received product for import:', data);
-        setEditingProduct(null);
-        setImportedProductData(data);
-        setIsAddingProduct(true);
+        applyImport(data);
       }
     };
 
     const handleCustomEvent = (event: Event) => {
       const customEvt = event as CustomEvent;
       if (customEvt.detail) {
-        console.log('[PaikariX 1688 Importer] Received custom event for import:', customEvt.detail);
-        setEditingProduct(null);
-        setImportedProductData(customEvt.detail);
-        setIsAddingProduct(true);
+        applyImport(customEvt.detail);
       }
     };
 
     window.addEventListener('message', handleImportMessage);
     window.addEventListener('paikarix-1688-import', handleCustomEvent);
+
+    // Request any pending imports queued before this Dashboard mounted
+    window.postMessage({
+      source: 'paikarix-dashboard',
+      type: 'REQUEST_PENDING_IMPORT'
+    }, '*');
 
     return () => {
       window.removeEventListener('message', handleImportMessage);

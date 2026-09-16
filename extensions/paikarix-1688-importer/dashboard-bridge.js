@@ -1,7 +1,7 @@
 /**
  * PaikariX 1688 Importer - Dashboard Bridge Content Script
- * Injected on PaikariX Dashboard domains (localhost, pages.dev, etc.)
- * Relays import payloads from background script to web application.
+ * Injected on PaikariX Dashboard domains (localhost, pages.dev, paikarix.com)
+ * Relays import payloads from background script to web application with reliable handshake.
  */
 
 (function () {
@@ -38,34 +38,43 @@
   });
 
   // 2. Check for pending imports stored in chrome.storage.local
-  function checkPendingImports() {
+  function checkAndDeliverPendingImports() {
     chrome.storage.local.get(['pendingImport'], (result) => {
       if (result && result.pendingImport) {
         const payload = result.pendingImport;
-        // Clean up pending import
-        chrome.storage.local.remove(['pendingImport'], () => {
-          // Allow dashboard / React to mount
-          setTimeout(() => {
-            dispatchToDashboard(payload);
-          }, 800);
-        });
+        dispatchToDashboard(payload);
       }
     });
   }
 
+  // Check on load
   if (document.readyState === 'complete') {
-    checkPendingImports();
+    checkAndDeliverPendingImports();
   } else {
-    window.addEventListener('load', checkPendingImports);
+    window.addEventListener('load', checkAndDeliverPendingImports);
   }
 
-  // 3. Ping / Pong handshake with dashboard application
+  // 3. Bidirectional handshake listener with dashboard application
   window.addEventListener('message', (event) => {
-    if (event.data && event.data.source === 'paikarix-dashboard' && event.data.type === 'PING') {
+    if (!event.data || event.data.source !== 'paikarix-dashboard') return;
+
+    // Dashboard requesting pending import upon mounting/login
+    if (event.data.type === 'REQUEST_PENDING_IMPORT') {
+      checkAndDeliverPendingImports();
+    }
+
+    // Dashboard acknowledged receipt of import
+    if (event.data.type === 'PAIKARIX_IMPORT_ACK') {
+      chrome.storage.local.remove(['pendingImport']);
+      console.log('[PaikariX Bridge] Import acknowledged by dashboard, storage cleared.');
+    }
+
+    // Ping / Pong
+    if (event.data.type === 'PING') {
       window.postMessage({
         source: 'paikarix-1688-importer',
         type: 'PONG',
-        version: '1.0.0'
+        version: '1.1.0'
       }, '*');
     }
   });
@@ -75,8 +84,8 @@
     window.postMessage({
       source: 'paikarix-1688-importer',
       type: 'BRIDGE_READY',
-      version: '1.0.0'
+      version: '1.1.0'
     }, '*');
-  }, 500);
+  }, 300);
 
 })();
