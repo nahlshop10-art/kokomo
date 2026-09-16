@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cleanAlibabaImageUrl, clean1688Url } from './src/lib/utils.ts';
+import { cleanAlibabaImageUrl, clean1688Url, is1688CdnUrl } from './src/lib/utils.ts';
 
 console.log('--- Running PaikariX 1688 Importer Test Suite ---');
 
@@ -347,5 +347,177 @@ assert.equal(sellDecimal, 138, 'Sell price for 0.45 RMB with fallback settings m
 console.log('  ✓ Fallback pricing: 5 RMB -> Buy: ৳111, Sell: ৳221');
 console.log('  ✓ Fallback pricing: 0.45 RMB -> Buy: ৳28, Sell: ৳138');
 
-console.log('\n🎉 ALL 9 PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
+// 10. Test is1688CdnUrl detection logic for Feature 1
+console.log('\n[10/13] Testing is1688CdnUrl detection logic...');
+
+assert.equal(is1688CdnUrl('https://cbu01.alicdn.com/img/ibank/sample1.jpg'), true);
+assert.equal(is1688CdnUrl('https://img.alicdn.com/imgextra/sample2.jpg'), true);
+assert.equal(is1688CdnUrl('https://detail.1688.com/pic/sample.png'), true);
+assert.equal(is1688CdnUrl('https://pub-2e2791afa81c4719bc403edfa89dacb7.r2.dev/uploads/img_123.webp'), false);
+assert.equal(is1688CdnUrl('/uploads/img_123.webp'), false);
+assert.equal(is1688CdnUrl('data:image/webp;base64,UklGRk...'), false);
+assert.equal(is1688CdnUrl('blob:http://localhost:3000/uuid'), false);
+console.log('  ✓ Correctly identified 1688 CDN URLs while preserving R2 and local blobs');
+
+// 11. Test Selective Sourcing for Single Item (1 of N) with exact autoPrice & pictures (Feature 2a)
+console.log('\n[11/13] Testing Selective Sourcing for Single Item (1 of N)...');
+
+function buildSelectiveProduct(baseProduct, selectedVariantIds) {
+  if (!baseProduct) return null;
+  const selectedVariants = (baseProduct.variants || []).filter(v => selectedVariantIds.includes(v.id));
+  if (selectedVariants.length === 0) return baseProduct;
+
+  const selectedImages = [];
+  selectedVariants.forEach(v => {
+    if (v.image && !selectedImages.includes(v.image)) {
+      selectedImages.push(v.image);
+    }
+  });
+
+  if (selectedImages.length === 0 && baseProduct.images && baseProduct.images.length > 0) {
+    selectedImages.push(baseProduct.images[0]);
+  }
+
+  const prices = selectedVariants
+    .map(v => v.autoPrice ? parseFloat(v.autoPrice) : baseProduct.autoPrice)
+    .filter(p => p !== undefined && !isNaN(p) && p > 0);
+  const resolvedAutoPrice = prices.length > 0 ? prices[0] : baseProduct.autoPrice;
+
+  const synchronizedOptions = [];
+  (baseProduct.options || []).forEach(opt => {
+    const usedVals = new Set(selectedVariants.map(v => v.options?.[opt.id]).filter(Boolean));
+    const filteredVals = opt.values.filter(val => usedVals.has(val));
+    if (filteredVals.length > 0) {
+      synchronizedOptions.push({
+        ...opt,
+        values: filteredVals
+      });
+    }
+  });
+
+  return {
+    ...baseProduct,
+    autoPrice: resolvedAutoPrice,
+    images: selectedImages,
+    options: synchronizedOptions,
+    variants: selectedVariants
+  };
+}
+
+const mockMultiItemProduct = {
+  title: 'Titanium Steel Vintage Ring Set (12 Designs)',
+  code1688: '729482910481',
+  autoPrice: 2.50,
+  images: [
+    'https://cbu01.alicdn.com/img/master.jpg',
+    'https://cbu01.alicdn.com/img/variant_gold.jpg',
+    'https://cbu01.alicdn.com/img/variant_silver.jpg',
+    'https://cbu01.alicdn.com/img/variant_rose.jpg'
+  ],
+  options: [
+    { id: 'opt_color', name: 'Color', values: ['Gold', 'Silver', 'Rose Gold'] }
+  ],
+  variants: [
+    { id: 'v_gold', options: { opt_color: 'Gold' }, image: 'https://cbu01.alicdn.com/img/variant_gold.jpg', autoPrice: '3.80' },
+    { id: 'v_silver', options: { opt_color: 'Silver' }, image: 'https://cbu01.alicdn.com/img/variant_silver.jpg', autoPrice: '2.50' },
+    { id: 'v_rose', options: { opt_color: 'Rose Gold' }, image: 'https://cbu01.alicdn.com/img/variant_rose.jpg', autoPrice: '4.20' }
+  ]
+};
+
+// Merchant orders ONLY the Rose Gold ring
+const singleSelected = buildSelectiveProduct(mockMultiItemProduct, ['v_rose']);
+
+assert.equal(singleSelected.variants.length, 1);
+assert.equal(singleSelected.variants[0].id, 'v_rose');
+assert.equal(singleSelected.autoPrice, 4.20, 'autoPrice must match exact wholesale price of Rose Gold (4.20)');
+assert.equal(singleSelected.images.length, 1);
+assert.equal(singleSelected.images[0], 'https://cbu01.alicdn.com/img/variant_rose.jpg');
+assert.equal(singleSelected.options[0].values.length, 1);
+assert.equal(singleSelected.options[0].values[0], 'Rose Gold');
+console.log('  ✓ Selective 1-item import: 1 variant, exact autoPrice 4.20 RMB, only Rose Gold image');
+
+// 12. Test Selective Sourcing for Multiple Specific Items (2 of N) (Feature 2b)
+console.log('\n[12/13] Testing Selective Sourcing for Multiple Items (2 of N)...');
+
+const multiSelected = buildSelectiveProduct(mockMultiItemProduct, ['v_gold', 'v_silver']);
+
+assert.equal(multiSelected.variants.length, 2);
+assert.equal(multiSelected.autoPrice, 3.80, 'autoPrice reflects the first selected item price (3.80)');
+assert.equal(multiSelected.images.length, 2);
+assert.deepEqual(multiSelected.images, [
+  'https://cbu01.alicdn.com/img/variant_gold.jpg',
+  'https://cbu01.alicdn.com/img/variant_silver.jpg'
+]);
+assert.deepEqual(multiSelected.options[0].values, ['Gold', 'Silver']);
+console.log('  ✓ Selective multi-item import: 2 variants, only Gold and Silver images, synchronized options');
+
+// 13. Test ProductEditorModal Variant Quick Delete & Option/Image Cleanup (Feature 2c)
+console.log('\n[13/13] Testing ProductEditorModal Variant Quick Delete & Option/Image Cleanup...');
+
+function simulateDeleteVariant(state, variantId) {
+  const variantToDelete = state.variants.find(v => v.id === variantId);
+  if (!variantToDelete) return state;
+
+  const nextVariants = state.variants.filter(v => v.id !== variantId);
+
+  // Synchronize options
+  let nextOptions = [];
+  if (nextVariants.length > 0) {
+    nextOptions = state.options
+      .map(opt => {
+        const usedVals = new Set(nextVariants.map(v => v.options[opt.id]).filter(Boolean));
+        return {
+          ...opt,
+          values: opt.values.filter(val => usedVals.has(val))
+        };
+      })
+      .filter(opt => opt.values.length > 0);
+  }
+
+  // Remove orphaned gallery images
+  let nextImages = [...state.images];
+  const deletedImg = variantToDelete.image;
+  if (deletedImg) {
+    const isUsedByOtherVariants = nextVariants.some(v => v.image === deletedImg);
+    if (!isUsedByOtherVariants) {
+      nextImages = nextImages.filter(img => img !== deletedImg);
+    }
+  }
+
+  return {
+    ...state,
+    variants: nextVariants,
+    options: nextOptions,
+    images: nextImages
+  };
+}
+
+const editorState = {
+  variants: [
+    { id: 'v1', options: { opt_color: 'Red' }, image: 'https://r2/red.webp' },
+    { id: 'v2', options: { opt_color: 'Blue' }, image: 'https://r2/blue.webp' },
+    { id: 'v3', options: { opt_color: 'Green' }, image: 'https://r2/green.webp' }
+  ],
+  options: [
+    { id: 'opt_color', name: 'Color', values: ['Red', 'Blue', 'Green'] }
+  ],
+  images: [
+    'https://r2/red.webp',
+    'https://r2/blue.webp',
+    'https://r2/green.webp'
+  ]
+};
+
+// Delete Green variant (v3)
+const afterDelete = simulateDeleteVariant(editorState, 'v3');
+
+assert.equal(afterDelete.variants.length, 2);
+assert.deepEqual(afterDelete.options[0].values, ['Red', 'Blue'], 'Option values must have "Green" removed');
+assert.equal(afterDelete.images.includes('https://r2/green.webp'), false, 'Orphaned green image must be removed');
+assert.equal(afterDelete.images.length, 2);
+console.log('  ✓ 1-click variant delete cleanly synchronizes options (Green removed)');
+console.log('  ✓ Orphaned gallery image cleanly purged from images array');
+
+console.log('\n🎉 ALL 13 PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
+
 

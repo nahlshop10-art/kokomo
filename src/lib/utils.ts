@@ -60,6 +60,13 @@ export function cleanAlibabaImageUrl(rawUrl?: string): string {
   return url;
 }
 
+export function is1688CdnUrl(url?: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.includes('/uploads/')) return false;
+  if (url.includes('.r2.dev')) return false;
+  return url.includes('alicdn.com') || url.includes('cbu01') || url.includes('1688.com');
+}
+
 export const clean1688Url = (input?: string): string => {
   if (!input) return '';
   let str = input.trim();

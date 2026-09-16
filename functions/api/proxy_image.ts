@@ -41,7 +41,12 @@ export async function onRequestGet({ request, env }: any) {
 
   // 2. Fallback: fetch remote URL and attach CORS headers
   try {
-    const res = await fetch(targetUrl);
+    const res = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Referer': 'https://detail.1688.com/'
+      }
+    });
     if (res.ok) {
       const headers = new Headers(res.headers);
       headers.set('Access-Control-Allow-Origin', '*');

@@ -687,9 +687,174 @@
     };
   }
 
-  // 6. UI Floating Button Injection
+  // --- G. SELECTIVE SOURCING HELPERS (Feature 2) ---
+
+  // Detect if a style button is currently selected / active on 1688
+  function detectActive1688Style(product) {
+    const activeSelectors = [
+      '.module-od-sku-selection [class*="selected"]',
+      '.module-od-sku-selection .selected',
+      '.module-od-sku-selection .active',
+      '[class*="sku-item"][class*="selected"]',
+      '[class*="sku-item"].selected',
+      '[class*="sku-item"].active',
+      '[class*="expand-view-item"][class*="selected"]',
+      '[class*="expand-view-item"].selected',
+      '.feature-item [class*="selected"]',
+      '.feature-item .selected',
+      '.sku-item.selected',
+      '.prop-item.selected',
+      '[aria-selected="true"]',
+      '[aria-checked="true"]'
+    ];
+
+    let activeEl = null;
+    for (const sel of activeSelectors) {
+      const els = document.querySelectorAll(sel);
+      for (const el of els) {
+        if (el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0) {
+          activeEl = el;
+          break;
+        }
+      }
+      if (activeEl) break;
+    }
+
+    if (!activeEl) return null;
+
+    // Extract style name from active element
+    const labelEl = activeEl.querySelector('.item-label, [class*="item-label"], .name, .title, .prop-name, [class*="prop-name"]');
+    let name = labelEl ? (labelEl.getAttribute('title') || labelEl.innerText) : (activeEl.getAttribute('title') || activeEl.innerText || '');
+    name = name.split(/[\r\n¥￥]/)[0].trim();
+
+    if (!name) return null;
+
+    // Extract price from active element or nearby price element
+    let price = undefined;
+    const priceEl = activeEl.querySelector('.item-price-stock, [class*="item-price"], [class*="price"]');
+    if (priceEl) {
+      const compacted = (priceEl.innerText || '').replace(/\s+/g, '');
+      const m = compacted.match(/(?:¥|￥)?([0-9]+(?:\.[0-9]+)?)/);
+      if (m && parseFloat(m[1]) > 0) price = parseFloat(m[1]);
+    }
+
+    // Extract photo from active element
+    let imgUrl = '';
+    const imgEl = activeEl.querySelector('img');
+    if (imgEl) {
+      imgUrl = cleanAlibabaImageUrl(imgEl.src || imgEl.getAttribute('data-src') || '');
+    }
+
+    // Match against product variants if available
+    let matchedVariant = null;
+    if (product && Array.isArray(product.variants)) {
+      matchedVariant = product.variants.find(v => {
+        const val = Object.values(v.options || {})[0];
+        return val && (val === name || name.includes(val) || val.includes(name));
+      });
+    }
+
+    if (matchedVariant) {
+      return {
+        name: Object.values(matchedVariant.options || {})[0] || name,
+        price: matchedVariant.autoPrice ? parseFloat(matchedVariant.autoPrice) : (price !== undefined ? price : product.autoPrice),
+        image: matchedVariant.image || imgUrl,
+        variantId: matchedVariant.id,
+        variant: matchedVariant
+      };
+    }
+
+    return {
+      name: name,
+      price: price !== undefined ? price : (product ? product.autoPrice : undefined),
+      image: imgUrl,
+      variantId: null,
+      variant: null
+    };
+  }
+
+  // Build product with ONLY selected variants, ONLY their photos, and exact prices
+  function buildSelectiveProduct(baseProduct, selectedVariantIds) {
+    if (!baseProduct) return null;
+    const selectedVariants = (baseProduct.variants || []).filter(v => selectedVariantIds.includes(v.id));
+    if (selectedVariants.length === 0) return baseProduct;
+
+    // 1. Collect ONLY the pictures belonging to the selected variants
+    const selectedImages = [];
+    selectedVariants.forEach(v => {
+      if (v.image && !selectedImages.includes(v.image)) {
+        selectedImages.push(v.image);
+      }
+    });
+
+    if (selectedImages.length === 0 && baseProduct.images && baseProduct.images.length > 0) {
+      selectedImages.push(baseProduct.images[0]);
+    }
+
+    // 2. Determine exact autoPrice from selected variants
+    const prices = selectedVariants
+      .map(v => v.autoPrice ? parseFloat(v.autoPrice) : baseProduct.autoPrice)
+      .filter(p => p !== undefined && !isNaN(p) && p > 0);
+    const resolvedAutoPrice = prices.length > 0 ? prices[0] : baseProduct.autoPrice;
+
+    // 3. Synchronize options so only selected values are retained
+    const synchronizedOptions = [];
+    (baseProduct.options || []).forEach(opt => {
+      const usedVals = new Set(selectedVariants.map(v => v.options?.[opt.id]).filter(Boolean));
+      const filteredVals = opt.values.filter(val => usedVals.has(val));
+      if (filteredVals.length > 0) {
+        synchronizedOptions.push({
+          ...opt,
+          values: filteredVals
+        });
+      }
+    });
+
+    return {
+      ...baseProduct,
+      autoPrice: resolvedAutoPrice,
+      images: selectedImages,
+      options: synchronizedOptions,
+      variants: selectedVariants
+    };
+  }
+
+  // Build single-item product for 1-click active style import
+  function buildSingleVariantProduct(baseProduct, activeStyle) {
+    if (!baseProduct || !activeStyle) return baseProduct;
+
+    if (activeStyle.variantId && baseProduct.variants && baseProduct.variants.some(v => v.id === activeStyle.variantId)) {
+      return buildSelectiveProduct(baseProduct, [activeStyle.variantId]);
+    }
+
+    // Fallback: construct single variant
+    const variantImage = activeStyle.image || (baseProduct.images?.[0] || '');
+    const images = variantImage ? [variantImage] : (baseProduct.images || []);
+    const optId = 'opt_color';
+    const variant = {
+      id: Math.random().toString(36).substring(2, 11),
+      options: { [optId]: activeStyle.name },
+      image: variantImage,
+      autoPrice: activeStyle.price !== undefined ? String(activeStyle.price) : (baseProduct.autoPrice ? String(baseProduct.autoPrice) : undefined),
+      stock: 100,
+      isVisible: true
+    };
+
+    return {
+      ...baseProduct,
+      autoPrice: activeStyle.price !== undefined ? activeStyle.price : baseProduct.autoPrice,
+      images: images,
+      options: [{ id: optId, name: 'color', values: [activeStyle.name] }],
+      variants: [variant]
+    };
+  }
+
+  // 6. UI Floating Widget & Checklist Drawer Injection
   let floatingBtn = null;
   let previewCard = null;
+  let currentActiveStyle = null;
+  let currentProductData = null;
+  const checkedVariantIds = new Set();
 
   function createFloatingButton() {
     if (document.getElementById('paikarix-1688-floating-root')) return;
@@ -724,18 +889,66 @@
         </div>
       </div>
 
-      <button id="paikarix-floating-btn" class="paikarix-floating-btn" title="Click to send this product to PaikariX Dashboard">
-        <div class="paikarix-btn-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14"/>
-            <path d="m12 5 7 7-7 7"/>
+      <!-- Slide-Out Multi-Select Checklist Drawer -->
+      <div id="paikarix-drawer-overlay" class="paikarix-drawer-overlay paikarix-hidden"></div>
+      <div id="paikarix-drawer" class="paikarix-drawer paikarix-drawer-hidden">
+        <div class="paikarix-drawer-header">
+          <div class="paikarix-drawer-title-box">
+            <div class="paikarix-drawer-title">
+              <span>Select Items to Import</span>
+            </div>
+            <div class="paikarix-drawer-sub">Choose only the 1, 2, or 3 items you bought</div>
+          </div>
+          <button id="paikarix-drawer-close" class="paikarix-drawer-close-btn" type="button" title="Close">&times;</button>
+        </div>
+
+        <div class="paikarix-drawer-toolbar">
+          <input id="paikarix-drawer-search" type="text" class="paikarix-drawer-search" placeholder="Search styles / colors..." />
+          <div class="paikarix-drawer-select-actions">
+            <button id="paikarix-drawer-select-all" class="paikarix-link-btn" type="button">Select All</button>
+            <span class="paikarix-dot">•</span>
+            <button id="paikarix-drawer-deselect-all" class="paikarix-link-btn" type="button">Deselect All</button>
+          </div>
+        </div>
+
+        <div id="paikarix-drawer-list" class="paikarix-drawer-list">
+          <!-- Variant rows injected dynamically -->
+        </div>
+
+        <div class="paikarix-drawer-footer">
+          <button id="paikarix-drawer-send-selected" class="paikarix-drawer-primary-btn" type="button">
+            <span>Send Selected (<span id="paikarix-checked-count">0</span>)</span>
+          </button>
+          <button id="paikarix-drawer-send-all" class="paikarix-drawer-secondary-btn" type="button">
+            Send All Items (<span id="paikarix-all-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <!-- Floating Buttons Bar -->
+      <div class="paikarix-floating-bar">
+        <button id="paikarix-drawer-btn" class="paikarix-secondary-btn" type="button" title="Open variant selector drawer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 11 3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
           </svg>
-        </div>
-        <div class="paikarix-btn-content">
-          <span class="paikarix-btn-title">Send to PaikariX</span>
-          <span id="paikarix-btn-sub" class="paikarix-btn-subtitle">Wholesale 1-Click</span>
-        </div>
-      </button>
+          <span>Select Items</span>
+          <span id="paikarix-variant-pill" class="paikarix-variant-pill">0</span>
+        </button>
+
+        <button id="paikarix-floating-btn" class="paikarix-floating-btn" type="button" title="Click to send to PaikariX Dashboard">
+          <div class="paikarix-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"/>
+              <path d="m12 5 7 7-7 7"/>
+            </svg>
+          </div>
+          <div class="paikarix-btn-content">
+            <span id="paikarix-btn-main-title" class="paikarix-btn-title">Send to PaikariX</span>
+            <span id="paikarix-btn-sub" class="paikarix-btn-subtitle">Wholesale 1-Click</span>
+          </div>
+        </button>
+      </div>
     `;
 
     document.body.appendChild(root);
@@ -745,7 +958,7 @@
 
     // Hover to preview
     floatingBtn.addEventListener('mouseenter', () => {
-      updatePreviewBadge();
+      updateFloatingWidgetState();
       previewCard.classList.remove('paikarix-hidden');
     });
 
@@ -753,28 +966,231 @@
       previewCard.classList.add('paikarix-hidden');
     });
 
-    // Click to Import
-    floatingBtn.addEventListener('click', handleImportClick);
+    // Primary Floating Button Click:
+    // If active style is selected, send only that style; else send full product
+    floatingBtn.addEventListener('click', () => {
+      const product = currentProductData || extract1688Product();
+      if (currentActiveStyle) {
+        const selectivePayload = buildSingleVariantProduct(product, currentActiveStyle);
+        deliverImportPayload(selectivePayload);
+      } else {
+        deliverImportPayload(product);
+      }
+    });
+
+    // Drawer Button Click
+    const drawerBtn = document.getElementById('paikarix-drawer-btn');
+    if (drawerBtn) {
+      drawerBtn.addEventListener('click', openChecklistDrawer);
+    }
+
+    // Drawer Close Buttons
+    const drawerCloseBtn = document.getElementById('paikarix-drawer-close');
+    const drawerOverlay = document.getElementById('paikarix-drawer-overlay');
+    if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeChecklistDrawer);
+    if (drawerOverlay) drawerOverlay.addEventListener('click', closeChecklistDrawer);
+
+    // Drawer Actions: Select All & Deselect All
+    const selectAllBtn = document.getElementById('paikarix-drawer-select-all');
+    const deselectAllBtn = document.getElementById('paikarix-drawer-deselect-all');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        const product = currentProductData || extract1688Product();
+        (product.variants || []).forEach(v => checkedVariantIds.add(v.id));
+        renderDrawerList();
+      });
+    }
+    if (deselectAllBtn) {
+      deselectAllBtn.addEventListener('click', () => {
+        checkedVariantIds.clear();
+        renderDrawerList();
+      });
+    }
+
+    // Drawer Search Filter
+    const searchInput = document.getElementById('paikarix-drawer-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        renderDrawerList();
+      });
+    }
+
+    // Drawer Footer: Send Selected
+    const sendSelectedBtn = document.getElementById('paikarix-drawer-send-selected');
+    if (sendSelectedBtn) {
+      sendSelectedBtn.addEventListener('click', () => {
+        const product = currentProductData || extract1688Product();
+        if (checkedVariantIds.size === 0) {
+          alert('Please check at least 1 item to import, or click "Send All Items".');
+          return;
+        }
+        const selectivePayload = buildSelectiveProduct(product, Array.from(checkedVariantIds));
+        closeChecklistDrawer();
+        deliverImportPayload(selectivePayload);
+      });
+    }
+
+    // Drawer Footer: Send All Items
+    const sendAllBtn = document.getElementById('paikarix-drawer-send-all');
+    if (sendAllBtn) {
+      sendAllBtn.addEventListener('click', () => {
+        const product = currentProductData || extract1688Product();
+        closeChecklistDrawer();
+        deliverImportPayload(product);
+      });
+    }
+
+    // Initial state update
+    updateFloatingWidgetState();
   }
 
-  function updatePreviewBadge() {
+  function openChecklistDrawer() {
+    const drawer = document.getElementById('paikarix-drawer');
+    const overlay = document.getElementById('paikarix-drawer-overlay');
+    if (!drawer || !overlay) return;
+
+    currentProductData = extract1688Product();
+    currentActiveStyle = detectActive1688Style(currentProductData);
+
+    // If a variant is actively clicked on 1688 and nothing else checked yet, pre-check it!
+    if (currentActiveStyle && currentActiveStyle.variantId && checkedVariantIds.size === 0) {
+      checkedVariantIds.add(currentActiveStyle.variantId);
+    }
+
+    renderDrawerList();
+    drawer.classList.remove('paikarix-drawer-hidden');
+    overlay.classList.remove('paikarix-hidden');
+  }
+
+  function closeChecklistDrawer() {
+    const drawer = document.getElementById('paikarix-drawer');
+    const overlay = document.getElementById('paikarix-drawer-overlay');
+    if (drawer) drawer.classList.add('paikarix-drawer-hidden');
+    if (overlay) overlay.classList.add('paikarix-hidden');
+  }
+
+  function renderDrawerList() {
+    const listEl = document.getElementById('paikarix-drawer-list');
+    const checkedCountEl = document.getElementById('paikarix-checked-count');
+    const allCountEl = document.getElementById('paikarix-all-count');
+    const searchInput = document.getElementById('paikarix-drawer-search');
+    if (!listEl) return;
+
+    const product = currentProductData || extract1688Product();
+    const variants = product.variants || [];
+    const query = searchInput ? (searchInput.value || '').trim().toLowerCase() : '';
+
+    if (allCountEl) allCountEl.textContent = String(variants.length);
+    if (checkedCountEl) checkedCountEl.textContent = String(checkedVariantIds.size);
+
+    if (variants.length === 0) {
+      listEl.innerHTML = `
+        <div style="padding: 24px; text-align: center; color: #71717a; font-size: 13px;">
+          No multi-style variants detected for this item. Click "Send to PaikariX" to import directly.
+        </div>
+      `;
+      return;
+    }
+
+    const filtered = query
+      ? variants.filter(v => Object.values(v.options || {}).join(' ').toLowerCase().includes(query))
+      : variants;
+
+    listEl.innerHTML = filtered.map(v => {
+      const isChecked = checkedVariantIds.has(v.id);
+      const styleName = Object.values(v.options || {})[0] || 'Standard';
+      const priceText = v.autoPrice ? `¥${v.autoPrice}` : (product.autoPrice ? `¥${product.autoPrice}` : '¥--');
+      const thumbSrc = v.image || product.images?.[0] || '';
+
+      return `
+        <div class="paikarix-drawer-item ${isChecked ? 'paikarix-checked' : ''}" data-variant-id="${v.id}">
+          <input type="checkbox" class="paikarix-item-checkbox" ${isChecked ? 'checked' : ''} data-variant-id="${v.id}" />
+          ${thumbSrc ? `<img src="${thumbSrc}" class="paikarix-item-thumb" alt="${styleName}" />` : `<div class="paikarix-item-thumb"></div>`}
+          <div class="paikarix-item-info">
+            <div class="paikarix-item-name" title="${styleName}">${styleName}</div>
+            <div class="paikarix-item-meta">
+              <span class="paikarix-item-price">${priceText}</span>
+              ${v.stock !== undefined ? `<span class="paikarix-item-stock">Stock: ${v.stock}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach click listeners to rows
+    listEl.querySelectorAll('.paikarix-drawer-item').forEach(itemEl => {
+      itemEl.addEventListener('click', (e) => {
+        const vId = itemEl.getAttribute('data-variant-id');
+        if (!vId) return;
+        if (checkedVariantIds.has(vId)) {
+          checkedVariantIds.delete(vId);
+        } else {
+          checkedVariantIds.add(vId);
+        }
+        renderDrawerList();
+      });
+    });
+  }
+
+  function updateFloatingWidgetState() {
     try {
-      const product = extract1688Product();
+      currentProductData = extract1688Product();
+      const product = currentProductData;
+
+      // Update Preview Card Details
       const idEl = document.getElementById('paikarix-card-id');
       const titleEl = document.getElementById('paikarix-card-title');
       const priceEl = document.getElementById('paikarix-card-price');
       const imgEl = document.getElementById('paikarix-card-images');
       const varEl = document.getElementById('paikarix-card-variants');
+      const variantPill = document.getElementById('paikarix-variant-pill');
+      const drawerBtn = document.getElementById('paikarix-drawer-btn');
 
       if (idEl) idEl.textContent = product.code1688 ? `#${product.code1688}` : '';
       if (titleEl) titleEl.textContent = product.title ? (product.title.length > 50 ? product.title.slice(0, 50) + '...' : product.title) : 'Untitled Product';
       if (priceEl) priceEl.textContent = product.autoPrice ? `¥${product.autoPrice}` : '¥--';
       if (imgEl) imgEl.textContent = String(product.images.length);
       if (varEl) varEl.textContent = String(product.variants.length);
-    } catch (e) {}
+      if (variantPill) variantPill.textContent = String(product.variants.length);
+
+      if (drawerBtn) {
+        if (product.variants.length > 1) {
+          drawerBtn.style.display = 'flex';
+        } else {
+          drawerBtn.style.display = 'none';
+        }
+      }
+
+      // Feature 2a: Detect Active Clicked Style in real-time
+      currentActiveStyle = detectActive1688Style(product);
+
+      const mainBtn = document.getElementById('paikarix-floating-btn');
+      const mainTitle = document.getElementById('paikarix-btn-main-title');
+      const subTitle = document.getElementById('paikarix-btn-sub');
+
+      if (currentActiveStyle && mainBtn && mainTitle && subTitle) {
+        mainBtn.classList.add('paikarix-active-style-mode');
+        const displayName = currentActiveStyle.name.length > 18
+          ? currentActiveStyle.name.slice(0, 18) + '...'
+          : currentActiveStyle.name;
+        mainTitle.textContent = `Send Selected: ${displayName}`;
+        const priceDisplay = currentActiveStyle.price !== undefined ? ` (¥${currentActiveStyle.price})` : '';
+        subTitle.textContent = `1-Click Import${priceDisplay}`;
+        mainBtn.title = `Click to import ONLY "${currentActiveStyle.name}" with its pictures and exact price`;
+      } else if (mainBtn && mainTitle && subTitle) {
+        mainBtn.classList.remove('paikarix-active-style-mode');
+        mainTitle.textContent = 'Send to PaikariX';
+        subTitle.textContent = product.variants.length > 0
+          ? `Wholesale 1-Click (${product.variants.length} items)`
+          : 'Wholesale 1-Click';
+        mainBtn.title = 'Click to send all items to PaikariX Dashboard';
+      }
+    } catch (e) {
+      console.warn('[PaikariX 1688] updateFloatingWidgetState note:', e);
+    }
   }
 
-  function handleImportClick() {
+  function deliverImportPayload(payload) {
     const btn = document.getElementById('paikarix-floating-btn');
     const sub = document.getElementById('paikarix-btn-sub');
     if (!btn) return;
@@ -782,10 +1198,7 @@
     btn.classList.add('paikarix-loading');
     if (sub) sub.textContent = 'Extracting...';
 
-    // Refresh extraction
-    const product = extract1688Product();
-
-    if (!product.code1688 && !product.title) {
+    if (!payload || (!payload.code1688 && !payload.title)) {
       alert('Could not detect 1688 product information on this page. Please make sure the offer page has finished loading.');
       btn.classList.remove('paikarix-loading');
       if (sub) sub.textContent = 'Wholesale 1-Click';
@@ -794,28 +1207,20 @@
 
     if (sub) sub.textContent = 'Sending...';
 
-    // Send to background service worker
     chrome.runtime.sendMessage({
       action: 'IMPORT_PRODUCT',
-      data: product
+      data: payload
     }, (response) => {
       btn.classList.remove('paikarix-loading');
-      if (response && response.success) {
-        btn.classList.add('paikarix-success');
-        if (sub) sub.textContent = 'Sent to Dashboard!';
-        setTimeout(() => {
-          btn.classList.remove('paikarix-success');
-          if (sub) sub.textContent = 'Wholesale 1-Click';
-        }, 3500);
-      } else {
-        // Fallback notification
-        btn.classList.add('paikarix-success');
-        if (sub) sub.textContent = 'Dashboard Opened!';
-        setTimeout(() => {
-          btn.classList.remove('paikarix-success');
-          if (sub) sub.textContent = 'Wholesale 1-Click';
-        }, 3500);
+      btn.classList.add('paikarix-success');
+      const isSelective = payload.variants && payload.variants.length === 1 && currentActiveStyle;
+      if (sub) {
+        sub.textContent = isSelective ? 'Selected Item Sent!' : 'Sent to Dashboard!';
       }
+      setTimeout(() => {
+        btn.classList.remove('paikarix-success');
+        updateFloatingWidgetState();
+      }, 3500);
     });
   }
 
@@ -828,12 +1233,29 @@
         return true;
       }
       if (request && request.action === 'TRIGGER_IMPORT') {
-        handleImportClick();
+        const product = extract1688Product();
+        deliverImportPayload(product);
         sendResponse({ success: true });
         return true;
       }
     });
   }
+
+  // Real-time Style Selection Observer: detect when merchant clicks style buttons on 1688
+  document.addEventListener('click', (e) => {
+    // If the click is inside SKU selection or option containers
+    const target = e.target;
+    if (target && target.closest && (
+      target.closest('.module-od-sku-selection') ||
+      target.closest('[class*="sku"]') ||
+      target.closest('.feature-item') ||
+      target.closest('.expand-view-item') ||
+      target.closest('.prop-item')
+    )) {
+      setTimeout(updateFloatingWidgetState, 60);
+      setTimeout(updateFloatingWidgetState, 250);
+    }
+  }, true);
 
   // Inject floating button when DOM is ready
   if (document.readyState === 'loading') {
@@ -842,18 +1264,20 @@
     createFloatingButton();
   }
 
-  // Periodic check to ensure button remains visible after dynamic page loads and track SPA URL changes
+  // Periodic check to track SPA navigation and active style state
   let lastUrl = window.location.href;
   setInterval(() => {
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       pageContextData = null;
       requestPageContextData();
-      updatePreviewBadge();
+      updateFloatingWidgetState();
     }
     if (!document.getElementById('paikarix-1688-floating-root')) {
       createFloatingButton();
+    } else {
+      updateFloatingWidgetState();
     }
-  }, 1500);
+  }, 1000);
 
 })();

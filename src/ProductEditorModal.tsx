@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Save, ChevronUp, ChevronDown, Plus, Minus, Image as ImageIcon, X, Package, Trash2, GripVertical, Check } from 'lucide-react';
 import { Product, Category, PriceCalculatorSettings, ProductOption, ProductVariant, DEFAULT_ACTION_BUTTONS } from './types';
-import { cn, formatPrice, cleanAlibabaImageUrl, clean1688Url } from './lib/utils';
+import { cn, formatPrice, cleanAlibabaImageUrl, clean1688Url, is1688CdnUrl } from './lib/utils';
 import ImageOptimizerModal from './components/ImageOptimizerModal';
 import { optimizeImageRun, arrayBufferToDataUrl, fileToImageData, getDefaultImageOptimization, OptimizeOptions } from './lib/imageOptimizationWorker';
 import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -78,6 +78,10 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
   const [qtyRules, setQtyRules] = useState<{quantity: number, price: number}[]>([]);
   const [code1688, setCode1688] = useState('');
   const [link1688, setLink1688] = useState('');
+  const [isSavingWithBarrier, setIsSavingWithBarrier] = useState(false);
+  const processedImagesRef = useRef<Map<string, string>>(new Map());
+  const inFlightImagesRef = useRef<Set<string>>(new Set());
+  const pendingOptimizationsRef = useRef<Map<string, Promise<string>>>(new Map());
   
   const [editingOptionIdx, setEditingOptionIdx] = useState<number | null>(null);
   const [editingOption, setEditingOption] = useState<{name: string, values: string[]} | null>(null);
@@ -310,6 +314,248 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       setCategory(bestMatch);
     }
   }, [title, categories, isOpen, initialProduct, hasManuallySelectedCategory]);
+
+  // Feature 1: Automatic Image Optimization Pipeline for 1688 Imports
+  const optimizeAndUpload1688Image = useCallback(async (rawUrl: string): Promise<string> => {
+    if (!rawUrl || !is1688CdnUrl(rawUrl)) return rawUrl;
+    if (processedImagesRef.current.has(rawUrl)) {
+      return processedImagesRef.current.get(rawUrl)!;
+    }
+    if (pendingOptimizationsRef.current.has(rawUrl)) {
+      return pendingOptimizationsRef.current.get(rawUrl)!;
+    }
+
+    inFlightImagesRef.current.add(rawUrl);
+
+    const task = (async (): Promise<string> => {
+      try {
+        let blob: Blob;
+        let originalSize = 0;
+
+        // 1. Fetch via /api/proxy_image to prevent browser canvas taint / cache collision
+        try {
+          const proxyUrl = `/api/proxy_image?url=${encodeURIComponent(rawUrl)}`;
+          const res = await fetch(proxyUrl);
+          if (res.ok) {
+            blob = await res.blob();
+            originalSize = blob.size;
+          } else {
+            throw new Error(`Proxy status ${res.status}`);
+          }
+        } catch (proxyErr) {
+          console.warn('[ImageOptimizer] /api/proxy_image failed, falling back to direct fetch:', proxyErr);
+          const directRes = await fetch(rawUrl);
+          blob = await directRes.blob();
+          originalSize = blob.size;
+        }
+
+        // 2. Convert blob to ImageData safely
+        const imageData = await fileToImageData(blob, 1920);
+
+        // 3. WebAssembly WebP image optimizer
+        const defaultConfig = getDefaultImageOptimization();
+        let optimizeOptions: OptimizeOptions = { quality: 70 };
+        if (defaultConfig && defaultConfig.enabled) {
+          optimizeOptions.quality = defaultConfig.quality;
+          if (defaultConfig.scale !== 100) {
+            optimizeOptions.resize = {
+              width: Math.max(1, Math.round(imageData.width * (defaultConfig.scale / 100))),
+              height: Math.max(1, Math.round(imageData.height * (defaultConfig.scale / 100)))
+            };
+          }
+        }
+
+        const result = await optimizeImageRun(imageData, optimizeOptions);
+        const webpBlob = new Blob([result.buffer], { type: 'image/webp' });
+
+        // 4. Upload to Cloudflare R2 bucket
+        const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.webp`;
+        let uploadedUrl: string;
+        try {
+          uploadedUrl = await cloudStore.uploadFile(webpBlob, fileName, true); // silent
+        } catch (uploadErr) {
+          console.warn('[ImageOptimizer] R2 upload failed, fallback to WebP data URL:', uploadErr);
+          uploadedUrl = arrayBufferToDataUrl(result.buffer, 'image/webp');
+        }
+
+        // 5. Generate thumbnail if configured
+        let thumbnailDataUrl: string | undefined;
+        const thumbWidth = defaultConfig?.thumbnailWidth || 470;
+        const thumbQuality = defaultConfig?.thumbnailQuality || 70;
+        if (imageData.width > thumbWidth) {
+          try {
+            const thumbOptions: OptimizeOptions = {
+              quality: thumbQuality,
+              resize: {
+                width: thumbWidth,
+                height: Math.max(1, Math.round(imageData.height * (thumbWidth / imageData.width)))
+              }
+            };
+            const thumbResult = await optimizeImageRun(imageData, thumbOptions);
+            const thumbBlob = new Blob([thumbResult.buffer], { type: 'image/webp' });
+            const thumbName = `thumb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.webp`;
+            thumbnailDataUrl = await cloudStore.uploadFile(thumbBlob, thumbName, true);
+          } catch (e) {
+            thumbnailDataUrl = uploadedUrl;
+          }
+        } else {
+          thumbnailDataUrl = uploadedUrl;
+        }
+
+        // Cache mapping from rawUrl to uploaded R2 URL
+        processedImagesRef.current.set(rawUrl, uploadedUrl);
+
+        // Replace raw URL with fast permanent R2 URL in images state
+        setImages(prev => prev.map(u => u === rawUrl ? uploadedUrl : u));
+
+        // Update any variants referencing this raw image URL
+        setVariants(prev => prev.map(v => v.image === rawUrl ? { ...v, image: uploadedUrl } : v));
+
+        // Update imagesMeta with dimensions, optimized size, thumbnail, and remove spinner
+        setImagesMeta(prev => {
+          const next = { ...prev };
+          for (const [k, meta] of Object.entries(next)) {
+            if (meta && (meta.originalDataUrl === rawUrl || meta.originalDataUrl === uploadedUrl)) {
+              next[Number(k)] = {
+                ...meta,
+                isProcessing: false,
+                optimizedSize: result.buffer.byteLength,
+                originalSize: originalSize || meta.originalSize || result.buffer.byteLength,
+                width: result.width,
+                height: result.height,
+                thumbnailUrl: thumbnailDataUrl,
+                originalDataUrl: rawUrl
+              };
+            }
+          }
+          return next;
+        });
+
+        return uploadedUrl;
+      } catch (err) {
+        console.error('[ImageOptimizer] Optimization failed for:', rawUrl, err);
+        // Clear isProcessing on error so UI does not spin indefinitely
+        setImagesMeta(prev => {
+          const next = { ...prev };
+          for (const [k, meta] of Object.entries(next)) {
+            if (meta && meta.originalDataUrl === rawUrl) {
+              next[Number(k)] = {
+                ...meta,
+                isProcessing: false
+              };
+            }
+          }
+          return next;
+        });
+        return rawUrl;
+      } finally {
+        inFlightImagesRef.current.delete(rawUrl);
+        pendingOptimizationsRef.current.delete(rawUrl);
+      }
+    })();
+
+    pendingOptimizationsRef.current.set(rawUrl, task);
+    return task;
+  }, []);
+
+  // Automatic Trigger for 1688 Image Optimization Pipeline
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Identify any raw 1688 / Alibaba CDN images in images list
+    const unoptimizedImages = images.filter(u => 
+      is1688CdnUrl(u) && 
+      !inFlightImagesRef.current.has(u) && 
+      !processedImagesRef.current.has(u)
+    );
+
+    // Also identify any unoptimized images directly attached to variants
+    const unoptimizedVariantImages = variants
+      .map(v => v.image)
+      .filter((u): u is string => 
+        Boolean(u) && 
+        is1688CdnUrl(u) && 
+        !inFlightImagesRef.current.has(u) && 
+        !processedImagesRef.current.has(u) &&
+        !unoptimizedImages.includes(u)
+      );
+
+    const allToOptimize = [...unoptimizedImages, ...unoptimizedVariantImages];
+    if (allToOptimize.length === 0) return;
+
+    // Immediately reflect visual progress in imagesMeta for all items in images
+    setImagesMeta(prev => {
+      const next = { ...prev };
+      images.forEach((imgUrl, idx) => {
+        if (is1688CdnUrl(imgUrl) && !next[idx]?.optimizedSize && !next[idx]?.isProcessing) {
+          next[idx] = {
+            ...next[idx],
+            originalDataUrl: imgUrl,
+            originalSize: next[idx]?.originalSize || 0,
+            width: next[idx]?.width || 800,
+            height: next[idx]?.height || 800,
+            isProcessing: true
+          };
+        }
+      });
+      return next;
+    });
+
+    // Launch background optimizations non-blockingly
+    allToOptimize.forEach(url => {
+      optimizeAndUpload1688Image(url);
+    });
+  }, [isOpen, images, variants, optimizeAndUpload1688Image]);
+
+  // Feature 2: Quick Delete for Variant, Synchronizing Options & Cleaning Orphaned Gallery Images
+  const handleDeleteVariant = (variantId: string) => {
+    const variantToDelete = variants.find(v => v.id === variantId);
+    if (!variantToDelete) return;
+
+    const nextVariants = variants.filter(v => v.id !== variantId);
+    setVariants(nextVariants);
+
+    // 1. Synchronize options: clean up unused option values and empty option groups
+    if (nextVariants.length === 0) {
+      setOptions([]);
+    } else {
+      setOptions(prevOpts => {
+        return prevOpts
+          .map(opt => {
+            const usedVals = new Set(nextVariants.map(v => v.options[opt.id]).filter(Boolean));
+            return {
+              ...opt,
+              values: opt.values.filter(val => usedVals.has(val))
+            };
+          })
+          .filter(opt => opt.values.length > 0);
+      });
+    }
+
+    // 2. Cleanly remove orphaned gallery images
+    const deletedImg = variantToDelete.image;
+    if (deletedImg) {
+      const isUsedByOtherVariants = nextVariants.some(v => v.image === deletedImg);
+      if (!isUsedByOtherVariants) {
+        setImages(prevImages => {
+          const removedIdx = prevImages.indexOf(deletedImg);
+          if (removedIdx !== -1) {
+            setImagesMeta(prevMeta => {
+              const arr = [];
+              const len = Math.max(Object.keys(prevMeta).length, prevImages.length);
+              for (let j = 0; j < len; j++) arr.push(prevMeta[j]);
+              arr.splice(removedIdx, 1);
+              const newMeta: Record<number, ImageMeta> = {};
+              arr.forEach((m, idx) => { if (m) newMeta[idx] = m; });
+              return newMeta;
+            });
+            return prevImages.filter((_, idx) => idx !== removedIdx);
+          }
+          return prevImages;
+        });
+      }
+    }
+  };
 
   const processImageFiles = (files: File[]) => {
     if (!files || files.length === 0) return;
@@ -605,7 +851,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     setVariants(newVariants);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title) {
       setErrorMsg('Please provide a title.');
       return;
@@ -623,6 +869,18 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     if (variants.length === 0 && !sellPrice) {
       setErrorMsg('Please provide a sell price.');
       return;
+    }
+
+    // Safe Barrier: await active in-flight image optimizations to save with R2 URLs
+    if (pendingOptimizationsRef.current.size > 0 || inFlightImagesRef.current.size > 0) {
+      setIsSavingWithBarrier(true);
+      try {
+        await Promise.all(Array.from(pendingOptimizationsRef.current.values()));
+      } catch (barrierErr) {
+        console.warn('Image optimization barrier completed with warnings:', barrierErr);
+      } finally {
+        setIsSavingWithBarrier(false);
+      }
     }
 
     let defaultPrice = variants.length > 0 && variants[0].price ? variants[0].price : (Math.floor(Number(sellPrice)) || 0);
@@ -643,7 +901,10 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       newStockOutDate = undefined;
     }
 
-    const finalThumbnails = images.map((imgUrl, idx) => {
+    // Resolve any remaining 1688 URLs from processed cache
+    const resolvedImages = images.map(img => processedImagesRef.current.get(img) || img);
+
+    const finalThumbnails = resolvedImages.map((imgUrl, idx) => {
        const meta = imagesMeta[idx];
        if (meta && meta.thumbnailUrl) return meta.thumbnailUrl;
        if (initialProduct && initialProduct.thumbnails && initialProduct.images && initialProduct.images[idx] === imgUrl && initialProduct.thumbnails[idx]) {
@@ -666,13 +927,14 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       supplier,
       description,
       category: category || 'Uncategorized',
-      image: images[0] || 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=800',
-      thumbnail: finalThumbnails[0] || images[0] || 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=800',
-      images: images,
+      image: resolvedImages[0] || 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=800',
+      thumbnail: finalThumbnails[0] || resolvedImages[0] || 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=800',
+      images: resolvedImages,
       thumbnails: finalThumbnails.length > 0 ? finalThumbnails : undefined,
       options: options,
       variants: variants.map(v => ({
         ...v,
+        image: v.image ? (processedImagesRef.current.get(v.image) || v.image) : '',
         buyPrice: v.buyPrice !== undefined && v.buyPrice !== null
           ? v.buyPrice
           : (v.price ? Math.floor(v.price * 0.4) : (finalBuyPrice || undefined))
@@ -818,10 +1080,15 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                 </button>
                 <button
                   onClick={handleSave}
-                  className="hidden md:flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer ml-1"
+                  disabled={isSavingWithBarrier}
+                  className="hidden md:flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer ml-1"
                 >
-                  <Save size={14} />
-                  <span>{initialProduct ? 'Save' : 'Add'}</span>
+                  {isSavingWithBarrier ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                  <span>{isSavingWithBarrier ? 'Uploading to R2...' : (initialProduct ? 'Save' : 'Add')}</span>
                 </button>
               </div>
             </div>
@@ -1187,21 +1454,31 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                                   <span className="text-[10px] bg-red-500/20 text-red-500 font-bold px-1.5 py-0.5 rounded uppercase">Stock Out</span>
                                 )}
                               </div>
-                              {perms?.stock !== false && (
-                                <div className="flex gap-2 items-center text-xs bg-[var(--dash-bg)] px-2 py-1 border border-[var(--dash-border)] text-white" style={inputBorderRadiusStyle}>
-                                  <Package size={14} className="text-gray-400" />
-                                  <input 
-                                    className="bg-transparent w-10 text-right outline-none placeholder-white"
-                                    placeholder="0"
-                                    value={Number.isNaN(Number(variant.stock)) || variant.stock === undefined || variant.stock === null ? '' : variant.stock}
-                                    onChange={e => {
-                                      const next = [...variants];
-                                      next[vIdx] = { ...next[vIdx], stock: e.target.value ? Number(e.target.value) : undefined };
-                                      setVariants(next);
-                                    }}
-                                  />
-                                </div>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {perms?.stock !== false && (
+                                  <div className="flex gap-2 items-center text-xs bg-[var(--dash-bg)] px-2 py-1 border border-[var(--dash-border)] text-white" style={inputBorderRadiusStyle}>
+                                    <Package size={14} className="text-gray-400" />
+                                    <input 
+                                      className="bg-transparent w-10 text-right outline-none placeholder-white"
+                                      placeholder="0"
+                                      value={Number.isNaN(Number(variant.stock)) || variant.stock === undefined || variant.stock === null ? '' : variant.stock}
+                                      onChange={e => {
+                                        const next = [...variants];
+                                        next[vIdx] = { ...next[vIdx], stock: e.target.value ? Number(e.target.value) : undefined };
+                                        setVariants(next);
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVariant(variant.id)}
+                                  title="Delete this variant"
+                                  className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </div>
                             
                             <div className="flex justify-between items-end mt-auto">
@@ -1367,9 +1644,13 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
               <div className="max-w-4xl mx-auto w-full">
                 <button 
                   onClick={handleSave}
-                  className="w-full bg-[#fafafa] text-[var(--dash-bg)] font-bold py-3 rounded-full hover:bg-[#e4e4e7] transition-colors"
-                  >
-                  {initialProduct ? 'Save Changes' : 'Add Product'}
+                  disabled={isSavingWithBarrier}
+                  className="w-full bg-[#fafafa] text-[var(--dash-bg)] font-bold py-3 rounded-full hover:bg-[#e4e4e7] disabled:opacity-60 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isSavingWithBarrier && (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {isSavingWithBarrier ? 'Optimizing & Saving to Cloudflare R2...' : (initialProduct ? 'Save Changes' : 'Add Product')}
                 </button>
               </div>
             </div>
