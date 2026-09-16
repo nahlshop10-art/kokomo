@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load Settings
   chrome.storage.local.get(['dashboardUrl'], (result) => {
-    inputDashboardUrl.value = result.dashboardUrl || 'http://localhost:3000';
+    inputDashboardUrl.value = result.dashboardUrl || 'https://kokomo-1r0.pages.dev/admin';
   });
 
   // Toggle Settings
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Save Settings
   btnSaveSettings.addEventListener('click', () => {
-    const val = inputDashboardUrl.value.trim() || 'http://localhost:3000';
+    const val = inputDashboardUrl.value.trim() || 'https://kokomo-1r0.pages.dev/admin';
     chrome.storage.local.set({ dashboardUrl: val }, () => {
       showToast('Dashboard URL saved!');
     });
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Open Dashboard Link
   linkOpenDashboard.addEventListener('click', () => {
     chrome.storage.local.get(['dashboardUrl'], (result) => {
-      const url = result.dashboardUrl || 'http://localhost:3000';
+      const url = result.dashboardUrl || 'https://kokomo-1r0.pages.dev/admin';
       chrome.tabs.create({ url });
     });
   });

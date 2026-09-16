@@ -3,7 +3,7 @@
  * Manages tab switching, communication between 1688 and PaikariX Dashboard.
  */
 
-const DEFAULT_DASHBOARD_URL = 'http://localhost:3000';
+const DEFAULT_DASHBOARD_URL = 'https://kokomo-1r0.pages.dev/admin';
 
 // Match patterns that indicate a PaikariX Dashboard tab
 function isDashboardUrl(url, configuredUrl) {

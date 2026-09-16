@@ -45,6 +45,4 @@ A high-performance, lightweight Google Chrome Extension designed for 1-click imp
 
 ## ⚙️ Configuration
 
-- In the extension popup, click **Dashboard Settings** to configure your PaikariX Dashboard URL:
-  - Local development: `http://localhost:3000` (default)
-  - Cloudflare Pages: `https://kokomo.pages.dev` or your custom domain.
+- In the extension popup, click **Dashboard Settings** to configure your PaikariX Dashboard URL (defaults to `https://kokomo-1r0.pages.dev/admin`).
