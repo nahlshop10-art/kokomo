@@ -25,6 +25,11 @@ export function cleanAlibabaImageUrl(rawUrl?: string): string {
     return url;
   }
 
+  // Reject SVGs and UI sprite icons
+  if (url.toLowerCase().endsWith('.svg') || url.includes('-tps-')) {
+    return '';
+  }
+
   // Remember original extension if present in raw URL
   const extMatch = url.match(/\.(jpg|jpeg|png|webp|gif)/i);
   const hadExt = !!extMatch;
@@ -39,7 +44,7 @@ export function cleanAlibabaImageUrl(rawUrl?: string): string {
   url = url.replace(/\.\d+x\d+\.(?:jpg|jpeg|png|webp)$/i, origExt);
 
   // Specified regex to strip Alibaba CDN thumbnail suffixes to get 1200x1200 master images
-  url = url.replace(/(_\d+x\d+[^.]*(\.[a-z0-9]+)?|_\.webp)$/i, '');
+  url = url.replace(/(_\d+x\d+[^.]*(\.[a-z0-9]+)?|_\.webp|_sum\.jpg)$/i, '');
 
   // Also strip additional CDN quality/size decorators like .jpg_60x60.jpg or .jpg_q90.jpg
   url = url.replace(/(\.(?:jpg|jpeg|png|webp))_[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9]+)?$/i, '$1');

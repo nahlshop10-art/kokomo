@@ -40,6 +40,7 @@ export function SortableImage({ id, img, index, meta, onRemove, onOptimize }: So
       <img
         src={img}
         alt=""
+        referrerPolicy="no-referrer"
         className="w-full h-full object-cover cursor-pointer"
         onClick={() => meta && !meta.isProcessing && onOptimize()}
       />

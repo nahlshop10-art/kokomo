@@ -168,15 +168,16 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         setLink1688(initialProduct.link1688 || '');
         setHasManuallySelectedCategory(true);
       } else if (importedData) {
+        const activePriceCalc = priceCalculatorSettings || { yuanRate: 18.35, additionalCost: 20, profit: 110 };
         const initAutoPrice = importedData.autoPrice !== undefined && importedData.autoPrice !== null ? importedData.autoPrice.toString() : '';
         let initBuyPrice = importedData.buyPrice ? importedData.buyPrice.toString() : '';
         let initSellPrice = importedData.price ? importedData.price.toString() : '';
 
-        if (initAutoPrice && (!initBuyPrice || !initSellPrice) && priceCalculatorSettings) {
+        if (initAutoPrice && (!initBuyPrice || !initSellPrice)) {
           const numVal = Number(initAutoPrice);
           if (!isNaN(numVal)) {
-            const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-            const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+            const calculatedBuyPrice = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+            const calculatedSellPrice = Math.floor(calculatedBuyPrice + activePriceCalc.profit);
             if (!initBuyPrice) initBuyPrice = calculatedBuyPrice.toString();
             if (!initSellPrice) initSellPrice = calculatedSellPrice.toString();
           }
@@ -198,11 +199,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
           let vAuto = v.autoPrice || initAutoPrice;
           let vBuy = v.buyPrice;
           let vSell = v.price;
-          if (vAuto && (!vBuy || !vSell) && priceCalculatorSettings) {
+          if (vAuto && (!vBuy || !vSell)) {
             const numVal = Number(vAuto);
             if (!isNaN(numVal)) {
-              vBuy = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-              vSell = Math.floor(vBuy + priceCalculatorSettings.profit);
+              vBuy = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+              vSell = Math.floor(vBuy + activePriceCalc.profit);
             }
           }
           return {
@@ -1175,7 +1176,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                             className="w-[84px] h-[84px] rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center relative"
                           >
                             {variant.image ? (
-                              <img src={variant.image} alt="" className="w-full h-full object-cover" />
+                              <img src={variant.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                             ) : (
                               <ImageIcon size={24} className="text-gray-500" />
                             )}
@@ -1544,7 +1545,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                         }}
                         className={cn("relative aspect-square bg-[var(--dash-card)] rounded-lg overflow-hidden border-2 transition-all", isSelected ? "border-[#fafafa]" : "border-transparent block")}
                       >
-                         <img src={img} className="w-full h-full object-cover" alt=""/>
+                         <img src={img} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt=""/>
                          {isSelected && (
                            <div className="absolute top-2 left-2 bg-[#fafafa] p-0.5 rounded shadow">
                              <Check size={12} className="text-[var(--dash-bg)]" />

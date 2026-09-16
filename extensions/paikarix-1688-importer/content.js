@@ -46,7 +46,7 @@
   setTimeout(requestPageContextData, 1000);
 
   // 2. High-resolution Alibaba CDN Image Cleaner
-  // Strips thumbnail suffixes like _300x300.jpg, _.webp, .search.jpg, etc., to fetch 1200x1200 master pictures
+  // Strips thumbnail suffixes like _300x300.jpg, _.webp, _sum.jpg, .search.jpg, etc., to fetch 1200x1200 master pictures
   function cleanAlibabaImageUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
     let url = rawUrl.trim();
@@ -60,6 +60,11 @@
     const isAlibaba = url.includes('alicdn.com') || url.includes('cbu01') || url.includes('1688.com');
     if (!isAlibaba) {
       return url;
+    }
+
+    // Reject SVGs and UI sprite icons
+    if (url.toLowerCase().endsWith('.svg') || url.includes('-tps-')) {
+      return '';
     }
 
     // Remember original extension if present in raw URL
@@ -76,7 +81,7 @@
     url = url.replace(/\.\d+x\d+\.(?:jpg|jpeg|png|webp)$/i, origExt);
 
     // Specified regex to strip Alibaba CDN thumbnail suffixes to get 1200x1200 master images
-    url = url.replace(/(_\d+x\d+[^.]*(\.[a-z0-9]+)?|_\.webp)$/i, '');
+    url = url.replace(/(_\d+x\d+[^.]*(\.[a-z0-9]+)?|_\.webp|_sum\.jpg)$/i, '');
 
     // Also strip additional CDN quality/size decorators like .jpg_60x60.jpg or .jpg_q90.jpg
     url = url.replace(/(\.(?:jpg|jpeg|png|webp))_[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9]+)?$/i, '$1');
@@ -125,6 +130,20 @@
     return match ? match[1] : '';
   }
 
+  // Helper to filter out UI sprites, arrows, badges and icons
+  function isProductPhoto(u) {
+    if (!u || typeof u !== 'string') return false;
+    const lower = u.toLowerCase();
+    if (lower.endsWith('.svg') || lower.includes('.svg?') || lower.includes('-tps-')) return false;
+    if (lower.includes('avatar') || lower.includes('badge') || lower.includes('icon') || lower.includes('arrow') || lower.includes('button')) {
+      return false;
+    }
+    if (lower.includes('15-8') || lower.includes('16-16') || lower.includes('24-24') || lower.includes('16x16') || lower.includes('24x24') || lower.includes('32x32')) {
+      return false;
+    }
+    return true;
+  }
+
   // 5. Main Extraction Routine
   function extract1688Product() {
     const data = pageContextData || extractScriptTagData();
@@ -144,14 +163,31 @@
     }
 
     if (!title) {
-      const titleEl = document.querySelector('.od-pc-offer-title') ||
-        document.querySelector('.title-text') ||
-        document.querySelector('.d-title') ||
-        document.querySelector('h1.title') ||
-        document.querySelector('meta[property="og:title"]');
-      if (titleEl) {
-        title = titleEl.getAttribute('content') || titleEl.innerText || '';
+      const titleSelectors = [
+        '.module-od-title',
+        '.title-content',
+        '.od-pc-offer-title',
+        '.title-text',
+        '.d-title',
+        '.offer-title',
+        '[class*="offer-title"]',
+        'h1.title'
+      ];
+      for (const sel of titleSelectors) {
+        const el = document.querySelector(sel);
+        if (el) {
+          const t = (el.innerText || el.textContent || '').trim();
+          if (t && t.length > 5) {
+            title = t;
+            break;
+          }
+        }
       }
+    }
+
+    if (!title) {
+      const metaTitle = document.querySelector('meta[property="og:title"]');
+      if (metaTitle) title = metaTitle.getAttribute('content') || '';
     }
 
     if (!title) {
@@ -160,7 +196,6 @@
     title = title.trim();
 
     // --- B. WHOLESALE RMB PRICE (autoPrice) ---
-    // User requirement: Supply RMB directly into autoPrice, no extra calculator
     let rawRmb = '';
     
     // Check ladder price in data
@@ -179,10 +214,19 @@
     if (!rawRmb && data?.data?.offerDomain?.skuModel?.priceRange) {
       rawRmb = String(data.data.offerDomain.skuModel.priceRange);
     }
+    if (!rawRmb && data?.data?.offerDomain?.priceDisplayModel?.price) {
+      rawRmb = String(data.data.offerDomain.priceDisplayModel.price);
+    }
 
-    // Check DOM prices
+    // Check DOM prices (including modern 1688 selectors and stripping whitespace)
     if (!rawRmb) {
       const priceSelectors = [
+        '.price-info',
+        '.price-comp',
+        '.od-price-container .currency',
+        '.od-price-container',
+        '.module-od-main-price',
+        '.price-component',
         '.price-text',
         '.od-pc-offer-price',
         '.price-num',
@@ -190,42 +234,34 @@
         '.ladder-price-item .price',
         '.price-original',
         '.discountPrice',
-        '.price-item .price'
+        '.price-item .price',
+        '.item-price-stock'
       ];
       for (const sel of priceSelectors) {
-        const el = document.querySelector(sel);
-        if (el) {
-          const match = el.innerText.match(/([0-9]+(?:\.[0-9]+)?)/);
-          if (match) {
+        const els = Array.from(document.querySelectorAll(sel));
+        for (const el of els) {
+          const compacted = (el.innerText || el.textContent || '').replace(/\s+/g, '');
+          const match = compacted.match(/(?:¥|￥)?([0-9]+(?:\.[0-9]+)?)/);
+          if (match && parseFloat(match[1]) > 0) {
             rawRmb = match[1];
             break;
           }
         }
+        if (rawRmb) break;
       }
     }
 
-    // Strip currency symbols (e.g. ¥ or ￥) to ensure valid float
     let autoPrice = undefined;
     if (rawRmb) {
       const cleanMatch = String(rawRmb).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
       if (cleanMatch) {
         const val = parseFloat(cleanMatch[0]);
-        if (!isNaN(val)) autoPrice = val;
+        if (!isNaN(val) && val > 0) autoPrice = val;
       }
     }
 
     // --- C. MASTER GALLERY IMAGES (1200x1200) ---
     const imageSet = new Set();
-
-    // Filter helper to reject tiny icons/badges
-    const isProductPhoto = (u) => {
-      if (!u || typeof u !== 'string') return false;
-      const lower = u.toLowerCase();
-      if (lower.includes('avatar') || lower.includes('badge') || lower.includes('16x16') || lower.includes('24x24')) {
-        return false;
-      }
-      return true;
-    };
 
     // From Data
     const dataImages = data?.data?.offerDomain?.image?.images || 
@@ -242,9 +278,9 @@
       });
     }
 
-    // From DOM Gallery
+    // From DOM Gallery (targeting actual product image gallery containers)
     const galleryImgElements = document.querySelectorAll(
-      '.detail-gallery-turn-wrapper img, .od-gallery-img, .vertical-img-list img, .tab-trigger img, .mod-detail-gallery img, ul.nav-tabs img, .detail-gallery img, [class*="gallery"] img'
+      '.module-od-picture-gallery img, .od-picture-gallery-section img, .detail-gallery-turn-wrapper img, .od-gallery-img, .vertical-img-list img, .tab-trigger img, .mod-detail-gallery img, ul.nav-tabs img, .detail-gallery img'
     );
     galleryImgElements.forEach(img => {
       const src = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazyload-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
@@ -257,8 +293,8 @@
     // Fallback: any ibank images in page
     if (imageSet.size === 0) {
       document.querySelectorAll('img').forEach(img => {
-        const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
-        if (src.includes('alicdn.com/img/ibank/') && isProductPhoto(src)) {
+        const src = img.getAttribute('src') || img.getAttribute('data-src') || img.src || '';
+        if (src && (src.includes('alicdn.com/img/ibank/') || src.includes('cbu01.alicdn.com')) && isProductPhoto(src)) {
           const clean = cleanAlibabaImageUrl(src);
           if (clean) imageSet.add(clean);
         }
@@ -282,16 +318,22 @@
       data?.globalData?.tempModel?.skuInfoMap || 
       null;
 
+    let optionGroupName = 'color';
+
     if (Array.isArray(skuProps) && skuProps.length > 0) {
-      // Find color prop (usually named 颜色 or 规格 or 款式)
-      const colorProp = skuProps.find(p => /颜色|款式|规格|花色|color/i.test(p.prop || p.name || '')) || skuProps[0];
+      const colorProp = skuProps.find(p => /颜色|款式|规格|花色|color|size|style/i.test(p.prop || p.name || '')) || skuProps[0];
+      if (colorProp) {
+        const pName = colorProp.prop || colorProp.name || '';
+        optionGroupName = /颜色|color/i.test(pName) ? 'color' :
+                          /规格|size/i.test(pName) ? 'size' :
+                          /款式|style/i.test(pName) ? 'style' : (pName || 'color');
+      }
       if (colorProp && Array.isArray(colorProp.value)) {
         colorProp.value.forEach(item => {
           let name = (item.name || item.propValue || '').trim();
           name = name.split(/[\r\n¥￥]/)[0].trim();
           const imgUrl = cleanAlibabaImageUrl(item.imageUrl || item.image || '');
 
-          // Check if variant has individual price
           let vPrice = undefined;
           if (item.price) {
             const vClean = String(item.price).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
@@ -311,14 +353,61 @@
       }
     }
 
-    // If data didn't have SKU props, check DOM SKU buttons/thumbnails
+    // Modern 1688 DOM structure (.module-od-sku-selection, .expand-view-item)
+    if (colorItems.length === 0) {
+      const skuContainers = document.querySelectorAll('.module-od-sku-selection .feature-item, [class*="sku-selection"] .feature-item, .feature-item');
+      if (skuContainers.length > 0) {
+        skuContainers.forEach(container => {
+          const groupHeader = container.querySelector('.feature-item-label, h3, [class*="feature-item-label"]');
+          if (groupHeader) {
+            const headerText = (groupHeader.innerText || groupHeader.textContent || '').trim();
+            if (headerText) {
+              optionGroupName = /颜色|color/i.test(headerText) ? 'color' :
+                                /规格|size/i.test(headerText) ? 'size' :
+                                /款式|style/i.test(headerText) ? 'style' : headerText.toLowerCase();
+            }
+          }
+
+          const items = container.querySelectorAll('.expand-view-item, [class*="expand-view-item"], .sku-item');
+          items.forEach(el => {
+            const labelEl = el.querySelector('.item-label, [class*="item-label"], .name, .title');
+            let name = labelEl ? (labelEl.getAttribute('title') || labelEl.innerText) : el.innerText;
+            if (name) {
+              name = name.split(/[\r\n¥￥]/)[0].trim();
+            }
+
+            let imgUrl = '';
+            const imgEl = el.querySelector('img');
+            if (imgEl) {
+              const raw = imgEl.src || imgEl.getAttribute('data-src') || '';
+              imgUrl = cleanAlibabaImageUrl(raw);
+            }
+
+            let vPrice = undefined;
+            const priceEl = el.querySelector('.item-price-stock, [class*="item-price"], [class*="price"]');
+            if (priceEl) {
+              const compacted = (priceEl.innerText || '').replace(/\s+/g, '');
+              const m = compacted.match(/(?:¥|￥)?([0-9]+(?:\.[0-9]+)?)/);
+              if (m && parseFloat(m[1]) > 0) {
+                vPrice = parseFloat(m[1]);
+              }
+            }
+
+            if (name && !colorItems.some(c => c.name === name)) {
+              colorItems.push({ name, image: imgUrl, price: vPrice });
+            }
+          });
+        });
+      }
+    }
+
+    // Classic DOM fallback
     if (colorItems.length === 0) {
       const skuElements = document.querySelectorAll('.sku-item, .prop-item, .od-pc-attribute-item, .list-leading-item, .sku-prop-list li');
       skuElements.forEach(el => {
         let name = el.getAttribute('title') || 
           el.querySelector('.name, .title, .prop-name, [class*="sku-name"], [class*="prop-name"]')?.innerText || 
           el.innerText.trim();
-        // Clean out newline, price, and stock clutter
         name = name.split(/[\r\n¥￥]/)[0].trim();
 
         let imgUrl = '';
@@ -339,7 +428,12 @@
       });
     }
 
-    // Also include color variant photos in master imageSet
+    // If autoPrice was not found from main price elements, use the first variant's price!
+    if (autoPrice === undefined && colorItems.length > 0 && colorItems[0].price !== undefined) {
+      autoPrice = colorItems[0].price;
+    }
+
+    // Add variant photos to gallery
     colorItems.forEach(c => {
       if (c.image) {
         imageSet.add(c.image);
@@ -350,10 +444,10 @@
 
     // Populate options and variants
     if (colorItems.length > 0) {
-      const optionId = 'opt_color';
+      const optionId = 'opt_' + (optionGroupName || 'color');
       options.push({
         id: optionId,
-        name: 'color',
+        name: optionGroupName || 'color',
         values: colorItems.map(c => c.name)
       });
 
@@ -382,9 +476,24 @@
       supplier = data.tempModel.seller.companyName;
     }
     if (!supplier) {
-      const compEl = document.querySelector('.company-name, .shop-name, .supplier-name, .od-pc-offer-company-name, [class*="company-name"], [class*="shop-name"]');
-      if (compEl) {
-        supplier = (compEl.innerText || compEl.getAttribute('title') || '').trim();
+      const compSelectors = [
+        '.winport-title',
+        '.company-name',
+        '.shop-name',
+        '.supplier-name',
+        '.od-pc-offer-company-name',
+        '[class*="company-name"]',
+        '[class*="shop-name"]'
+      ];
+      for (const sel of compSelectors) {
+        const compEl = document.querySelector(sel);
+        if (compEl) {
+          const s = (compEl.innerText || compEl.getAttribute('title') || compEl.textContent || '').trim();
+          if (s) {
+            supplier = s;
+            break;
+          }
+        }
       }
     }
 
@@ -548,18 +657,20 @@
   }
 
   // 7. Message listener for extension popup queries
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request && request.action === 'GET_1688_PRODUCT_DATA') {
-      const product = extract1688Product();
-      sendResponse({ success: true, product });
-      return true;
-    }
-    if (request && request.action === 'TRIGGER_IMPORT') {
-      handleImportClick();
-      sendResponse({ success: true });
-      return true;
-    }
-  });
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request && request.action === 'GET_1688_PRODUCT_DATA') {
+        const product = extract1688Product();
+        sendResponse({ success: true, product });
+        return true;
+      }
+      if (request && request.action === 'TRIGGER_IMPORT') {
+        handleImportClick();
+        sendResponse({ success: true });
+        return true;
+      }
+    });
+  }
 
   // Inject floating button when DOM is ready
   if (document.readyState === 'loading') {

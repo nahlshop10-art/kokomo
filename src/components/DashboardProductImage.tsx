@@ -110,6 +110,7 @@ export const DashboardProductImage = React.memo(({
           ref={imgRef}
           src={cleanSrc}
           alt={alt}
+          referrerPolicy="no-referrer"
           decoding="async"
           onLoad={handleLoad}
           onError={handleError}

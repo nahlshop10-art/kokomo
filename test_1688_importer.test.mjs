@@ -51,6 +51,16 @@ const imgTestCases = [
     input: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=800',
     expected: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a',
     desc: 'Non-Alibaba image query parameter stripped cleanly'
+  },
+  {
+    input: 'https://cbu01.alicdn.com/img/ibank/O1CN01b5zCCh2CSgqL2nR0s_!!2217591418473-0-cib.jpg_sum.jpg',
+    expected: 'https://cbu01.alicdn.com/img/ibank/O1CN01b5zCCh2CSgqL2nR0s_!!2217591418473-0-cib.jpg',
+    desc: 'SKU _sum.jpg suffix stripped cleanly'
+  },
+  {
+    input: 'https://img.alicdn.com/imgextra/i2/O1CN01vPS4dX1YdboQ4A7pk_!!6000000003082-55-tps-15-8.svg',
+    expected: '',
+    desc: 'Alibaba UI SVG and TPS icons rejected cleanly'
   }
 ];
 
@@ -161,5 +171,32 @@ assert.equal(variants[2].autoPrice, '35');
 assert.equal(variants[2].buyPrice, 767);
 console.log('  ✓ Default variants synced to new autoPrice (30 RMB -> ৳675/৳925)');
 console.log('  ✓ Custom variant preserved its custom autoPrice (35 RMB -> ৳767/৳1017)');
+
+// 6. Test Modern 1688 DOM Whitespace & Range Price Extraction
+console.log('\n[6/6] Testing modern 1688 DOM whitespace & range price extraction...');
+
+function extractRmbFromDomText(rawText) {
+  if (!rawText) return undefined;
+  const compacted = rawText.replace(/\s+/g, '');
+  const match = compacted.match(/(?:¥|￥)?([0-9]+(?:\.[0-9]+)?)/);
+  if (match && parseFloat(match[1]) > 0) {
+    return parseFloat(match[1]);
+  }
+  return undefined;
+}
+
+const priceTestCases = [
+  { text: '¥\n5\n.00\n\nMinimum order is 1pcs', expected: 5 },
+  { text: '¥\n0\n.45\n¥\n1\n.03\n\nMinimum order quantity: 3 pairs', expected: 0.45 },
+  { text: '  ¥ 18.50 / 件  ', expected: 18.5 },
+  { text: '￥ 99.00', expected: 99 },
+  { text: '¥5', expected: 5 }
+];
+
+priceTestCases.forEach((tc, idx) => {
+  const actual = extractRmbFromDomText(tc.text);
+  assert.equal(actual, tc.expected, `Price Case ${idx + 1} failed: expected ${tc.expected}, got ${actual}`);
+  console.log(`  ✓ Price Case ${idx + 1}: ${JSON.stringify(tc.text.slice(0, 15))}... -> ${actual} RMB`);
+});
 
 console.log('\n🎉 ALL PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
