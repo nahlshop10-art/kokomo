@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaikariX 1688 Importer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="brand">
+        <div class="logo">PKX</div>
+        <div class="brand-text">
+          <span class="title">PaikariX 1688</span>
+          <span class="sub">Wholesale Importer</span>
+        </div>
+      </div>
+      <div id="connection-badge" class="badge badge-gray">Checking...</div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="content-loading" class="state-box">
+      <div class="spinner"></div>
+      <p>Inspecting current tab...</p>
+    </div>
+
+    <!-- 1688 Product Detected View -->
+    <div id="content-product" class="state-box hidden">
+      <div class="product-preview-card">
+        <div class="product-header">
+          <span id="product-id" class="code-badge">#1688</span>
+          <span id="product-price" class="price-badge">¥--</span>
+        </div>
+        <h4 id="product-title" class="product-title">Product Title</h4>
+        <div class="stats-row">
+          <div class="stat-pill">
+            <span class="stat-num" id="stat-images">0</span>
+            <span class="stat-label">Master Images</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-num" id="stat-variants">0</span>
+            <span class="stat-label">Color SKUs</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-import-now" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"/>
+          <path d="m12 5 7 7-7 7"/>
+        </svg>
+        <span>Import into PaikariX</span>
+      </button>
+    </div>
+
+    <!-- Not on 1688 View -->
+    <div id="content-empty" class="state-box hidden">
+      <div class="empty-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <p class="empty-title">Not a 1688 Offer Page</p>
+      <p class="empty-sub">Open any product detail page on <strong>detail.1688.com</strong> to import images, RMB prices, and variants with 1 click.</p>
+      <a href="https://www.1688.com" target="_blank" class="btn btn-secondary">Open 1688.com</a>
+    </div>
+
+    <!-- Settings Section -->
+    <div class="settings-section">
+      <div class="settings-toggle" id="settings-toggle">
+        <span>Dashboard Settings</span>
+        <svg id="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+
+      <div id="settings-body" class="settings-body hidden">
+        <label class="setting-label">PaikariX Dashboard URL</label>
+        <div class="input-row">
+          <input type="text" id="input-dashboard-url" placeholder="http://localhost:3000" spellcheck="false" />
+          <button id="btn-save-settings" class="btn-sm">Save</button>
+        </div>
+        <div class="quick-links">
+          <button id="link-open-dashboard" class="link-btn">Open Dashboard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Feedback Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

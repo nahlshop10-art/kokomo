@@ -332,6 +332,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   }, [activeTab, settingsView]);
 
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [importedProductData, setImportedProductData] = useState<Partial<Product> | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showZipImport, setShowZipImport] = useState(false);
   const [showFbZipExport, setShowFbZipExport] = useState(false);
@@ -343,11 +344,52 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
   const [selectedAnalyticsItemIds, setSelectedAnalyticsItemIds] = useState<string[]>([]);
 
-  useHistoryModal(isAddingProduct, () => setIsAddingProduct(false), 'add-product');
+  useHistoryModal(isAddingProduct, () => {
+    setIsAddingProduct(false);
+    setImportedProductData(null);
+  }, 'add-product');
   useHistoryModal(!!editingProduct, () => setEditingProduct(null), 'edit-product');
   useHistoryModal(showZipImport, () => setShowZipImport(false), 'zip-import');
   useHistoryModal(showFbZipExport, () => setShowFbZipExport(false), 'fb-zip-export');
   useHistoryModal(!!confirmAction, () => setConfirmAction(null), 'confirm-action');
+
+  // Listen for 1688 Product Imports from PaikariX Chrome Extension
+  useEffect(() => {
+    const handleImportMessage = (event: MessageEvent) => {
+      if (!event.data) return;
+      let data: any = null;
+      if (
+        (event.data.source === 'paikarix-1688-importer' || event.data.type === 'PAIKARIX_1688_IMPORT') &&
+        (event.data.payload || event.data.data)
+      ) {
+        data = event.data.payload || event.data.data;
+      }
+      if (data) {
+        console.log('[PaikariX 1688 Importer] Received product for import:', data);
+        setEditingProduct(null);
+        setImportedProductData(data);
+        setIsAddingProduct(true);
+      }
+    };
+
+    const handleCustomEvent = (event: Event) => {
+      const customEvt = event as CustomEvent;
+      if (customEvt.detail) {
+        console.log('[PaikariX 1688 Importer] Received custom event for import:', customEvt.detail);
+        setEditingProduct(null);
+        setImportedProductData(customEvt.detail);
+        setIsAddingProduct(true);
+      }
+    };
+
+    window.addEventListener('message', handleImportMessage);
+    window.addEventListener('paikarix-1688-import', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('message', handleImportMessage);
+      window.removeEventListener('paikarix-1688-import', handleCustomEvent);
+    };
+  }, []);
 
   const handleTabChange = (tab: any) => {
     setActiveTab(tab);
@@ -355,6 +397,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setSelectedOrder(null);
     setEditingProduct(null);
     setIsAddingProduct(false);
+    setImportedProductData(null);
     setShowZipImport(false);
     setShowFbZipExport(false);
 
@@ -1009,6 +1052,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     cloudStore.upsertProduct(updatedProduct).catch(console.error);
     setEditingProduct(null);
     setIsAddingProduct(false);
+    setImportedProductData(null);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
@@ -1615,8 +1659,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   if (isAddingProduct) {
     return <ProductEditorModal 
       isOpen={true} 
-      onClose={() => setIsAddingProduct(false)} 
+      onClose={() => {
+        setIsAddingProduct(false);
+        setImportedProductData(null);
+      }} 
       onSave={handleSaveProduct} 
+      importedData={importedProductData}
       categories={categories}
       priceCalculatorSettings={priceCalculatorSettings}
       products={products}

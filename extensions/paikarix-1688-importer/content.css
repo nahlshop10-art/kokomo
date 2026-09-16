@@ -1,0 +1,205 @@
+/* PaikariX 1688 Importer Floating Button & Preview Styles */
+
+.paikarix-ext-root {
+  position: fixed !important;
+  bottom: 36px !important;
+  right: 32px !important;
+  z-index: 2147483647 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  user-select: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  pointer-events: auto !important;
+}
+
+/* Floating Pill Button */
+.paikarix-floating-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  background: #09090b !important;
+  border: 1.5px solid #27272a !important;
+  border-radius: 9999px !important;
+  padding: 8px 18px 8px 12px !important;
+  color: #fafafa !important;
+  cursor: pointer !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  outline: none !important;
+  text-decoration: none !important;
+}
+
+.paikarix-floating-btn:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  border-color: #ff5500 !important;
+  box-shadow: 0 14px 35px -5px rgba(255, 85, 0, 0.25), 0 0 0 1px #ff5500 !important;
+}
+
+.paikarix-floating-btn:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* Button Icon */
+.paikarix-btn-icon {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #ff5500 0%, #e03e00 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 8px rgba(255, 85, 0, 0.4) !important;
+  transition: transform 0.2s ease !important;
+}
+
+.paikarix-floating-btn:hover .paikarix-btn-icon {
+  transform: rotate(45deg) scale(1.05) !important;
+}
+
+/* Button Text Content */
+.paikarix-btn-content {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.paikarix-btn-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  color: #ffffff !important;
+  line-height: 1.2 !important;
+}
+
+.paikarix-btn-subtitle {
+  font-size: 11px !important;
+  color: #a1a1aa !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  margin-top: 2px !important;
+}
+
+/* Loading & Success States */
+.paikarix-loading .paikarix-btn-icon {
+  animation: paikarix-spin 1s linear infinite !important;
+}
+
+.paikarix-success {
+  background: #064e3b !important;
+  border-color: #10b981 !important;
+}
+
+.paikarix-success .paikarix-btn-icon {
+  background: #10b981 !important;
+  transform: none !important;
+}
+
+@keyframes paikarix-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Preview Card on Hover */
+.paikarix-preview-card {
+  margin-bottom: 12px !important;
+  background: #09090b !important;
+  border: 1px solid #27272a !important;
+  border-radius: 16px !important;
+  padding: 14px 16px !important;
+  width: 290px !important;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  color: #fafafa !important;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+.paikarix-preview-card.paikarix-hidden {
+  opacity: 0 !important;
+  transform: translateY(8px) scale(0.96) !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+
+.paikarix-preview-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.paikarix-logo-badge {
+  background: #ff5500 !important;
+  color: #fff !important;
+  font-weight: 900 !important;
+  font-size: 11px !important;
+  padding: 2px 7px !important;
+  border-radius: 6px !important;
+  letter-spacing: 0.05em !important;
+}
+
+.paikarix-preview-title-box {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.paikarix-tag {
+  font-size: 11px !important;
+  background: #27272a !important;
+  color: #a1a1aa !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+}
+
+.paikarix-id-text {
+  font-size: 11px !important;
+  color: #71717a !important;
+  font-family: monospace !important;
+}
+
+.paikarix-title-text {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #f4f4f5 !important;
+  line-height: 1.4 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+.paikarix-meta-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  background: #18181b !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid #27272a !important;
+}
+
+.paikarix-meta-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  flex: 1 !important;
+}
+
+.paikarix-meta-label {
+  font-size: 10px !important;
+  color: #71717a !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.paikarix-meta-val {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #ff5500 !important;
+  margin-top: 1px !important;
+}

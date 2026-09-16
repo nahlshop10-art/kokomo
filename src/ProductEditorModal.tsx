@@ -47,6 +47,7 @@ interface ProductEditorModalProps {
   onSave: (product: Product) => void;
   onDelete?: (id: string) => void;
   initialProduct?: Product | null;
+  importedData?: Partial<Product> | null;
   categories: Category[];
   priceCalculatorSettings?: PriceCalculatorSettings;
   products?: Product[];
@@ -71,7 +72,7 @@ export const clean1688Url = (input?: string): string => {
   return str;
 };
 
-export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, initialProduct, categories, priceCalculatorSettings, products, suppliers = [], perms, inputBorderRadius }: ProductEditorModalProps) {
+export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, initialProduct, importedData, categories, priceCalculatorSettings, products, suppliers = [], perms, inputBorderRadius }: ProductEditorModalProps) {
   const inputBorderRadiusStyle = { borderRadius: inputBorderRadius || DEFAULT_ACTION_BUTTONS.checkout.borderRadius };
   const [productId, setProductId] = useState('');
   const [title, setTitle] = useState('');
@@ -128,22 +129,51 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
   useEffect(() => {
     if (isOpen) {
       if (initialProduct) {
-        const resolvedBuyPrice = initialProduct.buyPrice || (initialProduct.price ? Math.floor(initialProduct.price * 0.4) : '');
+        let resolvedBuyPrice = initialProduct.buyPrice || (initialProduct.price ? Math.floor(initialProduct.price * 0.4) : '');
+        let resolvedSellPrice = initialProduct.price?.toString() || '';
+        const initAutoPrice = initialProduct.autoPrice?.toString() || '';
+
+        if (initAutoPrice && (!resolvedBuyPrice || !resolvedSellPrice) && priceCalculatorSettings) {
+          const numVal = Number(initAutoPrice);
+          if (!isNaN(numVal)) {
+            const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
+            const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+            if (!resolvedBuyPrice) resolvedBuyPrice = calculatedBuyPrice;
+            if (!resolvedSellPrice) resolvedSellPrice = calculatedSellPrice.toString();
+          }
+        }
+
         setProductId(initialProduct.id || '');
         setTitle(initialProduct.title || '');
         setCategory(initialProduct.category || '');
         setSupplier(initialProduct.supplier || '');
         setDescription(initialProduct.description || '');
-        setAutoPrice(initialProduct.autoPrice?.toString() || '');
+        setAutoPrice(initAutoPrice);
         setBuyPrice(resolvedBuyPrice ? resolvedBuyPrice.toString() : '');
-        setSellPrice(initialProduct.price?.toString() || '');
+        setSellPrice(resolvedSellPrice);
         setStock(initialProduct.stock?.toString() || '');
         setImages(initialProduct.images && initialProduct.images.length > 0 ? initialProduct.images : (initialProduct.image ? [initialProduct.image] : []));
         setOptions(initialProduct.options || []);
-        const resolvedVariants = (initialProduct.variants || []).map(v => ({
-          ...v,
-          buyPrice: v.buyPrice || (v.price ? Math.floor(v.price * 0.4) : (initialProduct.price ? Math.floor(initialProduct.price * 0.4) : undefined))
-        }));
+        const resolvedVariants = (initialProduct.variants || []).map(v => {
+          let vBuy = v.buyPrice;
+          let vSell = v.price;
+          const vAuto = v.autoPrice || initAutoPrice;
+          if (vAuto && (!vBuy || !vSell) && priceCalculatorSettings) {
+            const numVal = Number(vAuto);
+            if (!isNaN(numVal)) {
+              const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
+              const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+              if (!vBuy) vBuy = calculatedBuyPrice;
+              if (!vSell) vSell = calculatedSellPrice;
+            }
+          }
+          return {
+            ...v,
+            autoPrice: v.autoPrice || (initAutoPrice || undefined),
+            buyPrice: vBuy || (vSell ? Math.floor(vSell * 0.4) : (resolvedBuyPrice ? Number(resolvedBuyPrice) : undefined)),
+            price: vSell || (resolvedSellPrice ? Number(resolvedSellPrice) : undefined)
+          };
+        });
         setVariants(resolvedVariants);
         setQtyRules(initialProduct.qtyRules || []);
         setIsVisible(initialProduct.isVisible !== false);
@@ -151,6 +181,61 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         setCode1688(initialProduct.code1688 || '');
         setLink1688(initialProduct.link1688 || '');
         setHasManuallySelectedCategory(true);
+      } else if (importedData) {
+        const initAutoPrice = importedData.autoPrice !== undefined && importedData.autoPrice !== null ? importedData.autoPrice.toString() : '';
+        let initBuyPrice = importedData.buyPrice ? importedData.buyPrice.toString() : '';
+        let initSellPrice = importedData.price ? importedData.price.toString() : '';
+
+        if (initAutoPrice && (!initBuyPrice || !initSellPrice) && priceCalculatorSettings) {
+          const numVal = Number(initAutoPrice);
+          if (!isNaN(numVal)) {
+            const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
+            const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+            if (!initBuyPrice) initBuyPrice = calculatedBuyPrice.toString();
+            if (!initSellPrice) initSellPrice = calculatedSellPrice.toString();
+          }
+        }
+
+        setProductId(importedData.id || '');
+        setTitle(importedData.title || '');
+        setCategory(importedData.category || '');
+        setSupplier(importedData.supplier || '');
+        setDescription(importedData.description || '');
+        setAutoPrice(initAutoPrice);
+        setBuyPrice(initBuyPrice);
+        setSellPrice(initSellPrice);
+        setStock(importedData.stock?.toString() || '');
+        setImages(importedData.images && importedData.images.length > 0 ? importedData.images : (importedData.image ? [importedData.image] : []));
+        setOptions(importedData.options || []);
+
+        const resolvedVariants = (importedData.variants || []).map(v => {
+          let vAuto = v.autoPrice || initAutoPrice;
+          let vBuy = v.buyPrice;
+          let vSell = v.price;
+          if (vAuto && (!vBuy || !vSell) && priceCalculatorSettings) {
+            const numVal = Number(vAuto);
+            if (!isNaN(numVal)) {
+              vBuy = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
+              vSell = Math.floor(vBuy + priceCalculatorSettings.profit);
+            }
+          }
+          return {
+            ...v,
+            id: v.id || Math.random().toString(36).substring(2, 11),
+            autoPrice: vAuto,
+            buyPrice: vBuy || (vSell ? Math.floor(vSell * 0.4) : (initBuyPrice ? Number(initBuyPrice) : undefined)),
+            price: vSell || (initSellPrice ? Number(initSellPrice) : undefined),
+            stock: v.stock !== undefined ? v.stock : 100,
+            isVisible: v.isVisible !== false
+          };
+        });
+        setVariants(resolvedVariants);
+        setQtyRules(importedData.qtyRules || []);
+        setIsVisible(importedData.isVisible !== false);
+        setIsNew(importedData.isNew ?? false);
+        setCode1688(importedData.code1688 || '');
+        setLink1688(importedData.link1688 || '');
+        setHasManuallySelectedCategory(!!importedData.category);
       } else {
         setProductId('');
         setTitle('');
@@ -174,11 +259,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
       setOpenSection('general');
       setErrorMsg('');
     }
-  }, [isOpen, initialProduct]);
+  }, [isOpen, initialProduct, importedData, priceCalculatorSettings]);
 
   // Automatic Category Detection from Title
   useEffect(() => {
-    if (!isOpen || initialProduct || hasManuallySelectedCategory) return;
+    if (!isOpen || (initialProduct && initialProduct.category) || hasManuallySelectedCategory) return;
     if (!title.trim()) return;
 
     let bestMatch = '';
@@ -238,117 +323,172 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     }
   }, [title, categories, isOpen, initialProduct, hasManuallySelectedCategory]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files) as File[];
-      for (const file of files) {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = () => {
-          const initialDataUrl = reader.result as string;
+  const processImageFiles = (files: File[]) => {
+    if (!files || files.length === 0) return;
+    for (const file of files) {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = () => {
+        const initialDataUrl = reader.result as string;
+        
+        setImages(prev => {
+          const newIdx = prev.length;
           
-          setImages(prev => {
-            const newIdx = prev.length;
-            
-            // Extract image data to send to worker
-            fileToImageData(file, 1920).then(imageData => {
-              setImagesMeta(m => ({
-                ...m,
-                [newIdx]: {
-                  originalSize: file.size,
-                  width: imageData.width,
-                  height: imageData.height,
-                  originalDataUrl: initialDataUrl,
-                  isProcessing: true
-                }
-              }));
-
-              const defaultConfig = getDefaultImageOptimization();
-              let optimizeOptions: OptimizeOptions = { quality: 70 };
-              if (defaultConfig && defaultConfig.enabled) {
-                 optimizeOptions.quality = defaultConfig.quality;
-                 if (defaultConfig.scale !== 100) {
-                   optimizeOptions.resize = {
-                     width: Math.max(1, Math.round(imageData.width * (defaultConfig.scale / 100))),
-                     height: Math.max(1, Math.round(imageData.height * (defaultConfig.scale / 100)))
-                   };
-                 }
+          // Extract image data to send to worker
+          fileToImageData(file, 1920).then(imageData => {
+            setImagesMeta(m => ({
+              ...m,
+              [newIdx]: {
+                originalSize: file.size,
+                width: imageData.width,
+                height: imageData.height,
+                originalDataUrl: initialDataUrl,
+                isProcessing: true
               }
+            }));
 
-              optimizeImageRun(imageData, optimizeOptions).then(async result => {
-                 let optimizedDataUrl: string;
-                 let thumbnailDataUrl: string | undefined;
-                 try {
-                   const blob = new Blob([result.buffer], { type: 'image/webp' });
-                   optimizedDataUrl = await cloudStore.uploadFile(blob, `img_${Date.now()}.webp`);
-                   
-                   // Thumbnail generation
-                   let thumbWidth = defaultConfig?.thumbnailWidth || 470;
-                   let thumbQuality = defaultConfig?.thumbnailQuality || 70;
-                   if (imageData.width > thumbWidth) {
-                     const thumbOptions: OptimizeOptions = { 
-                       quality: thumbQuality, 
-                       resize: { width: thumbWidth, height: Math.max(1, Math.round(imageData.height * (thumbWidth / imageData.width))) } 
-                     };
-                     const thumbResult = await optimizeImageRun(imageData, thumbOptions);
-                     const thumbBlob = new Blob([thumbResult.buffer], { type: 'image/webp' });
-                     thumbnailDataUrl = await cloudStore.uploadFile(thumbBlob, `thumb_${Date.now()}.webp`);
-                   } else {
-                     thumbnailDataUrl = optimizedDataUrl; // reuse if already small
-                   }
-                 } catch (e) {
-                   console.error('Failed to upload to R2', e);
-                   optimizedDataUrl = arrayBufferToDataUrl(result.buffer, 'image/webp');
-                 }
+            const defaultConfig = getDefaultImageOptimization();
+            let optimizeOptions: OptimizeOptions = { quality: 70 };
+            if (defaultConfig && defaultConfig.enabled) {
+               optimizeOptions.quality = defaultConfig.quality;
+               if (defaultConfig.scale !== 100) {
+                 optimizeOptions.resize = {
+                   width: Math.max(1, Math.round(imageData.width * (defaultConfig.scale / 100))),
+                   height: Math.max(1, Math.round(imageData.height * (defaultConfig.scale / 100)))
+                 };
+               }
+            }
+
+            optimizeImageRun(imageData, optimizeOptions).then(async result => {
+               let optimizedDataUrl: string;
+               let thumbnailDataUrl: string | undefined;
+               try {
+                 const blob = new Blob([result.buffer], { type: 'image/webp' });
+                 optimizedDataUrl = await cloudStore.uploadFile(blob, `img_${Date.now()}.webp`);
                  
-                 setImagesMeta(m => ({
-                   ...m,
-                   [newIdx]: {
-                     ...m[newIdx],
-                     optimizedSize: result.buffer.byteLength,
-                     isProcessing: false,
-                     width: result.width,
-                     height: result.height,
-                     thumbnailUrl: thumbnailDataUrl
-                   }
-                 }));
+                 // Thumbnail generation
+                 let thumbWidth = defaultConfig?.thumbnailWidth || 470;
+                 let thumbQuality = defaultConfig?.thumbnailQuality || 70;
+                 if (imageData.width > thumbWidth) {
+                   const thumbOptions: OptimizeOptions = { 
+                     quality: thumbQuality, 
+                     resize: { width: thumbWidth, height: Math.max(1, Math.round(imageData.height * (thumbWidth / imageData.width))) } 
+                   };
+                   const thumbResult = await optimizeImageRun(imageData, thumbOptions);
+                   const thumbBlob = new Blob([thumbResult.buffer], { type: 'image/webp' });
+                   thumbnailDataUrl = await cloudStore.uploadFile(thumbBlob, `thumb_${Date.now()}.webp`);
+                 } else {
+                   thumbnailDataUrl = optimizedDataUrl; // reuse if already small
+                 }
+               } catch (e) {
+                 console.error('Failed to upload to R2', e);
+                 optimizedDataUrl = arrayBufferToDataUrl(result.buffer, 'image/webp');
+               }
+               
+               setImagesMeta(m => ({
+                 ...m,
+                 [newIdx]: {
+                   ...m[newIdx],
+                   optimizedSize: result.buffer.byteLength,
+                   isProcessing: false,
+                   width: result.width,
+                   height: result.height,
+                   thumbnailUrl: thumbnailDataUrl
+                 }
+               }));
 
+               setImages(prevImages => {
+                 const copy = [...prevImages];
+                 copy[newIdx] = optimizedDataUrl;
+                 return copy;
+               });
+            }).catch(err => {
+               console.error("Auto optimize error", err);
+               // Fallback to basic canvas resize
+               const canvas = document.createElement('canvas');
+               canvas.width = imageData.width;
+               canvas.height = imageData.height;
+               const ctx = canvas.getContext('2d');
+               ctx?.putImageData(imageData, 0, 0); // Need to handle scaling properly if falling back, but original is fine as fallback
+               
+               // Generate a canvas data URL as fallback if possible
+               try {
+                 const fallbackUrl = canvas.toDataURL('image/jpeg', 0.8);
                  setImages(prevImages => {
                    const copy = [...prevImages];
-                   copy[newIdx] = optimizedDataUrl;
+                   copy[newIdx] = fallbackUrl;
                    return copy;
                  });
-              }).catch(err => {
-                 console.error("Auto optimize error", err);
-                 // Fallback to basic canvas resize
-                 const canvas = document.createElement('canvas');
-                 canvas.width = imageData.width;
-                 canvas.height = imageData.height;
-                 const ctx = canvas.getContext('2d');
-                 ctx?.putImageData(imageData, 0, 0); // Need to handle scaling properly if falling back, but original is fine as fallback
-                 
-                 // Generate a canvas data URL as fallback if possible
-                 try {
-                   const fallbackUrl = canvas.toDataURL('image/jpeg', 0.8);
-                   setImages(prevImages => {
-                     const copy = [...prevImages];
-                     copy[newIdx] = fallbackUrl;
-                     return copy;
-                   });
-                 } catch(canvasErr) {}
+               } catch(canvasErr) {}
 
-                 setImagesMeta(m => ({
-                   ...m, [newIdx]: { ...m[newIdx], isProcessing: false, optimizedSize: file.size }
-                 }));
-              });
+               setImagesMeta(m => ({
+                 ...m, [newIdx]: { ...m[newIdx], isProcessing: false, optimizedSize: file.size }
+               }));
             });
-
-            return [...prev, initialDataUrl];
           });
-        };
-      }
+
+          return [...prev, initialDataUrl];
+        });
+      };
     }
   };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processImageFiles(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  };
+
+  // Clipboard paste listener for Ctrl+V image insertion
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      // 1. Check if clipboard contains image files (e.g. copied screenshots or images)
+      const items = e.clipboardData?.items;
+      if (items && items.length > 0) {
+        const imageFiles: File[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type && item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              imageFiles.push(file);
+            }
+          }
+        }
+        if (imageFiles.length > 0) {
+          e.preventDefault();
+          processImageFiles(imageFiles);
+          return;
+        }
+      }
+
+      // 2. Check if clipboard contains image URLs when not actively typing in an input
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (!isInput) {
+        const text = e.clipboardData?.getData('text');
+        if (text) {
+          const trimmed = text.trim();
+          const urls = trimmed.split(/\r?\n|\s+/).filter(u => 
+            (/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(u)) || 
+            (u.startsWith('https://') && u.includes('alicdn.com'))
+          );
+          if (urls.length > 0) {
+            e.preventDefault();
+            setImages(prev => [...prev, ...urls]);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [isOpen]);
 
   const handleAutoPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -362,6 +502,21 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         
         setBuyPrice(calculatedBuyPrice.toString());
         setSellPrice(calculatedSellPrice.toString());
+
+        // Also update variants that don't have custom autoPrices
+        if (variants.length > 0) {
+          setVariants(prev => prev.map(v => {
+            if (!v.autoPrice || v.autoPrice === val) {
+              return {
+                ...v,
+                autoPrice: val,
+                buyPrice: calculatedBuyPrice,
+                price: calculatedSellPrice
+              };
+            }
+            return v;
+          }));
+        }
       }
     }
   };
@@ -544,7 +699,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     : '';
 
   const hasChanges = isNewProduct 
-    ? (title !== '' || images.length > 0 || buyPrice !== '' || sellPrice !== '' || category !== '' || code1688 !== '' || link1688 !== '')
+    ? (title !== '' || images.length > 0 || buyPrice !== '' || sellPrice !== '' || category !== '' || code1688 !== '' || link1688 !== '' || autoPrice !== '')
     : (
         title !== (initialProduct?.title || '') ||
         category !== (initialProduct?.category || '') ||
@@ -578,7 +733,15 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
             <div className="max-w-4xl mx-auto w-full flex items-center justify-between p-4 md:px-8">
               <div className="flex items-center gap-3">
                 <button onClick={onClose} className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"><X size={22} /></button>
-                <h1 className="text-base md:text-lg font-bold text-white">{initialProduct ? `Edit / ${initialProduct.id}` : 'Add Product'}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base md:text-lg font-bold text-white">{initialProduct ? `Edit / ${initialProduct.id}` : 'Add Product'}</h1>
+                  {code1688 && (
+                    <span className="text-[11px] font-semibold bg-[#ff6000]/15 text-[#ff8c42] border border-[#ff6000]/30 px-2 py-0.5 rounded-full flex items-center gap-1" title={link1688 ? `1688 Offer: ${link1688}` : undefined}>
+                      <span>1688</span>
+                      <span className="font-mono text-[10px] text-gray-400">#{code1688}</span>
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2 items-center">
                 {/* Manual Visibility Toggle */}
@@ -846,7 +1009,7 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                     <label className="relative aspect-square border-2 border-dashed border-[var(--dash-border)] rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--dash-card)] transition-colors text-gray-400 hover:text-[#fafafa] hover:border-[#fafafa]">
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
                       <Plus size={24} />
-                      <span className="text-[10px] mt-1 text-center px-1">Upload</span>
+                      <span className="text-[10px] mt-1 text-center px-1">Upload / Ctrl+V</span>
                     </label>
                   </div>
                 </SortableContext>

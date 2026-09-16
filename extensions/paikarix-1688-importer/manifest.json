@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "PaikariX 1688 Importer",
+  "version": "1.0.0",
+  "description": "Effortlessly import 1688 wholesale products, master images, color variants, and RMB prices directly into PaikariX Dashboard.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://detail.1688.com/*",
+    "*://*.1688.com/offer/*",
+    "*://m.1688.com/offer/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*.pages.dev/*",
+    "https://*.paikarix.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://detail.1688.com/offer/*.html*",
+        "*://*.1688.com/offer/*.html*",
+        "*://m.1688.com/offer/*.html*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*.pages.dev/*",
+        "https://*.paikarix.com/*"
+      ],
+      "js": ["dashboard-bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "page-extractor.js",
+        "icons/*"
+      ],
+      "matches": [
+        "*://detail.1688.com/*",
+        "*://*.1688.com/*",
+        "*://m.1688.com/*"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PaikariX 1688 Importer",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
