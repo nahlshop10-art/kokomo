@@ -14,19 +14,7 @@
 
   let pageContextData = null;
 
-  // 1. Inject page-extractor.js into page context to access window.__INIT_DATA
-  try {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('page-extractor.js');
-    script.onload = function () {
-      this.remove();
-    };
-    (document.head || document.documentElement).appendChild(script);
-  } catch (e) {
-    console.warn('[PaikariX 1688] Page extractor injection note:', e);
-  }
-
-  // Listen for data from page-extractor.js
+  // 1. Listen for data from page-extractor.js (via window message and DOM event)
   window.addEventListener('message', function (event) {
     if (event.data) {
       if (event.data.type === 'PAIKARIX_PAGE_EXTRACTOR_READY' || event.data.type === 'PAIKARIX_RESPONSE_PAGE_DATA') {
@@ -38,12 +26,45 @@
     }
   });
 
-  // Request page data
   function requestPageContextData() {
     window.postMessage({ type: 'PAIKARIX_REQUEST_PAGE_DATA' }, '*');
   }
   requestPageContextData();
-  setTimeout(requestPageContextData, 1000);
+  setTimeout(requestPageContextData, 500);
+  setTimeout(requestPageContextData, 1500);
+
+  // Fallback dynamic injection of page-extractor.js if not already injected by manifest
+  try {
+    if (!document.getElementById('__paikarix_1688_extractor_script__')) {
+      const script = document.createElement('script');
+      script.id = '__paikarix_1688_extractor_script__';
+      script.src = chrome.runtime.getURL('page-extractor.js');
+      script.onload = function () {
+        this.remove();
+      };
+      (document.head || document.documentElement).appendChild(script);
+    }
+  } catch (e) {
+    console.warn('[PaikariX 1688] Page extractor injection note:', e);
+  }
+
+  // Synchronous + Asynchronous page data retrieval
+  function getPageContextData() {
+    // 1. Try reading directly from DOM bridge element written by page-extractor.js in main world
+    try {
+      const el = document.getElementById('__paikarix_1688_data__');
+      if (el && el.textContent) {
+        const parsed = JSON.parse(el.textContent);
+        if (parsed) return parsed;
+      }
+    } catch (e) {}
+
+    // 2. In-memory pageContextData received via postMessage
+    if (pageContextData) return pageContextData;
+
+    // 3. Fallback extraction from in-DOM script tags
+    return extractScriptTagData();
+  }
 
   // 2. High-resolution Alibaba CDN Image Cleaner
   // Strips thumbnail suffixes like _300x300.jpg, _.webp, _sum.jpg, .search.jpg, etc., to fetch 1200x1200 master pictures
@@ -146,20 +167,37 @@
 
   // 5. Main Extraction Routine
   function extract1688Product() {
-    const data = pageContextData || extractScriptTagData();
+    const contextObj = getPageContextData() || {};
     const offerId = extractOfferId();
     const link1688 = offerId ? `https://detail.1688.com/offer/${offerId}.html` : window.location.href.split('?')[0];
 
+    // Unpack modern 1688 window.context or legacy data
+    const moduleData = contextObj.data || contextObj;
+    let rootData = contextObj.rootData || null;
+    if (!rootData && moduleData?.Root?.fields?.dataJson) {
+      try {
+        rootData = typeof moduleData.Root.fields.dataJson === 'string'
+          ? JSON.parse(moduleData.Root.fields.dataJson)
+          : moduleData.Root.fields.dataJson;
+      } catch (e) {}
+    }
+
     // --- A. TITLE ---
     let title = '';
-    if (data?.data?.offerDomain?.subject) {
-      title = data.data.offerDomain.subject;
-    } else if (data?.globalData?.tempModel?.offerTitle) {
-      title = data.globalData.tempModel.offerTitle;
-    } else if (data?.tempModel?.offerTitle) {
-      title = data.tempModel.offerTitle;
-    } else if (data?.data?.subject) {
-      title = data.data.subject;
+    if (moduleData?.productTitle?.fields?.title) {
+      title = moduleData.productTitle.fields.title;
+    } else if (moduleData?.gallery?.fields?.subject) {
+      title = moduleData.gallery.fields.subject;
+    } else if (rootData?.offerBaseInfo?.subject) {
+      title = rootData.offerBaseInfo.subject;
+    } else if (contextObj?.data?.offerDomain?.subject) {
+      title = contextObj.data.offerDomain.subject;
+    } else if (contextObj?.globalData?.tempModel?.offerTitle) {
+      title = contextObj.globalData.tempModel.offerTitle;
+    } else if (contextObj?.tempModel?.offerTitle) {
+      title = contextObj.tempModel.offerTitle;
+    } else if (contextObj?.data?.subject) {
+      title = contextObj.data.subject;
     }
 
     if (!title) {
@@ -196,30 +234,61 @@
     title = title.trim();
 
     // --- B. WHOLESALE RMB PRICE (autoPrice) ---
-    let rawRmb = '';
-    
-    // Check ladder price in data
-    const ladderPrices = data?.data?.offerDomain?.ladderPrice || data?.data?.ladderPrice;
-    if (Array.isArray(ladderPrices) && ladderPrices.length > 0 && ladderPrices[0].price) {
-      rawRmb = String(ladderPrices[0].price);
+    let autoPrice = undefined;
+
+    // 1. From modern window.context originalPricesWithoutPromotion
+    const origPrices = moduleData?.mainPrice?.fields?.originalPricesWithoutPromotion;
+    if (Array.isArray(origPrices) && origPrices.length > 0 && origPrices[0].price) {
+      const p = parseFloat(origPrices[0].price);
+      if (!isNaN(p) && p > 0) autoPrice = p;
     }
 
-    // Check tempModel price
-    if (!rawRmb && data?.globalData?.tempModel?.price) {
-      rawRmb = String(data.globalData.tempModel.price);
+    // 2. From skuParam range prices or skuPriceScale
+    if (autoPrice === undefined) {
+      const rangePrices = rootData?.orderParamModel?.orderParam?.skuParam?.skuRangePrices;
+      if (Array.isArray(rangePrices) && rangePrices.length > 0 && rangePrices[0].price) {
+        const p = parseFloat(rangePrices[0].price);
+        if (!isNaN(p) && p > 0) autoPrice = p;
+      }
     }
-    if (!rawRmb && data?.tempModel?.price) {
-      rawRmb = String(data.tempModel.price);
-    }
-    if (!rawRmb && data?.data?.offerDomain?.skuModel?.priceRange) {
-      rawRmb = String(data.data.offerDomain.skuModel.priceRange);
-    }
-    if (!rawRmb && data?.data?.offerDomain?.priceDisplayModel?.price) {
-      rawRmb = String(data.data.offerDomain.priceDisplayModel.price);
+    if (autoPrice === undefined && rootData?.skuModel?.skuPriceScale) {
+      const p = parseFloat(rootData.skuModel.skuPriceScale);
+      if (!isNaN(p) && p > 0) autoPrice = p;
     }
 
-    // Check DOM prices (including modern 1688 selectors and stripping whitespace)
-    if (!rawRmb) {
+    // 3. From mainPrice priceModel
+    if (autoPrice === undefined && moduleData?.mainPrice?.fields?.priceModel?.price) {
+      const p = parseFloat(moduleData.mainPrice.fields.priceModel.price);
+      if (!isNaN(p) && p > 0) autoPrice = p;
+    }
+    if (autoPrice === undefined && moduleData?.mainPrice?.fields?.finalPriceModel?.price) {
+      const p = parseFloat(moduleData.mainPrice.fields.finalPriceModel.price);
+      if (!isNaN(p) && p > 0) autoPrice = p;
+    }
+
+    // 4. From legacy ladderPrice or tempModel
+    if (autoPrice === undefined) {
+      const ladderPrices = contextObj?.data?.offerDomain?.ladderPrice || contextObj?.data?.ladderPrice;
+      if (Array.isArray(ladderPrices) && ladderPrices.length > 0 && ladderPrices[0].price) {
+        const p = parseFloat(ladderPrices[0].price);
+        if (!isNaN(p) && p > 0) autoPrice = p;
+      }
+    }
+    if (autoPrice === undefined && contextObj?.globalData?.tempModel?.price) {
+      const p = parseFloat(contextObj.globalData.tempModel.price);
+      if (!isNaN(p) && p > 0) autoPrice = p;
+    }
+    if (autoPrice === undefined && contextObj?.tempModel?.price) {
+      const p = parseFloat(contextObj.tempModel.price);
+      if (!isNaN(p) && p > 0) autoPrice = p;
+    }
+    if (autoPrice === undefined && contextObj?.data?.offerDomain?.skuModel?.priceRange) {
+      const p = parseFloat(contextObj.data.offerDomain.skuModel.priceRange);
+      if (!isNaN(p) && p > 0) autoPrice = p;
+    }
+
+    // 5. From DOM prices (with whitespace compaction and range handling)
+    if (autoPrice === undefined) {
       const priceSelectors = [
         '.price-info',
         '.price-comp',
@@ -241,33 +310,40 @@
         const els = Array.from(document.querySelectorAll(sel));
         for (const el of els) {
           const compacted = (el.innerText || el.textContent || '').replace(/\s+/g, '');
-          const match = compacted.match(/(?:¥|￥)?([0-9]+(?:\.[0-9]+)?)/);
-          if (match && parseFloat(match[1]) > 0) {
-            rawRmb = match[1];
+          const matches = compacted.matchAll(/(?:¥|￥)?([0-9]+(?:\.[0-9]+)?)/g);
+          const foundNums = [];
+          for (const m of matches) {
+            const num = parseFloat(m[1]);
+            if (!isNaN(num) && num > 0) foundNums.push(num);
+          }
+          if (foundNums.length > 0) {
+            autoPrice = Math.min(...foundNums);
             break;
           }
         }
-        if (rawRmb) break;
-      }
-    }
-
-    let autoPrice = undefined;
-    if (rawRmb) {
-      const cleanMatch = String(rawRmb).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
-      if (cleanMatch) {
-        const val = parseFloat(cleanMatch[0]);
-        if (!isNaN(val) && val > 0) autoPrice = val;
+        if (autoPrice !== undefined) break;
       }
     }
 
     // --- C. MASTER GALLERY IMAGES (1200x1200) ---
     const imageSet = new Set();
 
-    // From Data
-    const dataImages = data?.data?.offerDomain?.image?.images || 
-      data?.data?.offerImgList ||
-      data?.globalData?.tempModel?.offerImgList || 
-      data?.tempModel?.offerImgList || 
+    // From modern gallery.fields
+    const contextGallery = moduleData?.gallery?.fields?.offerImgList || moduleData?.gallery?.fields?.mainImage;
+    if (Array.isArray(contextGallery)) {
+      contextGallery.forEach(img => {
+        if (isProductPhoto(img)) {
+          const clean = cleanAlibabaImageUrl(img);
+          if (clean) imageSet.add(clean);
+        }
+      });
+    }
+
+    // From legacy Data
+    const dataImages = contextObj?.data?.offerDomain?.image?.images || 
+      contextObj?.data?.offerImgList ||
+      contextObj?.globalData?.tempModel?.offerImgList || 
+      contextObj?.tempModel?.offerImgList || 
       [];
     if (Array.isArray(dataImages)) {
       dataImages.forEach(img => {
@@ -301,62 +377,127 @@
       });
     }
 
-    // --- D. COLOR VARIANTS & PHOTOS ---
+    // --- D. COLOR & SIZE VARIANTS & PHOTOS ---
     const options = [];
     const variants = [];
-    const colorItems = [];
 
-    // Check SKU props in Data
-    const skuProps = data?.data?.offerDomain?.skuModel?.skuProps || 
-      data?.globalData?.tempModel?.skuProps || 
-      data?.skuProps || 
+    // Check SKU props in modern rootData or legacy contextObj
+    const skuProps = rootData?.skuModel?.skuProps ||
+      moduleData?.skuModel?.skuProps ||
+      contextObj?.data?.offerDomain?.skuModel?.skuProps || 
+      contextObj?.globalData?.tempModel?.skuProps || 
+      contextObj?.skuProps || 
       [];
     
-    // Check skuInfoMap for SKU-specific prices
-    const skuInfoMap = data?.data?.offerDomain?.skuModel?.skuInfoMap || 
-      data?.skuModel?.skuInfoMap || 
-      data?.globalData?.tempModel?.skuInfoMap || 
+    // Check skuInfoMap for variant-specific prices & stock
+    const skuInfoMap = rootData?.skuModel?.skuInfoMap ||
+      moduleData?.skuModel?.skuInfoMap ||
+      contextObj?.data?.offerDomain?.skuModel?.skuInfoMap || 
+      contextObj?.skuModel?.skuInfoMap || 
+      contextObj?.globalData?.tempModel?.skuInfoMap || 
       null;
 
-    let optionGroupName = 'color';
-
     if (Array.isArray(skuProps) && skuProps.length > 0) {
-      const colorProp = skuProps.find(p => /颜色|款式|规格|花色|color|size|style/i.test(p.prop || p.name || '')) || skuProps[0];
-      if (colorProp) {
-        const pName = colorProp.prop || colorProp.name || '';
-        optionGroupName = /颜色|color/i.test(pName) ? 'color' :
-                          /规格|size/i.test(pName) ? 'size' :
-                          /款式|style/i.test(pName) ? 'style' : (pName || 'color');
-      }
-      if (colorProp && Array.isArray(colorProp.value)) {
-        colorProp.value.forEach(item => {
-          let name = (item.name || item.propValue || '').trim();
-          name = name.split(/[\r\n¥￥]/)[0].trim();
+      // Build options list
+      skuProps.forEach((prop, idx) => {
+        const pName = (prop.prop || prop.name || `Option ${idx + 1}`).trim();
+        const optId = 'opt_' + pName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const vals = (prop.value || [])
+          .map(v => (v.name || v.propValue || '').split(/[\r\n¥￥]/)[0].trim())
+          .filter(Boolean);
+        if (vals.length > 0) {
+          options.push({
+            id: optId,
+            name: pName,
+            values: vals
+          });
+        }
+      });
+
+      // Build variants list
+      if (skuProps.length === 1 && options.length === 1) {
+        const prop = skuProps[0];
+        const optId = options[0].id;
+        (prop.value || []).forEach(item => {
+          const name = (item.name || item.propValue || '').split(/[\r\n¥￥]/)[0].trim();
+          if (!name) return;
           const imgUrl = cleanAlibabaImageUrl(item.imageUrl || item.image || '');
+          if (imgUrl) imageSet.add(imgUrl);
+
+          const skuEntry = skuInfoMap ? (
+            skuInfoMap[name] ||
+            skuInfoMap[item.specId] ||
+            skuInfoMap[item.skuId] ||
+            Object.values(skuInfoMap).find(s => s.specAttrs === name || s.specId === item.specId)
+          ) : null;
 
           let vPrice = undefined;
-          if (item.price) {
-            const vClean = String(item.price).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
-            if (vClean) vPrice = parseFloat(vClean[0]);
-          } else if (skuInfoMap) {
-            const skuObj = skuInfoMap[item.specId] || skuInfoMap[item.skuId] || skuInfoMap[name];
-            if (skuObj && skuObj.price) {
-              const vClean = String(skuObj.price).replace(/[^\d.]/g, '').match(/\d+(?:\.\d+)?/);
-              if (vClean) vPrice = parseFloat(vClean[0]);
-            }
+          if (skuEntry?.price) {
+            vPrice = parseFloat(skuEntry.price);
+          } else if (skuEntry?.discountPrice) {
+            vPrice = parseFloat(skuEntry.discountPrice);
+          } else if (item.price) {
+            vPrice = parseFloat(item.price);
           }
 
-          if (name) {
-            colorItems.push({ name, image: imgUrl, price: vPrice });
-          }
+          const resolvedPrice = (vPrice !== undefined && !isNaN(vPrice)) ? vPrice : autoPrice;
+          const stock = skuEntry?.canBookCount !== undefined ? skuEntry.canBookCount : 100;
+
+          variants.push({
+            id: item.skuId ? String(item.skuId) : Math.random().toString(36).substring(2, 11),
+            options: { [optId]: name },
+            image: imgUrl || '',
+            autoPrice: resolvedPrice !== undefined ? String(resolvedPrice) : undefined,
+            stock: stock,
+            isVisible: true
+          });
         });
+      } else if (skuProps.length > 1 && options.length > 1 && skuInfoMap) {
+        // Multi-dimensional variants (e.g. Color and Size)
+        for (const [key, skuEntry] of Object.entries(skuInfoMap)) {
+          const specAttrs = (skuEntry.specAttrs || key).trim();
+          const parts = specAttrs.split(/[>&,]/).map(s => s.trim());
+          const variantOptions = {};
+          options.forEach((opt, oIdx) => {
+            if (parts[oIdx]) {
+              variantOptions[opt.id] = parts[oIdx];
+            }
+          });
+
+          // Match image from first prop if available
+          let imgUrl = '';
+          const matchingVal = skuProps[0]?.value?.find(v => (v.name || '').trim() === parts[0]);
+          if (matchingVal?.imageUrl) {
+            imgUrl = cleanAlibabaImageUrl(matchingVal.imageUrl);
+            if (imgUrl) imageSet.add(imgUrl);
+          }
+
+          let vPrice = undefined;
+          if (skuEntry.price) vPrice = parseFloat(skuEntry.price);
+          else if (skuEntry.discountPrice) vPrice = parseFloat(skuEntry.discountPrice);
+
+          const resolvedPrice = (vPrice !== undefined && !isNaN(vPrice)) ? vPrice : autoPrice;
+          const stock = skuEntry.canBookCount !== undefined ? skuEntry.canBookCount : 100;
+
+          variants.push({
+            id: skuEntry.skuId ? String(skuEntry.skuId) : Math.random().toString(36).substring(2, 11),
+            options: variantOptions,
+            image: imgUrl || '',
+            autoPrice: resolvedPrice !== undefined ? String(resolvedPrice) : undefined,
+            stock: stock,
+            isVisible: true
+          });
+        }
       }
     }
 
-    // Modern 1688 DOM structure (.module-od-sku-selection, .expand-view-item)
-    if (colorItems.length === 0) {
+    // Modern 1688 DOM fallback for variants (.module-od-sku-selection)
+    if (variants.length === 0) {
       const skuContainers = document.querySelectorAll('.module-od-sku-selection .feature-item, [class*="sku-selection"] .feature-item, .feature-item');
       if (skuContainers.length > 0) {
+        const domColorItems = [];
+        let optionGroupName = 'color';
+
         skuContainers.forEach(container => {
           const groupHeader = container.querySelector('.feature-item-label, h3, [class*="feature-item-label"]');
           if (groupHeader) {
@@ -381,6 +522,7 @@
             if (imgEl) {
               const raw = imgEl.src || imgEl.getAttribute('data-src') || '';
               imgUrl = cleanAlibabaImageUrl(raw);
+              if (imgUrl) imageSet.add(imgUrl);
             }
 
             let vPrice = undefined;
@@ -393,17 +535,38 @@
               }
             }
 
-            if (name && !colorItems.some(c => c.name === name)) {
-              colorItems.push({ name, image: imgUrl, price: vPrice });
+            if (name && !domColorItems.some(c => c.name === name)) {
+              domColorItems.push({ name, image: imgUrl, price: vPrice });
             }
           });
         });
+
+        if (domColorItems.length > 0) {
+          const optId = 'opt_' + (optionGroupName || 'color');
+          options.push({
+            id: optId,
+            name: optionGroupName || 'color',
+            values: domColorItems.map(c => c.name)
+          });
+          domColorItems.forEach(c => {
+            const itemPrice = c.price !== undefined ? c.price : autoPrice;
+            variants.push({
+              id: Math.random().toString(36).substring(2, 11),
+              options: { [optId]: c.name },
+              image: c.image || '',
+              autoPrice: itemPrice !== undefined ? String(itemPrice) : undefined,
+              stock: 100,
+              isVisible: true
+            });
+          });
+        }
       }
     }
 
-    // Classic DOM fallback
-    if (colorItems.length === 0) {
+    // Classic DOM fallback for variants
+    if (variants.length === 0) {
       const skuElements = document.querySelectorAll('.sku-item, .prop-item, .od-pc-attribute-item, .list-leading-item, .sku-prop-list li');
+      const domItems = [];
       skuElements.forEach(el => {
         let name = el.getAttribute('title') || 
           el.querySelector('.name, .title, .prop-name, [class*="sku-name"], [class*="prop-name"]')?.innerText || 
@@ -414,66 +577,63 @@
         const img = el.querySelector('img');
         if (img) {
           imgUrl = cleanAlibabaImageUrl(img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '');
-        } else {
-          const bg = el.getAttribute('style') || '';
-          const bgMatch = bg.match(/url\(["']?([^"']+)["']?\)/);
-          if (bgMatch) {
-            imgUrl = cleanAlibabaImageUrl(bgMatch[1]);
-          }
+          if (imgUrl) imageSet.add(imgUrl);
         }
 
-        if (name && !colorItems.some(c => c.name === name)) {
-          colorItems.push({ name, image: imgUrl, price: undefined });
+        if (name && !domItems.some(c => c.name === name)) {
+          domItems.push({ name, image: imgUrl });
         }
       });
+
+      if (domItems.length > 0) {
+        options.push({
+          id: 'opt_color',
+          name: 'color',
+          values: domItems.map(c => c.name)
+        });
+        domItems.forEach(c => {
+          variants.push({
+            id: Math.random().toString(36).substring(2, 11),
+            options: { opt_color: c.name },
+            image: c.image || '',
+            autoPrice: autoPrice !== undefined ? String(autoPrice) : undefined,
+            stock: 100,
+            isVisible: true
+          });
+        });
+      }
     }
 
     // If autoPrice was not found from main price elements, use the first variant's price!
-    if (autoPrice === undefined && colorItems.length > 0 && colorItems[0].price !== undefined) {
-      autoPrice = colorItems[0].price;
+    if (autoPrice === undefined && variants.length > 0 && variants[0].autoPrice !== undefined) {
+      autoPrice = parseFloat(variants[0].autoPrice);
     }
-
-    // Add variant photos to gallery
-    colorItems.forEach(c => {
-      if (c.image) {
-        imageSet.add(c.image);
-      }
-    });
 
     const images = Array.from(imageSet);
 
-    // Populate options and variants
-    if (colorItems.length > 0) {
-      const optionId = 'opt_' + (optionGroupName || 'color');
-      options.push({
-        id: optionId,
-        name: optionGroupName || 'color',
-        values: colorItems.map(c => c.name)
-      });
-
-      colorItems.forEach(c => {
-        const itemAutoPrice = c.price !== undefined ? c.price : autoPrice;
-        variants.push({
-          id: Math.random().toString(36).substring(2, 11),
-          options: { [optionId]: c.name },
-          image: c.image || images[0] || '',
-          autoPrice: itemAutoPrice !== undefined ? String(itemAutoPrice) : undefined,
-          stock: 100,
-          isVisible: true
-        });
-      });
-    }
+    // Ensure all variants have a fallback display image if empty
+    variants.forEach(v => {
+      if (!v.image && images.length > 0) {
+        v.image = images[0];
+      }
+    });
 
     // --- E. SUPPLIER / COMPANY INFO ---
     let supplier = '';
-    if (data?.data?.offerDomain?.seller?.companyName) {
-      supplier = data.data.offerDomain.seller.companyName;
-    } else if (data?.globalData?.companyName) {
-      supplier = data.globalData.companyName;
-    } else if (data?.data?.company?.name) {
-      supplier = data.data.company.name;
-    } else if (data?.tempModel?.seller?.companyName) {
-      supplier = data.tempModel.seller.companyName;
+    if (moduleData?.productTitle?.fields?.shopInfo?.companyName) {
+      supplier = moduleData.productTitle.fields.shopInfo.companyName;
+    } else if (moduleData?.productTitle?.fields?.shopInfo?.authCompanyName) {
+      supplier = moduleData.productTitle.fields.shopInfo.authCompanyName;
+    } else if (rootData?.offerBaseInfo?.sellerLoginId) {
+      supplier = rootData.offerBaseInfo.sellerLoginId;
+    } else if (contextObj?.data?.offerDomain?.seller?.companyName) {
+      supplier = contextObj.data.offerDomain.seller.companyName;
+    } else if (contextObj?.globalData?.companyName) {
+      supplier = contextObj.globalData.companyName;
+    } else if (contextObj?.data?.company?.name) {
+      supplier = contextObj.data.company.name;
+    } else if (contextObj?.tempModel?.seller?.companyName) {
+      supplier = contextObj.tempModel.seller.companyName;
     }
     if (!supplier) {
       const compSelectors = [
@@ -499,11 +659,14 @@
 
     // --- F. DESCRIPTION / SPECIFICATIONS ---
     let description = '';
-    const attrs = data?.data?.offerDomain?.attributes || data?.globalData?.attributes || [];
-    if (Array.isArray(attrs) && attrs.length > 0) {
-      const attrLines = attrs
-        .filter(a => (a.attributeName || a.name) && (a.value || a.attributeValue))
-        .map(a => `${a.attributeName || a.name}: ${a.value || a.attributeValue}`)
+    const attrList = moduleData?.productAttributes?.fields?.attributeList ||
+      contextObj?.data?.offerDomain?.attributes ||
+      contextObj?.globalData?.attributes ||
+      [];
+    if (Array.isArray(attrList) && attrList.length > 0) {
+      const attrLines = attrList
+        .filter(a => (a.name || a.attributeName) && (a.value || a.attributeValue))
+        .map(a => `${a.name || a.attributeName}: ${a.value || a.attributeValue}`)
         .slice(0, 15);
       if (attrLines.length > 0) {
         description = attrLines.join('\n');

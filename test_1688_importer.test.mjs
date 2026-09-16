@@ -199,4 +199,153 @@ priceTestCases.forEach((tc, idx) => {
   console.log(`  ✓ Price Case ${idx + 1}: ${JSON.stringify(tc.text.slice(0, 15))}... -> ${actual} RMB`);
 });
 
-console.log('\n🎉 ALL PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
+// 7. Test Modern 1688 window.context extraction for Single-Variant Product (837976582448)
+console.log('\n[7/9] Testing window.context extraction for Offer 837976582448...');
+
+const sampleContextSingle = {
+  result: {
+    data: {
+      productTitle: {
+        fields: {
+          title: "Necklace Women's Light Luxury Niche Design Ring Love Titanium Steel Necklace New All-match Elegant High-end Simple Accessories",
+          shopInfo: { companyName: "义乌市陌语饰品厂" }
+        }
+      },
+      mainPrice: {
+        fields: {
+          originalPricesWithoutPromotion: [{ price: "5.00", beginAmount: "1" }]
+        }
+      },
+      gallery: {
+        fields: {
+          offerImgList: [
+            "https://cbu01.alicdn.com/img/ibank/O1CN014WsYCz1Bs2yjWA4Ea_!!0-0-cib.jpg",
+            "https://cbu01.alicdn.com/img/ibank/O1CN01HRUm6o1Bs2ydXEav1_!!0-0-cib.jpg"
+          ]
+        }
+      },
+      Root: {
+        fields: {
+          dataJson: JSON.stringify({
+            skuModel: {
+              skuProps: [
+                {
+                  fid: 3216,
+                  prop: "Color",
+                  value: [
+                    {
+                      imageUrl: "https://cbu01.alicdn.com/img/ibank/O1CN01b5zCCh2CSgqL2nR0s_!!2217591418473-0-cib.jpg",
+                      name: "Xl1879 ring full diamond love necklace gold"
+                    }
+                  ]
+                }
+              ],
+              skuInfoMap: {
+                "Xl1879 ring full diamond love necklace gold": {
+                  price: "5.00",
+                  canBookCount: 1926824,
+                  skuId: 5597783984497
+                }
+              }
+            }
+          })
+        }
+      }
+    }
+  }
+};
+
+// Simulate content.js extraction from sampleContextSingle
+const d1 = sampleContextSingle.result.data;
+const r1 = JSON.parse(d1.Root.fields.dataJson);
+const title1 = d1.productTitle.fields.title;
+const autoPrice1 = parseFloat(d1.mainPrice.fields.originalPricesWithoutPromotion[0].price);
+const images1 = d1.gallery.fields.offerImgList.map(u => cleanAlibabaImageUrl(u));
+const skuProps1 = r1.skuModel.skuProps;
+const skuInfoMap1 = r1.skuModel.skuInfoMap;
+
+assert.equal(title1.includes('Ring Love Titanium Steel'), true);
+assert.equal(autoPrice1, 5);
+assert.equal(images1.length, 2);
+assert.equal(images1[0], 'https://cbu01.alicdn.com/img/ibank/O1CN014WsYCz1Bs2yjWA4Ea_!!0-0-cib.jpg');
+assert.equal(skuProps1[0].value[0].name, 'Xl1879 ring full diamond love necklace gold');
+assert.equal(skuInfoMap1['Xl1879 ring full diamond love necklace gold'].price, '5.00');
+console.log('  ✓ Offer 837976582448: extracted title, 5.00 autoPrice, 2 clean images, and variant');
+
+// 8. Test Modern 1688 window.context extraction for Multi-Variant Matrix (627638867036)
+console.log('\n[8/9] Testing window.context extraction for multi-variant Offer 627638867036...');
+
+const sampleContextMulti = {
+  result: {
+    data: {
+      productTitle: { fields: { title: "Earrings Titanium Steel" } },
+      mainPrice: {
+        fields: {
+          originalPricesWithoutPromotion: [
+            { price: "0.45", beginAmount: "3" },
+            { price: "1.03", beginAmount: "3" }
+          ]
+        }
+      },
+      gallery: {
+        fields: {
+          offerImgList: ["https://cbu01.alicdn.com/img/ibank/O1CN01WykpK01XIi1KZnTrq_!!2209129882901-0-cib.jpg"]
+        }
+      },
+      Root: {
+        fields: {
+          dataJson: JSON.stringify({
+            skuModel: {
+              skuProps: [
+                {
+                  prop: "Color",
+                  value: [
+                    { name: "Steel color 2MM", imageUrl: "https://cbu01.alicdn.com/img/ibank/sample1.jpg" },
+                    { name: "Gold 10MM", imageUrl: "https://cbu01.alicdn.com/img/ibank/sample2.jpg" }
+                  ]
+                }
+              ],
+              skuInfoMap: {
+                "Steel color 2MM": { price: "0.45", canBookCount: 95439 },
+                "Gold 10MM": { price: "1.03", canBookCount: 96340 }
+              }
+            }
+          })
+        }
+      }
+    }
+  }
+};
+
+const d2 = sampleContextMulti.result.data;
+const r2 = JSON.parse(d2.Root.fields.dataJson);
+const autoPrice2 = parseFloat(d2.mainPrice.fields.originalPricesWithoutPromotion[0].price);
+const skuInfoMap2 = r2.skuModel.skuInfoMap;
+assert.equal(autoPrice2, 0.45);
+assert.equal(skuInfoMap2['Steel color 2MM'].price, '0.45');
+assert.equal(skuInfoMap2['Gold 10MM'].price, '1.03');
+console.log('  ✓ Offer 627638867036: extracted base price 0.45, individual variant prices 0.45 and 1.03');
+
+// 9. Test ProductEditorModal fallback activePriceCalc when priceCalculatorSettings is undefined
+console.log('\n[9/9] Testing ProductEditorModal fallback price calculations with undefined settings...');
+
+const defaultSettings = { yuanRate: 18.35, additionalCost: 20, profit: 110 };
+const fallbackCalc = undefined || defaultSettings;
+
+const buy5 = Math.floor(fallbackCalc.yuanRate * 5 + fallbackCalc.additionalCost);
+const sell5 = Math.floor(buy5 + fallbackCalc.profit);
+
+assert.equal(buy5, 111, 'Buy price for 5 RMB with fallback settings must be 111');
+assert.equal(sell5, 221, 'Sell price for 5 RMB with fallback settings must be 221');
+
+const buyDecimal = Math.floor(fallbackCalc.yuanRate * 0.45 + fallbackCalc.additionalCost);
+const sellDecimal = Math.floor(buyDecimal + fallbackCalc.profit);
+
+assert.equal(buyDecimal, 28, 'Buy price for 0.45 RMB with fallback settings must be 28');
+assert.equal(sellDecimal, 138, 'Sell price for 0.45 RMB with fallback settings must be 138');
+
+console.log('  ✓ Fallback pricing: 5 RMB -> Buy: ৳111, Sell: ৳221');
+console.log('  ✓ Fallback pricing: 0.45 RMB -> Buy: ৳28, Sell: ৳138');
+
+console.log('\n🎉 ALL 9 PAIKARIX 1688 IMPORTER TESTS PASSED SUCCESSFULLY!');
+

@@ -59,6 +59,7 @@ interface ProductEditorModalProps {
 export { clean1688Url };
 
 export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, initialProduct, importedData, categories, priceCalculatorSettings, products, suppliers = [], perms, inputBorderRadius }: ProductEditorModalProps) {
+  const activePriceCalc = priceCalculatorSettings || { yuanRate: 18.35, additionalCost: 20, profit: 110 };
   const inputBorderRadiusStyle = { borderRadius: inputBorderRadius || DEFAULT_ACTION_BUTTONS.checkout.borderRadius };
   const [productId, setProductId] = useState('');
   const [title, setTitle] = useState('');
@@ -119,11 +120,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
         let resolvedSellPrice = initialProduct.price?.toString() || '';
         const initAutoPrice = initialProduct.autoPrice?.toString() || '';
 
-        if (initAutoPrice && (!resolvedBuyPrice || !resolvedSellPrice) && priceCalculatorSettings) {
+        if (initAutoPrice && (!resolvedBuyPrice || !resolvedSellPrice)) {
           const numVal = Number(initAutoPrice);
           if (!isNaN(numVal)) {
-            const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-            const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+            const calculatedBuyPrice = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+            const calculatedSellPrice = Math.floor(calculatedBuyPrice + activePriceCalc.profit);
             if (!resolvedBuyPrice) resolvedBuyPrice = calculatedBuyPrice;
             if (!resolvedSellPrice) resolvedSellPrice = calculatedSellPrice.toString();
           }
@@ -144,11 +145,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
           let vBuy = v.buyPrice;
           let vSell = v.price;
           const vAuto = v.autoPrice || initAutoPrice;
-          if (vAuto && (!vBuy || !vSell) && priceCalculatorSettings) {
+          if (vAuto && (!vBuy || !vSell)) {
             const numVal = Number(vAuto);
             if (!isNaN(numVal)) {
-              const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-              const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+              const calculatedBuyPrice = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+              const calculatedSellPrice = Math.floor(calculatedBuyPrice + activePriceCalc.profit);
               if (!vBuy) vBuy = calculatedBuyPrice;
               if (!vSell) vSell = calculatedSellPrice;
             }
@@ -505,11 +506,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     const prevAutoPrice = autoPrice;
     setAutoPrice(val);
     
-    if (val && priceCalculatorSettings) {
+    if (val) {
       const numVal = Number(val);
       if (!isNaN(numVal)) {
-        const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-        const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+        const calculatedBuyPrice = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+        const calculatedSellPrice = Math.floor(calculatedBuyPrice + activePriceCalc.profit);
         
         setBuyPrice(calculatedBuyPrice.toString());
         setSellPrice(calculatedSellPrice.toString());
@@ -537,12 +538,8 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
     const numVal = Number(bulkVal);
     if (isNaN(numVal)) return;
 
-    let calcBuy: number | undefined;
-    let calcSell: number | undefined;
-    if (priceCalculatorSettings) {
-      calcBuy = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-      calcSell = Math.floor(calcBuy + priceCalculatorSettings.profit);
-    }
+    const calcBuy = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+    const calcSell = Math.floor(calcBuy + activePriceCalc.profit);
 
     setVariants(prev => prev.map(v => ({
       ...v,
@@ -1236,11 +1233,11 @@ export default function ProductEditorModal({ isOpen, onClose, onSave, onDelete, 
                                   const next = [...variants];
                                   let updatedVariant = { ...next[vIdx], autoPrice: val };
                                   
-                                  if (val && priceCalculatorSettings) {
+                                  if (val) {
                                     const numVal = Number(val);
                                     if (!isNaN(numVal)) {
-                                      const calculatedBuyPrice = Math.floor((priceCalculatorSettings.yuanRate * numVal) + priceCalculatorSettings.additionalCost);
-                                      const calculatedSellPrice = Math.floor(calculatedBuyPrice + priceCalculatorSettings.profit);
+                                      const calculatedBuyPrice = Math.floor((activePriceCalc.yuanRate * numVal) + activePriceCalc.additionalCost);
+                                      const calculatedSellPrice = Math.floor(calculatedBuyPrice + activePriceCalc.profit);
                                       updatedVariant.buyPrice = calculatedBuyPrice;
                                       updatedVariant.price = calculatedSellPrice;
                                     }

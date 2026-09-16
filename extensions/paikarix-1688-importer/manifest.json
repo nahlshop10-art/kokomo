@@ -29,6 +29,18 @@
         "*://detail.1688.com/page/index.html*",
         "*://*.1688.com/page/index.html*"
       ],
+      "js": ["page-extractor.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://detail.1688.com/offer/*.html*",
+        "*://*.1688.com/offer/*.html*",
+        "*://m.1688.com/offer/*.html*",
+        "*://detail.1688.com/page/index.html*",
+        "*://*.1688.com/page/index.html*"
+      ],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"

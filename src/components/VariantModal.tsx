@@ -93,7 +93,7 @@ export function VariantModal({ product, onClose, onAdd }: VariantModalProps) {
         <div className="p-5">
           <div className="flex gap-4 mb-6">
             <div className="w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 flex-shrink-0">
-              <img src={displayImage} alt={product.title} className="w-full h-full object-cover" />
+              <img src={displayImage} alt={product.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 flex flex-col justify-center">
               <h3 className="font-bold text-[var(--theme-black)] text-sm leading-tight mb-2 line-clamp-3">{product.title}</h3>

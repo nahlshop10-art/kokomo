@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, X } from 'lucide-react';
+import { GripVertical, X, ImageOff } from 'lucide-react';
 
 interface SortableImageProps {
   key?: React.Key;
@@ -14,6 +14,7 @@ interface SortableImageProps {
 }
 
 export function SortableImage({ id, img, index, meta, onRemove, onOptimize }: SortableImageProps) {
+  const [hasError, setHasError] = useState(false);
   const {
     attributes,
     listeners,
@@ -37,13 +38,21 @@ export function SortableImage({ id, img, index, meta, onRemove, onOptimize }: So
       {...listeners}
       className={`relative aspect-square bg-[var(--dash-card)] rounded-lg overflow-hidden border border-[var(--dash-border)] group ${isDragging ? 'opacity-50 ring-2 ring-[#fafafa]' : ''}`}
     >
-      <img
-        src={img}
-        alt=""
-        referrerPolicy="no-referrer"
-        className="w-full h-full object-cover cursor-pointer"
-        onClick={() => meta && !meta.isProcessing && onOptimize()}
-      />
+      {hasError ? (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-[var(--dash-card)] text-slate-500 gap-1 p-2 text-center select-none">
+          <ImageOff className="w-5 h-5 text-slate-500/50" />
+          <span className="text-[9px] uppercase tracking-wider text-slate-500/70">Failed</span>
+        </div>
+      ) : (
+        <img
+          src={img}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setHasError(true)}
+          className="w-full h-full object-cover cursor-pointer"
+          onClick={() => meta && !meta.isProcessing && onOptimize()}
+        />
+      )}
       <div 
         className="absolute inset-x-0 top-0 bottom-8 bg-[var(--dash-bg)]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-move touch-none pointer-events-none"
       >
