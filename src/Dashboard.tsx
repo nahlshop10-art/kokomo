@@ -5567,8 +5567,8 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentAdmin.passwordHash !== currentPassword) {
-      setPwdMsg({ type: 'error', text: 'Incorrect current password.' });
+    if (!currentPassword) {
+      setPwdMsg({ type: 'error', text: 'Current password is required.' });
       return;
     }
     if (newPassword.length < 4) {
@@ -5580,17 +5580,20 @@ function AccountManager({ adminUsers, setAdminUsers, currentAdmin, setCurrentAdm
       return;
     }
 
-    const updatedUsers = adminUsers.map(u => 
-      u.id === currentAdmin.id ? { ...u, passwordHash: newPassword } : u
-    );
-    setAdminUsers(updatedUsers);
-    setCurrentAdmin({ ...currentAdmin, passwordHash: newPassword });
-    await cloudStore.saveSetting('adminUsers', updatedUsers);
-    setPwdMsg({ type: 'success', text: 'Password updated successfully!' });
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPwdMsg({ type: '', text: '' }), 3000);
+    try {
+      const res = await cloudStore.changePassword(currentPassword, newPassword);
+      if (!res.success) {
+        setPwdMsg({ type: 'error', text: res.error || 'Incorrect current password.' });
+        return;
+      }
+      setPwdMsg({ type: 'success', text: 'Password updated successfully!' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPwdMsg({ type: '', text: '' }), 3000);
+    } catch (err: any) {
+      setPwdMsg({ type: 'error', text: err?.message || 'Failed to update password.' });
+    }
   };
 
   const handleApprove = async (id: string) => {

@@ -32,13 +32,49 @@ export async function onRequestGet(context: any) {
     const products = productsRes.results
       .map((r: any) => JSON.parse(r.data))
       .filter((p: any) => !p.isDeleted);
-    const adminUsers = settingsRes.results.length > 0 ? JSON.parse(settingsRes.results[0].value) : null;
+    let adminUsers = settingsRes.results.length > 0 ? JSON.parse(settingsRes.results[0].value) : null;
+    if (Array.isArray(adminUsers)) {
+      adminUsers = adminUsers.map((u: any) => {
+        const safe = { ...u };
+        delete safe.passwordHash;
+        return safe;
+      });
+    }
+
     const isOwner = Boolean(context.data?.isOwner);
     const customers = isOwner ? customersRes.results.map((r: any) => JSON.parse(r.data)) : [];
     
     const settings: Record<string, any> = {};
     for (const r of allSettingsRes.results) {
        settings[r.key] = JSON.parse(r.value);
+    }
+
+    // Never leak passwordHash in settings.adminUsers
+    if (settings.adminUsers && Array.isArray(settings.adminUsers)) {
+      settings.adminUsers = settings.adminUsers.map((u: any) => {
+        const safe = { ...u };
+        delete safe.passwordHash;
+        return safe;
+      });
+    }
+
+    // If caller is NOT an Owner, redact third-party secret tokens
+    if (!isOwner) {
+      if (settings.websiteSettings?.apiSync?.masterApiKey) {
+        settings.websiteSettings.apiSync.masterApiKey = '***REDACTED***';
+      }
+      if (settings.websiteSettings?.telegramNotification?.botToken) {
+        settings.websiteSettings.telegramNotification.botToken = '***REDACTED***';
+      }
+      if (settings.marketingSettings?.metaPixel?.accessToken) {
+        settings.marketingSettings.metaPixel.accessToken = '***REDACTED***';
+      }
+      if (settings.marketingSettings?.tiktokPixel?.accessToken) {
+        settings.marketingSettings.tiktokPixel.accessToken = '***REDACTED***';
+      }
+      if (settings.marketingSettings?.ga4?.apiSecret) {
+        settings.marketingSettings.ga4.apiSecret = '***REDACTED***';
+      }
     }
 
     let responseBody = JSON.stringify({

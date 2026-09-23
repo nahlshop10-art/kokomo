@@ -44,11 +44,17 @@ export async function onRequest(context: any) {
     const storeSettingsRes = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('websiteSettings').all();
     const storeSettings = storeSettingsRes.results.length > 0 ? JSON.parse(storeSettingsRes.results[0].value) : {};
 
+    const jwtSecret = env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('CRITICAL: JWT_SECRET environment variable is missing.');
+      return new Response(JSON.stringify({ error: 'Server authentication configuration error.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+
     // 1. Check if called by logged-in admin
     let isAdminAuth = false;
     if (adminToken) {
       try {
-        const secret = new TextEncoder().encode(env.JWT_SECRET || 'default_secret_change_in_production');
+        const secret = new TextEncoder().encode(jwtSecret);
         await jwtVerify(adminToken, secret);
         isAdminAuth = true;
       } catch (e) {}
@@ -71,14 +77,20 @@ export async function onRequest(context: any) {
     return new Response(JSON.stringify({ error: 'Unauthorized - Missing Token' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
 
+  const jwtSecret = env.JWT_SECRET;
+  if (!jwtSecret) {
+    console.error('CRITICAL: JWT_SECRET environment variable is missing.');
+    return new Response(JSON.stringify({ error: 'Server authentication configuration error.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+
   try {
-    const secret = new TextEncoder().encode(env.JWT_SECRET || 'default_secret_change_in_production');
+    const secret = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(adminToken, secret);
     
     // Check if the user is blocked or deleted in DB
     const settingsRes = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('adminUsers').all();
     const adminUsers = settingsRes.results.length > 0 ? JSON.parse(settingsRes.results[0].value) : [];
-    const user = adminUsers.find((u: any) => u.email === payload.email);
+    const user = adminUsers.find((u: any) => u.email && u.email.trim().toLowerCase() === String(payload.email || '').trim().toLowerCase());
     
     if (!user || user.isBlocked || !user.isApproved) {
         return new Response(JSON.stringify({ error: 'Unauthorized or blocked admin' }), { status: 401, headers: { 'Content-Type': 'application/json' } });

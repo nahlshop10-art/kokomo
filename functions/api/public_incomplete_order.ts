@@ -94,7 +94,7 @@ export async function onRequestPost(context: any) {
         updated_at = CURRENT_TIMESTAMP
     `).bind(orderId, JSON.stringify(mergedOrder)).run();
 
-    return Response.json({ success: true, order: mergedOrder });
+    return Response.json({ success: true, id: orderId });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }

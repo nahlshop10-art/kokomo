@@ -122,6 +122,9 @@ export async function onRequestPost(context: any) {
     }
 
     if (action === 'sync_all') {
+      if (!context.data?.isOwner) {
+        return new Response(JSON.stringify({ error: 'Forbidden: Only the Owner account can perform bulk sync of orders.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
       await env.DB.prepare('DELETE FROM orders WHERE type = ?').bind(type).run();
       const stmts = items.map((o: any) => 
         env.DB.prepare('INSERT INTO orders (id, type, data) VALUES (?, ?, ?)').bind(o.id, type, JSON.stringify(o))

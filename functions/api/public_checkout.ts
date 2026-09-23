@@ -39,7 +39,7 @@ export async function onRequestPost(context: any) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400 });
     }
 
-    // 1. Generate secure sequential Order ID
+    // 1. Generate secure sequential Order ID and unguessable viewToken
     const maxRes = await env.DB.prepare("SELECT MAX(cast(id as integer)) as maxId FROM orders WHERE type = 'standard'").first();
     let nextId = Math.floor(100 + Math.random() * 900).toString();
     if (maxRes && maxRes.maxId) {
@@ -47,32 +47,18 @@ export async function onRequestPost(context: any) {
     }
     
     order.id = nextId;
+    order.viewToken = crypto.randomUUID();
 
     // Sanitize order items to prevent payload bloat while keeping all receipt details
     order.items = order.items.map(sanitizeOrderItem);
 
-    const stmts: any[] = [];
-    
-    // 2. Insert Order
-    stmts.push(
-      env.DB.prepare('INSERT INTO orders (id, type, data) VALUES (?, ?, ?)')
-      .bind(order.id, 'standard', JSON.stringify(order))
-    );
-
-    // 3. Upsert Customer
-    if (customer && customer.id) {
-      stmts.push(
-        env.DB.prepare('INSERT INTO customers (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = CURRENT_TIMESTAMP')
-        .bind(customer.id, JSON.stringify(customer))
-      );
-    }
-
-    // 4. Deduct Stock securely from DB products in safe batches
+    // 2. Fetch products from D1 to validate both stock and prices server-side
     const productIds = Array.from(new Set(order.items.map((i: any) => String(i.product?.id || i.id || '')).filter(Boolean)));
     let changedProducts: any[] = [];
+    const currentProducts: any[] = [];
+
     if (productIds.length > 0) {
       const CHUNK_SIZE = 30;
-      const currentProducts: any[] = [];
       for (let i = 0; i < productIds.length; i += CHUNK_SIZE) {
         const chunk = productIds.slice(i, i + CHUNK_SIZE);
         const placeholders = chunk.map(() => '?').join(',');
@@ -82,7 +68,8 @@ export async function onRequestPost(context: any) {
         }
       }
       
-      // Strict server-side stock validation: Ensure no item exceeds available inventory
+      // Strict server-side stock and price validation
+      let verifiedSubtotal = 0;
       for (const item of order.items) {
         const pId = String(item.product?.id || item.id || '');
         const currentProd = currentProducts.find((p: any) => String(p.id) === pId);
@@ -98,19 +85,55 @@ export async function onRequestPost(context: any) {
               error: `Only ${availableStock} items available for "${currentProd.title || 'Product'}". You ordered ${item.quantity}.`
             }), { status: 400 });
           }
+
+          // Enforce legitimate product / variant price from DB
+          let realPrice = Number(currentProd.price) || 0;
+          if (item.variantId && Array.isArray(currentProd.variants)) {
+            const v = currentProd.variants.find((vr: any) => vr.id === item.variantId || vr.name === item.variantName);
+            if (v && v.price !== undefined && v.price !== null) {
+              realPrice = Number(v.price) || 0;
+            }
+          }
+
+          if (item.product) {
+            item.product.price = realPrice;
+          }
+          item.variantPrice = realPrice;
+          verifiedSubtotal += realPrice * (Number(item.quantity) || 1);
         }
       }
-      
+
+      if (verifiedSubtotal > 0 && (!order.subtotal || order.subtotal <= 0)) {
+        order.subtotal = verifiedSubtotal;
+      }
+
       const newProducts = deductOrderStock(currentProducts, order);
       changedProducts = newProducts.filter((p: any) => order.items.some((item: any) => String(item.product?.id || item.id) === String(p.id)));
+    }
 
-      if (changedProducts.length > 0) {
-        for (const p of changedProducts) {
-          stmts.push(
-            env.DB.prepare('UPDATE products SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-            .bind(JSON.stringify(p), String(p.id))
-          );
-        }
+    const stmts: any[] = [];
+    
+    // 3. Insert Order with verified details
+    stmts.push(
+      env.DB.prepare('INSERT INTO orders (id, type, data) VALUES (?, ?, ?)')
+      .bind(order.id, 'standard', JSON.stringify(order))
+    );
+
+    // 4. Upsert Customer
+    if (customer && customer.id) {
+      stmts.push(
+        env.DB.prepare('INSERT INTO customers (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = CURRENT_TIMESTAMP')
+        .bind(customer.id, JSON.stringify(customer))
+      );
+    }
+
+    // 5. Update changed products
+    if (changedProducts.length > 0) {
+      for (const p of changedProducts) {
+        stmts.push(
+          env.DB.prepare('UPDATE products SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .bind(JSON.stringify(p), String(p.id))
+        );
       }
     }
 

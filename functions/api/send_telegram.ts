@@ -4,8 +4,15 @@ export async function onRequestPost(context: any) {
     const data = await request.json();
     const { message } = data;
 
-    if (!message) {
-      return new Response('Message is required', { status: 400 });
+    if (!message || typeof message !== 'string' || message.length > 2000) {
+      return new Response('Invalid message format', { status: 400 });
+    }
+
+    // Security check: Only allow recognized store notification formats, reject arbitrary spam
+    const validIndicators = ['🛍️', 'NEW ORDER', 'ORDER CANCELLED', 'STOCK UPDATED', 'ORDER UPDATED', 'UPDATED'];
+    const isStoreNotification = validIndicators.some(ind => message.includes(ind));
+    if (!isStoreNotification) {
+      return new Response(JSON.stringify({ error: 'Unauthorized notification format' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const settingsRes = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('websiteSettings').first();

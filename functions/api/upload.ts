@@ -8,9 +8,31 @@ export async function onRequestPost({ request, env }: any) {
       return new Response('Missing or invalid file', { status: 400 });
     }
 
+    // Limit maximum file size to 10MB to protect R2 storage
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return new Response('File size exceeds 10MB limit', { status: 400 });
+    }
+
+    // Strict image extension allowlist
+    const rawExt = (file.name.split('.').pop() || 'webp').toLowerCase();
+    const allowedExtensions = ['webp', 'png', 'jpg', 'jpeg', 'gif'];
+    if (!allowedExtensions.includes(rawExt)) {
+      return new Response('Unsupported file format. Only webp, png, jpg, and gif are permitted.', { status: 400 });
+    }
+
+    // Strict MIME type mapping
+    const mimeMap: Record<string, string> = {
+      webp: 'image/webp',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif'
+    };
+    const contentType = mimeMap[rawExt] || 'image/webp';
+
     // Generate unique key using timestamp and uuid
-    const ext = file.name.split('.').pop() || 'webp';
-    const key = `uploads/img_${Date.now()}_${crypto.randomUUID()}.${ext}`;
+    const key = `uploads/img_${Date.now()}_${crypto.randomUUID()}.${rawExt}`;
 
     const buffer = await file.arrayBuffer();
     
@@ -21,7 +43,7 @@ export async function onRequestPost({ request, env }: any) {
     
     await env.BUCKET.put(key, buffer, {
       httpMetadata: {
-        contentType: file.type || 'image/webp',
+        contentType: contentType,
         cacheControl: 'public, max-age=31536000, immutable'
       }
     });

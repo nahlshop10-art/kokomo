@@ -60,6 +60,64 @@ export async function onRequestGet({ request, env, waitUntil }: any) {
       fetchUrl = 'https:' + fetchUrl;
     }
 
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(fetchUrl);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid URL' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    // Enforce HTTPS
+    if (parsedUrl.protocol !== 'https:') {
+      return new Response(JSON.stringify({ error: 'Only HTTPS URLs are allowed' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+
+    // Prevent access to internal / private networks and metadata endpoints
+    if (
+      hostname === 'localhost' ||
+      hostname.startsWith('127.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname === '169.254.169.254' ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    ) {
+      return new Response(JSON.stringify({ error: 'Access to private addresses is prohibited' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    // Strict domain allowlist for 1688, Taobao, Alibaba CDNs, R2, and current site
+    const allowedSuffixes = [
+      'alicdn.com',
+      '1688.com',
+      'taobao.com',
+      'taobaocdn.com',
+      'tmall.com',
+      'r2.dev',
+      'pages.dev',
+      'workers.dev'
+    ];
+
+    const isAllowedHost = allowedSuffixes.some(s => hostname === s || hostname.endsWith('.' + s)) ||
+      (env.R2_PUBLIC_DOMAIN && hostname.includes(env.R2_PUBLIC_DOMAIN.toLowerCase())) ||
+      hostname === urlObj.hostname.toLowerCase();
+
+    if (!isAllowedHost) {
+      return new Response(JSON.stringify({ error: 'Destination host not permitted for image proxying' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
     const res = await fetch(fetchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',

@@ -49,6 +49,18 @@ export const cloudStore = {
       return { success: false, error: 'Network error' };
     }
   },
+  async changePassword(currentPassword: string, newPassword: string) {
+    try {
+      const res = await fetch('/api/change_password', {
+        method: 'POST',
+        headers: this._getHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Network error' };
+    }
+  },
   async getState() {
     try {
       const res = await fetch('/api/public_state');

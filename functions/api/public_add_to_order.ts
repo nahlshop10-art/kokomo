@@ -1,3 +1,4 @@
+import { deductOrderStock, getAvailableStock } from '../../src/lib/stockUtils';
 import { broadcastStockToRetails, notifyMasterOfStockDeduction } from './_sync_broadcast';
 
 export async function onRequestPost(context: any) {
@@ -7,7 +8,7 @@ export async function onRequestPost(context: any) {
     const data = await request.json();
     const { orderId, newItems, customerPhone } = data;
 
-    if (!orderId || !newItems || !Array.isArray(newItems) || !customerPhone) {
+    if (!orderId || !newItems || !Array.isArray(newItems) || newItems.length === 0 || !customerPhone) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400 });
     }
 
@@ -19,7 +20,7 @@ export async function onRequestPost(context: any) {
 
     const order = JSON.parse(orderRes.data);
 
-    // 2. Verify ownership via phone number (normalize to ignore spaces, dashes, +88)
+    // 2. Strictly verify ownership via phone number
     const normPhone = (p: string) => {
       if (!p) return '';
       const digits = String(p).replace(/\D/g, '');
@@ -29,7 +30,7 @@ export async function onRequestPost(context: any) {
     const existingPhone = normPhone(order.userInfo?.phone || order.clientInfo?.phone || '');
     const reqPhone = normPhone(customerPhone);
 
-    if (existingPhone && reqPhone && existingPhone !== reqPhone) {
+    if (!existingPhone || !reqPhone || existingPhone !== reqPhone) {
       return new Response(JSON.stringify({ error: 'Unauthorized order access' }), { status: 403 });
     }
 
@@ -79,15 +80,40 @@ export async function onRequestPost(context: any) {
       .bind(JSON.stringify(updatedOrder), orderId, 'standard')
     );
 
-    // 4. Update changed products in D1
-    const { changedProducts } = data;
-    if (changedProducts && Array.isArray(changedProducts) && changedProducts.length > 0) {
-        for (const p of changedProducts) {
-            stmts.push(
-                env.DB.prepare('UPDATE products SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-                .bind(JSON.stringify(p), String(p.id))
-            );
+    // 4. Securely calculate stock deduction on the server (do not trust client-supplied changedProducts)
+    const productIds = Array.from(new Set(newItems.map((i: any) => String(i.product?.id || i.id || '')).filter(Boolean)));
+    let changedProducts: any[] = [];
+    if (productIds.length > 0) {
+      const placeholders = productIds.map(() => '?').join(',');
+      const productsRes = await env.DB.prepare(`SELECT id, data FROM products WHERE id IN (${placeholders})`).bind(...productIds).all();
+      const currentProducts = (productsRes.results || []).map((r: any) => JSON.parse(r.data));
+
+      // Validate stock availability
+      for (const item of newItems) {
+        const pId = String(item.product?.id || item.id || '');
+        const currentProd = currentProducts.find((p: any) => String(p.id) === pId);
+        if (currentProd) {
+          const availableStock = getAvailableStock(currentProd, item.variantId);
+          const reqQty = Number(item.quantity) || 1;
+          if (availableStock <= 0) {
+            return new Response(JSON.stringify({ error: `"${currentProd.title || 'Product'}" is out of stock.` }), { status: 400 });
+          }
+          if (reqQty > availableStock) {
+            return new Response(JSON.stringify({ error: `Only ${availableStock} items available for "${currentProd.title || 'Product'}".` }), { status: 400 });
+          }
         }
+      }
+
+      const tempOrder = { items: newItems };
+      const newProducts = deductOrderStock(currentProducts, tempOrder);
+      changedProducts = newProducts.filter((p: any) => newItems.some((item: any) => String(item.product?.id || item.id) === String(p.id)));
+
+      for (const p of changedProducts) {
+        stmts.push(
+          env.DB.prepare('UPDATE products SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .bind(JSON.stringify(p), String(p.id))
+        );
+      }
     }
 
     if (stmts.length > 0) {
@@ -114,12 +140,20 @@ export async function onRequestPost(context: any) {
     });
 
     if (itemsToDeduct.length > 0) {
-      await notifyMasterOfStockDeduction(env, request, itemsToDeduct, context);
+      if (context && typeof context.waitUntil === 'function') {
+        context.waitUntil(notifyMasterOfStockDeduction(env, request, itemsToDeduct, context));
+      } else {
+        await notifyMasterOfStockDeduction(env, request, itemsToDeduct, context);
+      }
     }
 
     // 6. If this is Master, broadcast stock changes to connected retail websites
     if (changedProducts && changedProducts.length > 0) {
-      await broadcastStockToRetails(env, request, changedProducts, context);
+      if (context && typeof context.waitUntil === 'function') {
+        context.waitUntil(broadcastStockToRetails(env, request, changedProducts, context));
+      } else {
+        await broadcastStockToRetails(env, request, changedProducts, context);
+      }
     }
 
     // 7. Invalidate public_state cache so that refreshed pages immediately show new stock
@@ -138,3 +172,4 @@ export async function onRequestPost(context: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
+

@@ -1,4 +1,7 @@
-export async function onRequestPost({ request, env, waitUntil }: any) {
+import { hashPassword, isLegacyPlaintext } from './_crypto';
+
+export async function onRequestPost(context: any) {
+  const { request, env, waitUntil, data: ctxData } = context;
   try {
     const data = await request.json();
     const { key, value } = data; 
@@ -7,18 +10,34 @@ export async function onRequestPost({ request, env, waitUntil }: any) {
       return new Response('Invalid payload', { status: 400 });
     }
 
+    const isOwner = Boolean(ctxData?.isOwner);
+
+    // High security: Only Owner can modify admin users, marketing credentials, or sync settings
+    const ownerOnlyKeys = ['adminUsers', 'marketingSettings', 'registered_retails', 'courierSettings'];
+    if (ownerOnlyKeys.includes(key) && !isOwner) {
+      return new Response(JSON.stringify({ error: `Forbidden: Only the Owner account can modify ${key}.` }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     let finalValue = value;
     if (key === 'adminUsers') {
       const currentRes = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('adminUsers').all();
       const currentUsers = currentRes.results.length > 0 ? JSON.parse(currentRes.results[0].value) : [];
       if (Array.isArray(value)) {
-        finalValue = value.map((u: any) => {
+        finalValue = await Promise.all(value.map(async (u: any) => {
           const existing = currentUsers.find((cu: any) => cu.email === u.email);
-          if (existing && existing.passwordHash) {
-            return { ...u, passwordHash: existing.passwordHash };
+          let hashToUse = u.passwordHash;
+          if (!hashToUse && existing && existing.passwordHash) {
+            hashToUse = existing.passwordHash;
           }
-          return u;
-        });
+          // Hash with PBKDF2 if new plaintext password was submitted
+          if (hashToUse && isLegacyPlaintext(hashToUse)) {
+            hashToUse = await hashPassword(hashToUse);
+          }
+          return { ...u, passwordHash: hashToUse };
+        }));
       }
     }
 
