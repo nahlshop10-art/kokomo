@@ -1,17 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { X, Minus, Plus, Trash2 } from 'lucide-react';
-import { Product, ProductVariant } from '../types';
+import { Product, ProductVariant, WebsiteSettings, CartItem } from '../types';
 import { cn, formatPrice } from '../lib/utils';
 import { useScrollLock } from '../hooks/useScrollLock';
+import { calculateProductDiscount, getProductQtyRules } from '../lib/pricingUtils';
 
 interface VariantModalProps {
   product: Product;
   onClose: () => void;
   onAdd: (product: Product, variant: ProductVariant, quantity: number) => void;
+  websiteSettings?: WebsiteSettings;
+  cart?: CartItem[];
 }
 
-export function VariantModal({ product, onClose, onAdd }: VariantModalProps) {
+export function VariantModal({ product, onClose, onAdd, websiteSettings, cart }: VariantModalProps) {
   useScrollLock(true);
   // Initialize with the options of the first variant that has stock
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
@@ -69,6 +72,20 @@ export function VariantModal({ product, onClose, onAdd }: VariantModalProps) {
   const stock = selectedVariant?.stock ?? product.stock ?? 0;
   const isOutOfStock = stock <= 0;
 
+  const existingCartQty = useMemo(() => {
+    return cart?.filter(item => item.product.id === product.id).reduce((sum, item) => sum + item.quantity, 0) || 0;
+  }, [cart, product.id]);
+
+  const effectiveQty = quantity + existingCartQty;
+
+  const discount = useMemo(() => {
+    return calculateProductDiscount(product, effectiveQty, selectedVariant?.id, websiteSettings?.qtyRules);
+  }, [product, effectiveQty, selectedVariant, websiteSettings?.qtyRules]);
+
+  const activeQtyRules = useMemo(() => {
+    return getProductQtyRules(product, selectedVariant?.id, websiteSettings?.qtyRules);
+  }, [product, selectedVariant, websiteSettings?.qtyRules]);
+
   const handleOptionSelect = (optionId: string, value: string) => {
     setSelectedOptions(prev => ({
       ...prev,
@@ -97,7 +114,28 @@ export function VariantModal({ product, onClose, onAdd }: VariantModalProps) {
             </div>
             <div className="flex-1 flex flex-col justify-center">
               <h3 className="font-bold text-[var(--theme-black)] text-sm leading-tight mb-2 line-clamp-3">{product.title}</h3>
-              <div className="font-bold text-[var(--theme-primary)] text-xl mb-1">{formatPrice(displayPrice)}</div>
+              {discount > 0 ? (
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="line-through text-gray-400 text-sm font-normal">{formatPrice(displayPrice)}</span>
+                  <span className="font-bold text-[var(--theme-primary)] text-xl">{formatPrice(displayPrice - discount)}</span>
+                </div>
+              ) : (
+                <div className="font-bold text-[var(--theme-primary)] text-xl mb-1">{formatPrice(displayPrice)}</div>
+              )}
+              {activeQtyRules && activeQtyRules.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {activeQtyRules.map((rule, idx) => (
+                    <span key={idx} className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors",
+                      effectiveQty >= rule.quantity
+                        ? "bg-orange-500 text-white"
+                        : "bg-orange-50 text-orange-700 border border-orange-200"
+                    )}>
+                      {rule.quantity}+: -{formatPrice(rule.price)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

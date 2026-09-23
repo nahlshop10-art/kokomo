@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatPrice } from './lib/utils';
 import { isProductInStock } from './lib/stockUtils';
 import { Product, CartItem, WebsiteSettings, DEFAULT_ACTION_BUTTONS } from './types';
+import { calculateProductDiscount, getProductQtyRules } from './lib/pricingUtils';
 import { CopyButton } from './components/CopyButton';
 import ActionBtn from './components/ActionBtn';
 import { useScrollLock } from './hooks/useScrollLock';
@@ -142,6 +143,19 @@ export default function ProductDetails({
     return true;
   });
   const cartQuantity = cartItem ? cartItem.quantity : 0;
+  const productTotalQty = useMemo(() => {
+    return cart.filter(item => item.product.id === product.id).reduce((sum, item) => sum + item.quantity, 0);
+  }, [cart, product.id]);
+
+  const currentDiscount = useMemo(() => {
+    if (cartQuantity <= 0) return 0;
+    return calculateProductDiscount(product, productTotalQty, selectedVariant?.id, websiteSettings?.qtyRules);
+  }, [product, productTotalQty, cartQuantity, selectedVariant, websiteSettings?.qtyRules]);
+
+  const activeQtyRules = useMemo(() => {
+    return getProductQtyRules(product, selectedVariant?.id, websiteSettings?.qtyRules);
+  }, [product, selectedVariant, websiteSettings?.qtyRules]);
+
   const cartTotalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotalPrice = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
@@ -430,9 +444,42 @@ export default function ProductDetails({
         </div>
 
         {/* Price */}
-        <div className="font-bold text-[16px] lg:text-lg mb-6">
-          {formatPrice(displayPrice)}
-        </div>
+        {currentDiscount > 0 ? (
+          <div className="font-bold text-[16px] lg:text-lg mb-3 flex items-baseline gap-2">
+            <span className="line-through text-gray-400 text-sm font-normal">{formatPrice(displayPrice)}</span>
+            <span className="text-[var(--theme-black)]">{formatPrice(displayPrice - currentDiscount)}</span>
+          </div>
+        ) : (
+          <div className="font-bold text-[16px] lg:text-lg mb-3">
+            {formatPrice(displayPrice)}
+          </div>
+        )}
+
+        {/* Wholesale Quantity Rules Tiers */}
+        {activeQtyRules && activeQtyRules.length > 0 && (
+          <div className="mb-6 p-2.5 rounded-xl bg-orange-50/60 border border-orange-100 text-xs">
+            <div className="font-semibold text-orange-900 mb-1.5 flex items-center justify-between">
+              <span>Wholesale Quantity Discount:</span>
+              {currentDiscount > 0 && (
+                <span className="text-green-600 font-bold bg-green-50 border border-green-200 px-1.5 py-0.5 rounded text-[10px]">
+                  Applied (-{formatPrice(currentDiscount)}/pc)
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {activeQtyRules.map((rule, idx) => (
+                <span key={idx} className={cn(
+                  "px-2 py-0.5 rounded-md font-medium text-xs transition-colors",
+                  productTotalQty >= rule.quantity 
+                    ? "bg-orange-500 text-white font-bold shadow-xs" 
+                    : "bg-white text-orange-800 border border-orange-200"
+                )}>
+                  {rule.quantity}+ pcs: -{formatPrice(rule.price)}/pc
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Variants Selection */}
         {product.hasVariants && product.options && product.options.length > 0 && (
@@ -499,7 +546,16 @@ export default function ProductDetails({
           </div>
         ) : (
           <div className="flex items-center justify-between mt-2 pt-2">
-            <span className="text-2xl font-bold text-[var(--theme-primary)]">{formatPrice(displayPrice * cartQuantity)}</span>
+            <div className="flex items-baseline gap-2">
+              {currentDiscount > 0 && (
+                <span className="text-base text-gray-400 line-through font-normal">
+                  {formatPrice(displayPrice * cartQuantity)}
+                </span>
+              )}
+              <span className="text-2xl font-bold text-[var(--theme-primary)]">
+                {formatPrice((displayPrice - currentDiscount) * cartQuantity)}
+              </span>
+            </div>
             <div className="flex items-center gap-3">
               <button 
                 onClick={handleRemove}
@@ -619,7 +675,17 @@ export default function ProductDetails({
                     >
                       {p.title}
                     </div>
-                    <div className="font-bold text-[16px] lg:text-lg">{formatPrice(p.price)}</div>
+                    {(() => {
+                      const pDiscount = pCartItem ? calculateProductDiscount(p, pCartItem.quantity, pCartItem.variantId, websiteSettings?.qtyRules) : 0;
+                      return pDiscount > 0 ? (
+                        <div className="flex items-baseline gap-1.5 font-bold text-[16px] lg:text-lg">
+                          <span className="line-through text-gray-400 text-xs lg:text-sm font-normal">{formatPrice(p.price)}</span>
+                          <span className="text-[var(--theme-black)]">{formatPrice(p.price - pDiscount)}</span>
+                        </div>
+                      ) : (
+                        <div className="font-bold text-[16px] lg:text-lg">{formatPrice(p.price)}</div>
+                      );
+                    })()}
                   </div>
 
                   <div className="p-0.5 pt-0 mt-auto">
@@ -817,8 +883,14 @@ export default function ProductDetails({
             {/* Modal Cart Controls */}
             <div className="bg-[var(--theme-white)] rounded-t-3xl p-6 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
               <div className="mb-4">
-                <h2 className="text-sm text-[var(--theme-black)] line-clamp-2 h-[2.5rem] leading-[1.25rem] mb-3">{product.title}</h2>
-                <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
+                {currentDiscount > 0 ? (
+                  <div className="flex items-baseline gap-1.5 font-bold text-[16px] lg:text-lg">
+                    <span className="line-through text-gray-400 text-xs lg:text-sm font-normal">{formatPrice(displayPrice)}</span>
+                    <span className="text-[var(--theme-black)]">{formatPrice(displayPrice - currentDiscount)}</span>
+                  </div>
+                ) : (
+                  <div className="font-bold text-[16px] lg:text-lg">{formatPrice(displayPrice)}</div>
+                )}
               </div>
 
               {cartQuantity === 0 ? (

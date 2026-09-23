@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, Search, ShoppingBag, LayoutGrid, Gem, Circle, Sparkles, LifeBuoy, Activity, CircleDashed, SlidersHorizontal, Lock, Unlock, Trash2, Minus, Plus, X, ArrowRight, ArrowLeft, User, Phone, MapPin, Truck, Check, Send, Copy, ChevronUp, MoreHorizontal, RefreshCw, Star, Download, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, BadgePercent, Edit3, EyeOff, MessageSquareText, Package, CheckCircle2, Navigation } from 'lucide-react';
 import { format } from 'date-fns';
-import { getCartTotal } from './lib/pricingUtils';
+import { getCartTotal, calculateProductDiscount, getProductQtyRules } from './lib/pricingUtils';
 import { isProductInStock } from './lib/stockUtils';
 import { downloadReceiptAsJPG, downloadReceiptAsPDF } from './lib/downloadReceipt';
 import { Receipt } from './components/Receipt';
@@ -200,7 +200,19 @@ export function Sidebar({ onClose, activeCategory, setActiveCategory, categories
   );
 }
 
-export function SearchModal({ onClose, products, onProductClick }: { onClose: () => void, products: Product[], onProductClick: (p: Product) => void }) {
+export function SearchModal({ 
+  onClose, 
+  products, 
+  onProductClick,
+  cart = [],
+  websiteSettings
+}: { 
+  onClose: () => void, 
+  products: Product[], 
+  onProductClick: (p: Product) => void,
+  cart?: any[],
+  websiteSettings?: any
+}) {
   const [query, setQuery] = useState('');
   const results = products.filter(p => 
     p.title.toLowerCase().includes(query.toLowerCase()) && 
@@ -270,7 +282,18 @@ export function SearchModal({ onClose, products, onProductClick }: { onClose: ()
                 <div className="flex-grow min-w-0 pr-2">
                   <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-1 mb-0.5">{product.title}</h4>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="font-bold text-[14px] lg:text-[13px] text-[var(--theme-primary)]">{formatPrice(product.price)}</span>
+                    {(() => {
+                      const cItem = cart?.find(item => item.product.id === product.id);
+                      const discount = cItem ? calculateProductDiscount(product, cItem.quantity, cItem.variantId, websiteSettings?.qtyRules) : 0;
+                      return discount > 0 ? (
+                        <div className="flex items-baseline gap-1.5 font-bold text-[14px] lg:text-[13px] text-[var(--theme-primary)]">
+                          <span className="line-through text-gray-400 text-xs font-normal">{formatPrice(product.price)}</span>
+                          <span>{formatPrice(product.price - discount)}</span>
+                        </div>
+                      ) : (
+                        <span className="font-bold text-[14px] lg:text-[13px] text-[var(--theme-primary)]">{formatPrice(product.price)}</span>
+                      );
+                    })()}
                     <span className="text-[10px] font-semibold text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded uppercase shrink-0 ml-2">{product.category}</span>
                   </div>
                 </div>
@@ -283,9 +306,29 @@ export function SearchModal({ onClose, products, onProductClick }: { onClose: ()
   );
 }
 
-export function ColorModal({ product, onClose, onAdd }: { product: Product, onClose: () => void, onAdd: (p: Product, c: string) => void }) {
+export function ColorModal({ 
+  product, 
+  onClose, 
+  onAdd,
+  websiteSettings,
+  cart = []
+}: { 
+  product: Product, 
+  onClose: () => void, 
+  onAdd: (p: Product, c: string) => void,
+  websiteSettings?: any,
+  cart?: any[]
+}) {
   useScrollLock(true);
   const [selectedColor, setSelectedColor] = useState(product.colors![0]);
+
+  const productTotalQty = React.useMemo(() => {
+    return cart?.filter(item => item.product.id === product.id).reduce((sum, item) => sum + item.quantity, 0) || 0;
+  }, [cart, product.id]);
+
+  const discount = React.useMemo(() => {
+    return calculateProductDiscount(product, productTotalQty + 1, undefined, websiteSettings?.qtyRules);
+  }, [product, productTotalQty, websiteSettings?.qtyRules]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--theme-black)]/50 p-4">
@@ -298,7 +341,14 @@ export function ColorModal({ product, onClose, onAdd }: { product: Product, onCl
         </div>
         <div className="p-5">
           <div className="text-sm text-[var(--theme-black)] line-clamp-2 h-[2.5rem] leading-[1.25rem] mb-3">{product.title}</div>
-          <div className="font-bold text-[16px] lg:text-lg mb-4">{formatPrice(product.price)}</div>
+          {discount > 0 ? (
+            <div className="flex items-baseline gap-2 mb-4">
+              <span className="line-through text-gray-400 text-sm font-normal">{formatPrice(product.price)}</span>
+              <span className="font-bold text-[16px] lg:text-lg text-[var(--theme-black)]">{formatPrice(product.price - discount)}</span>
+            </div>
+          ) : (
+            <div className="font-bold text-[16px] lg:text-lg mb-4">{formatPrice(product.price)}</div>
+          )}
           <div className="mb-6">
             <div className="text-sm font-bold text-[var(--theme-black)] mb-2 flex items-center gap-2">
               COLOR: <span className="text-gray-500 font-normal uppercase">{selectedColor.name}</span>

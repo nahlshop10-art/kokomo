@@ -17,7 +17,7 @@ import { initTikTokPixel, trackTikTokEvent } from './lib/tiktokPixel';
 import { initGA4, trackGA4Event } from './lib/ga4Pixel';
 import { initBatcher, setBatchingInterval } from './lib/eventBatcher';
 import { BannerSlider, FilterDropdown, Sidebar, SearchModal, ColorModal, CartModal, DesktopRightSidebar, CheckoutModal, OrderDetailsModal, ThankYouModal, ImagePreviewModal } from './AppComponents';
-import { getCartTotal, calculateItemDiscount } from './lib/pricingUtils';
+import { getCartTotal, calculateItemDiscount, calculateProductDiscount } from './lib/pricingUtils';
 import { isProductInStock } from './lib/stockUtils';
 import MinOrderPopup from './MinOrderPopup';
 import ProductDetails from './ProductDetails';
@@ -38,6 +38,7 @@ import { DEFAULT_ACTION_BUTTONS } from './types';
 interface StorefrontProductCardProps {
   product: Product;
   cartItem?: CartItem;
+  itemDiscount?: number;
   addingToOrderId: string | null;
   productImageHover?: boolean;
   onSelect: (p: Product) => void;
@@ -49,6 +50,7 @@ interface StorefrontProductCardProps {
 const StorefrontProductCard = React.memo(function StorefrontProductCard({
   product,
   cartItem,
+  itemDiscount = 0,
   addingToOrderId,
   productImageHover,
   onSelect,
@@ -101,7 +103,14 @@ const StorefrontProductCard = React.memo(function StorefrontProductCard({
         >
           {product.title}
         </div>
-        <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
+        {itemDiscount > 0 ? (
+          <div className="flex items-baseline gap-1.5 font-bold text-[16px] lg:text-lg">
+            <span className="line-through text-gray-400 text-xs lg:text-sm font-normal">{formatPrice(product.price)}</span>
+            <span className="text-[var(--theme-black)]">{formatPrice(product.price - itemDiscount)}</span>
+          </div>
+        ) : (
+          <div className="font-bold text-[16px] lg:text-lg">{formatPrice(product.price)}</div>
+        )}
       </div>
 
       <div className="p-0.5 pt-0 mt-auto">
@@ -759,10 +768,21 @@ export default function App() {
     return map;
   }, [addingToOrderId, addingToOrderItems, cart]);
 
+  const productTotalQtyMap = React.useMemo(() => {
+    const map = new Map<string | number, number>();
+    const source = addingToOrderId ? addingToOrderItems : cart;
+    for (const item of source) {
+      map.set(item.product.id, (map.get(item.product.id) || 0) + item.quantity);
+    }
+    return map;
+  }, [addingToOrderId, addingToOrderItems, cart]);
+
   const cartTotalItems = React.useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+
+  const activeCartForDiscounts = addingToOrderId ? addingToOrderItems : cart;
   const { total: cartTotalPrice, itemDiscounts: cartItemDiscounts } = React.useMemo(
-    () => getCartTotal(cart, websiteSettings?.qtyRules),
-    [cart, websiteSettings?.qtyRules]
+    () => getCartTotal(activeCartForDiscounts, websiteSettings?.qtyRules),
+    [activeCartForDiscounts, websiteSettings?.qtyRules]
   );
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1738,11 +1758,19 @@ export default function App() {
                     }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
                   };
 
+                  const productQtyInCart = productTotalQtyMap.get(product.id) || 0;
+                  const itemDiscount = productQtyInCart > 0
+                    ? (cartItem && cartItemDiscounts[cartItem.id] !== undefined
+                        ? cartItemDiscounts[cartItem.id]
+                        : calculateProductDiscount(product, productQtyInCart, cartItem?.variantId, websiteSettings?.qtyRules))
+                    : 0;
+
                   return (
                     <StorefrontProductCard
                       key={product.id}
                       product={product}
                       cartItem={cartItem}
+                      itemDiscount={itemDiscount}
                       addingToOrderId={addingToOrderId}
                       productImageHover={websiteSettings.productImageHover}
                       onSelect={handleSelect}
@@ -1849,6 +1877,8 @@ export default function App() {
           <SearchModal 
             onClose={() => closeUrlModal()} 
             products={products} 
+            cart={addingToOrderId ? addingToOrderItems : cart}
+            websiteSettings={websiteSettings}
             onProductClick={(p) => {
               navigate(`/product/${p.id}`, { state: { internalUiObj: true } });
               trackMetaEvent('ViewContent', {
@@ -2040,6 +2070,8 @@ export default function App() {
         {colorModalProduct && (
           <ColorModal 
             product={colorModalProduct} 
+            websiteSettings={websiteSettings}
+            cart={addingToOrderId ? addingToOrderItems : cart}
             onClose={() => setColorModalProduct(null)} 
             onAdd={(p, c) => {
                if (addingToOrderId) {
@@ -2053,6 +2085,8 @@ export default function App() {
         {variantModalProduct && (
           <VariantModal 
             product={variantModalProduct} 
+            websiteSettings={websiteSettings}
+            cart={addingToOrderId ? addingToOrderItems : cart}
             onClose={() => setVariantModalProduct(null)} 
             onAdd={(p, variant, quantity) => {
                const variantName = Object.values(variant.options || {}).map(v => String(v).toUpperCase()).join(" / ");
