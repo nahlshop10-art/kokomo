@@ -220,13 +220,7 @@ export const StorefrontProductsGrid = React.memo(function StorefrontProductsGrid
   const rowCount = Math.ceil(filteredProducts.length / cols);
 
   const estimateRowHeight = useCallback(() => {
-    if (typeof window === 'undefined') return 312;
-    const w = windowWidth;
-    if (w >= 1024) return 380;
-    if (w >= 768) return 330;
-    // Mobile: square image height + card text & button area (~122px)
-    const cardW = Math.floor((w - 10) / 2);
-    return cardW + 122;
+    return windowWidth >= 1024 ? 380 : windowWidth >= 768 ? 320 : 286;
   }, [windowWidth]);
 
   const virtualizer = useWindowVirtualizer({
@@ -244,6 +238,7 @@ export const StorefrontProductsGrid = React.memo(function StorefrontProductsGrid
       {virtualizer.getVirtualItems().map((virtualRow) => (
         <div
           key={virtualRow.index}
+          ref={virtualizer.measureElement}
           data-index={virtualRow.index}
           style={{
             position: 'absolute',
@@ -251,11 +246,9 @@ export const StorefrontProductsGrid = React.memo(function StorefrontProductsGrid
             left: 0,
             width: '100%',
             transform: `translateY(${virtualRow.start}px)`,
-            willChange: 'transform',
-            contain: 'layout paint',
           }}
           className={cn(
-            "grid gap-0.5 sm:gap-2 lg:gap-1 xl:gap-2 px-1 lg:px-4", 
+            "grid gap-0.5 sm:gap-2 lg:gap-1 xl:gap-2 px-1 lg:px-4 pb-0.5 sm:pb-2 lg:pb-1 xl:pb-2", 
             cols === 4 ? "grid-cols-4" : cols === 3 ? "grid-cols-3" : "grid-cols-2"
           )}
         >
