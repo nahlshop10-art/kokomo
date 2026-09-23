@@ -19,8 +19,15 @@ export async function onRequestGet(context: any) {
         delete p.autoPrice;
         delete p.supplier;
         delete p.stockOutDate;
-        if (p.variants) {
-            p.variants.forEach((v: any) => delete v.buyPrice);
+        delete p.link1688;
+        delete p.code1688;
+        if (p.variants && Array.isArray(p.variants)) {
+            p.variants.forEach((v: any) => {
+                delete v.buyPrice;
+                delete v.autoPrice;
+                delete v.code1688;
+                delete v.supplier;
+            });
         }
         return p;
     }).filter((p: any) => !p.isDeleted);
@@ -34,9 +41,9 @@ export async function onRequestGet(context: any) {
       let value = JSON.parse(r.value);
 
       if (r.key === 'marketingSettings') {
-        if (value?.tiktokPixel?.accessToken) delete value.tiktokPixel.accessToken;
-        if (value?.metaPixel?.accessToken) delete value.metaPixel.accessToken;
-        if (value?.ga4?.apiSecret) delete value.ga4.apiSecret;
+        if (value?.tiktokPixel) delete value.tiktokPixel.accessToken;
+        if (value?.metaPixel) delete value.metaPixel.accessToken;
+        if (value?.ga4) delete value.ga4.apiSecret;
       }
 
       if (r.key === 'websiteSettings' || r.key === 'website') {

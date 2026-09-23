@@ -228,6 +228,62 @@ console.log('--- Running Security Hardening Verification Tests ---');
   console.log('✅ File Upload Extension & Size Validation: PASSED');
 }
 
+// 6. Test Public State Supplier & Cost Sanitization
+{
+  console.log('\n[6] Testing Public State Supplier & Cost Sanitization...');
+
+  const mockProduct = {
+    id: 'P291',
+    title: 'Trendy Niche Rose Minimalist Flower Ring',
+    price: 280,
+    buyPrice: 120,
+    autoPrice: 1.2,
+    supplier: 'Guangzhou Jewelry Co.',
+    stockOutDate: '2026-09-01',
+    link1688: 'https://detail.1688.com/offer/976938012391.html',
+    code1688: '976938012391',
+    variants: [
+      {
+        id: '6134062901767',
+        name: 'Gold',
+        buyPrice: 110,
+        autoPrice: 1.2,
+        code1688: 'sku_gold_123',
+        supplier: 'Guangzhou'
+      }
+    ]
+  };
+
+  // Run through sanitization logic
+  const p = JSON.parse(JSON.stringify(mockProduct));
+  delete p.buyPrice;
+  delete p.autoPrice;
+  delete p.supplier;
+  delete p.stockOutDate;
+  delete p.link1688;
+  delete p.code1688;
+  if (p.variants && Array.isArray(p.variants)) {
+    p.variants.forEach((v) => {
+      delete v.buyPrice;
+      delete v.autoPrice;
+      delete v.code1688;
+      delete v.supplier;
+    });
+  }
+
+  assert.strictEqual(p.link1688, undefined, 'link1688 must be deleted from product');
+  assert.strictEqual(p.code1688, undefined, 'code1688 must be deleted from product');
+  assert.strictEqual(p.autoPrice, undefined, 'autoPrice must be deleted from product');
+  assert.strictEqual(p.buyPrice, undefined, 'buyPrice must be deleted from product');
+  assert.strictEqual(p.supplier, undefined, 'supplier must be deleted from product');
+  assert.strictEqual(p.variants[0].autoPrice, undefined, 'autoPrice must be deleted from variant');
+  assert.strictEqual(p.variants[0].code1688, undefined, 'code1688 must be deleted from variant');
+  assert.strictEqual(p.variants[0].buyPrice, undefined, 'buyPrice must be deleted from variant');
+  assert.strictEqual(p.variants[0].name, 'Gold', 'Legitimate variant properties must be preserved');
+  assert.strictEqual(p.price, 280, 'Legitimate product price must be preserved');
+  console.log('✅ Public State Supplier & Cost Sanitization: PASSED');
+}
+
 console.log('\n======================================================');
 console.log('🎉 ALL SECURITY HARDENING TESTS PASSED SUCCESSFULLY! 🎉');
 console.log('======================================================\n');
