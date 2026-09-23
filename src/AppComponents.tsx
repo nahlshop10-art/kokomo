@@ -214,6 +214,15 @@ export function SearchModal({
   websiteSettings?: any
 }) {
   const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   const results = products.filter(p => 
     p.title.toLowerCase().includes(query.toLowerCase()) && 
     isProductInStock(p) && p.isVisible !== false
@@ -239,6 +248,7 @@ export function SearchModal({
         >
           <Search size={20} className="ml-4 text-gray-400 shrink-0 hidden sm:block" />
           <motion.input
+            ref={inputRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -248,7 +258,6 @@ export function SearchModal({
             onChange={e => setQuery(e.target.value)}
             className="w-full px-4 h-full bg-transparent text-sm focus:outline-none text-[var(--theme-black)] lg:text-[15px]"
             placeholder="Search products..."
-            autoFocus
           />
           <motion.button 
             initial={{ opacity: 0 }}

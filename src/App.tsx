@@ -560,7 +560,7 @@ export default function App() {
   }, [addingToOrderItems]);
 
   // Smooth scroll restore for main storefront
-  useWindowScrollRestore('app-main', !selectedProductForDetails && !isCartOpen && !isCheckoutOpen && !isDashboardOpen);
+  useWindowScrollRestore('app-main', !selectedProductForDetails && !isCartOpen && !isCheckoutOpen && !isDashboardOpen && !isSearchOpen);
 
   // Guarantee body scroll lock is released whenever modals are closed
   useEffect(() => {
@@ -595,6 +595,8 @@ export default function App() {
          setSelectedProductForDetails(null);
          if (path !== '/product/') navigate('/', { replace: true });
        }
+    } else if (path === '/search' || path === '/cart' || path === '/checkout') {
+       // Keep existing selectedProductForDetails if already open so product details doesn't unmount or reset scroll
     } else {
        setSelectedProductForDetails(null);
     }

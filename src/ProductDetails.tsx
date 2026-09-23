@@ -327,20 +327,30 @@ export default function ProductDetails({
                <span className="text-sm">Search...</span>
             </button>
           )}
-          <div className="w-10 h-10 bg-transparent flex items-center justify-center relative lg:hidden">
-            <motion.button 
-              layoutId="search-bar-morph" 
-              style={{ borderRadius: 9999 }}
-              transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
-              onClick={onSearch} 
-              className="absolute w-10 h-10 bg-transparent overflow-hidden border-[1.5px] border-transparent"
-            />
-            <button
-              onClick={onSearch} 
-              className="absolute w-10 h-10 bg-transparent flex items-center justify-center z-10 text-[var(--theme-black)]"
-            >
-              <Search size={22} />
-            </button>
+          <div className="w-10 h-10 flex justify-center items-center lg:hidden relative">
+            <AnimatePresence>
+              {!isSearchOpen && (
+                <>
+                  <motion.button 
+                    key="search-button"
+                    layoutId="search-bar-morph" 
+                    style={{ borderRadius: 9999 }}
+                    transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
+                    onClick={onSearch} 
+                    className="absolute w-10 h-10 bg-transparent overflow-hidden border-[1.5px] border-transparent"
+                  />
+                  <motion.button
+                    key="search-icon"
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.1 }}
+                    onClick={onSearch} 
+                    className="absolute w-10 h-10 bg-transparent flex items-center justify-center z-10 text-[var(--theme-black)]"
+                  >
+                    <Search size={22} />
+                  </motion.button>
+                </>
+              )}
+            </AnimatePresence>
           </div>
           <button onClick={onViewCart} className="p-2 -mr-2 text-[var(--theme-black)] relative lg:hidden">
             <ShoppingBag size={22} />
