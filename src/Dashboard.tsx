@@ -3662,8 +3662,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 function DashboardOverviewCard({ completedSell, completedProfit }: { completedSell: string, completedProfit: string }) {
   return (
     <div className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl py-3.5 px-4 md:p-8 relative overflow-hidden flex flex-col min-h-[110px] md:min-h-[160px] shadow-lg shadow-black/10">
-       <div className="flex items-center gap-2 text-slate-100 mb-2.5 md:mb-6 relative z-10">
-          <TrendingUp className="w-4.5 h-4.5 md:w-5.5 md:h-5.5 text-indigo-400" />
+       <div className="flex items-center justify-center text-slate-100 mb-2.5 md:mb-6 relative z-10 w-full text-center">
           <span className="font-semibold text-sm md:text-xl tracking-wide">Overview</span>
        </div>
        
