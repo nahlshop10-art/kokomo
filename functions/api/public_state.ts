@@ -88,3 +88,12 @@ export async function onRequestGet(context: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
+
+export async function onRequestHead(context: any) {
+  const res = await onRequestGet(context);
+  return new Response(null, {
+    status: res.status,
+    statusText: res.statusText,
+    headers: res.headers
+  });
+}

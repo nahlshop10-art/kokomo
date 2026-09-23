@@ -118,6 +118,12 @@ export async function onRequest(context: any) {
   newHeaders.set('X-Frame-Options', 'SAMEORIGIN');
   newHeaders.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
+  // Enforce OWASP security: never store authenticated admin or customer data in cache
+  if (!publicPaths.includes(path) && !newHeaders.has('Cache-Control')) {
+    newHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    newHeaders.set('Pragma', 'no-cache');
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

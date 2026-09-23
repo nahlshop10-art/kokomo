@@ -1,0 +1,4 @@
+# Cloudflare Pages Custom Headers
+# Cache hashed immutable assets (JS, CSS, WASM) for 1 year
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
