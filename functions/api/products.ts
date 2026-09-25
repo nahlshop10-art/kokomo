@@ -1,4 +1,5 @@
 import { getOriginBase } from './_domain';
+import { indexSingleProduct } from './_visual_indexer';
 export async function onRequestPost(context: any) {
   const { request, env } = context;
   try {
@@ -95,6 +96,11 @@ export async function onRequestPost(context: any) {
           }
         }
 
+        // Clean up visual embeddings from D1
+        await Promise.all(ids.map((id: string) => 
+          env.DB.prepare('DELETE FROM product_embeddings WHERE id = ?').bind(id).run().catch(() => {})
+        ));
+
         // Broadcast deletes to connected retails
         try {
           const settingsRes = await env.DB.prepare("SELECT value FROM settings WHERE key = 'registered_retails'").first();
@@ -168,6 +174,17 @@ export async function onRequestPost(context: any) {
           const chunk = stmts.slice(i, i + 50);
           await env.DB.batch(chunk);
         }
+    }
+
+    // Automatic background visual indexing for upserted products (non-blocking)
+    if (context.waitUntil && items.length > 0) {
+      context.waitUntil((async () => {
+        for (const item of items) {
+          if (item && item.id) {
+            await indexSingleProduct(env, item).catch(() => {});
+          }
+        }
+      })());
     }
     
     // Broadcast changes to connected retails

@@ -1157,6 +1157,17 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       setProducts([updatedProduct, ...products]);
     }
     cloudStore.upsertProduct(updatedProduct).catch(console.error);
+    if (updatedProduct.image || (Array.isArray(updatedProduct.images) && updatedProduct.images.length > 0)) {
+      fetch('/api/index_embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'index_product', 
+          productId: updatedProduct.id, 
+          imageUrl: updatedProduct.image || updatedProduct.images?.[0] 
+        })
+      }).catch(() => {});
+    }
     setEditingProduct(null);
     setIsAddingProduct(false);
     setImportedProductData(null);
@@ -6628,6 +6639,49 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const [showAllModels, setShowAllModels] = useState(false);
   const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'embedding' | 'vision'>('all');
 
+  const [indexStatus, setIndexStatus] = useState<{ totalActiveProducts: number; indexedCount: number; missingCount: number; missingProducts: any[] } | null>(null);
+  const [isFetchingIndexStatus, setIsFetchingIndexStatus] = useState(false);
+  const [isIndexingMissing, setIsIndexingMissing] = useState(false);
+  const [indexMessage, setIndexMessage] = useState<string | null>(null);
+
+  const fetchIndexStatus = async () => {
+    setIsFetchingIndexStatus(true);
+    try {
+      const res = await fetch('/api/index_embeddings?action=status');
+      if (res.ok) {
+        const data = await res.json();
+        setIndexStatus(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFetchingIndexStatus(false);
+    }
+  };
+
+  const handleIndexMissing = async () => {
+    setIsIndexingMissing(true);
+    setIndexMessage(null);
+    try {
+      const res = await fetch('/api/index_embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'index_missing' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIndexStatus(data);
+        setIndexMessage(`Successfully indexed ${data.indexedCount || 0} product(s) into Visual Search! ✅`);
+      } else {
+        setIndexMessage(`Indexing failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      setIndexMessage(`Network error during indexing: ${e?.message || e}`);
+    } finally {
+      setIsIndexingMissing(false);
+    }
+  };
+
   const fetchRealtimeModels = async (keyOverride?: string) => {
     const key = (keyOverride || geminiApiKeys.find(k => k.trim()) || '').trim();
     if (!key) {
@@ -6691,6 +6745,8 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
         }
       }
     }).catch(console.error);
+
+    fetchIndexStatus();
   }, []);
 
   const handleSave = async () => {
@@ -7316,6 +7372,95 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                         })
                       )}
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Catalog Visual Search Index Status */}
+            <div className="pt-4 border-t border-[var(--dash-border)]/50 space-y-3.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-indigo-400" />
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                      Product Catalog Visual Index
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Auto-indexes all product photos into 512d AI vectors for instant visual search
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchIndexStatus}
+                  disabled={isFetchingIndexStatus}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 active:scale-95 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  title="Refresh visual index status"
+                >
+                  <RefreshCw size={12} className={cn(isFetchingIndexStatus && "animate-spin text-indigo-400")} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {indexMessage && (
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs flex items-center justify-between gap-2">
+                  <span>{indexMessage}</span>
+                  <button onClick={() => setIndexMessage(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-300 font-medium">Visual Coverage:</span>
+                    <span className="font-bold text-white">
+                      {indexStatus ? `${indexStatus.indexedCount} of ${indexStatus.totalActiveProducts} Products Indexed` : "Checking index..."}
+                    </span>
+                  </div>
+
+                  {indexStatus && (
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold border",
+                      indexStatus.missingCount === 0 
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" 
+                        : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                    )}>
+                      {indexStatus.missingCount === 0 ? "100% Fully Indexed" : `${indexStatus.missingCount} Missing`}
+                    </span>
+                  )}
+                </div>
+
+                {/* Progress bar */}
+                {indexStatus && indexStatus.totalActiveProducts > 0 && (
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ 
+                        width: `${Math.min(100, Math.round((indexStatus.indexedCount / indexStatus.totalActiveProducts) * 100))}%` 
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Index missing products button if missing count > 0 */}
+                {indexStatus && indexStatus.missingCount > 0 && (
+                  <div className="pt-1 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-[11px] text-amber-300/90">
+                      {indexStatus.missingCount} newly added product(s) (e.g. {indexStatus.missingProducts.slice(0, 3).map(p => p.id).join(', ')}) need visual indexing.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleIndexMissing}
+                      disabled={isIndexingMissing}
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+                    >
+                      <Sparkles size={13} className={cn(isIndexingMissing && "animate-spin")} />
+                      <span>{isIndexingMissing ? "Indexing..." : `⚡ Index ${indexStatus.missingCount} Missing Product(s)`}</span>
+                    </button>
                   </div>
                 )}
               </div>

@@ -27,7 +27,8 @@ export async function onRequest(context: any) {
     '/api/ga4',
     '/api/send_telegram',
     '/api/proxy_image',
-    '/api/search_by_image'
+    '/api/search_by_image',
+    '/api/index_embeddings'
   ];
 
   if (publicPaths.includes(path)) {
