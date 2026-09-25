@@ -2456,43 +2456,10 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           </>
         )}
 
-        {/* Visual Search Indicator Banner */}
-        {activeTab === 'Products' && (dashboardImagePreview || dashboardImageError) && (
-          <div className="mx-3.5 md:mx-8 mb-3 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs animate-in fade-in duration-200">
-            <div className="flex items-center gap-3 min-w-0">
-              {dashboardImagePreview ? (
-                <div className="w-10 h-10 rounded-xl overflow-hidden border border-indigo-500/40 shrink-0 shadow-sm">
-                  <img src={dashboardImagePreview} alt="Search source" className="w-full h-full object-cover" />
-                </div>
-              ) : null}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-white flex items-center gap-1.5 text-xs md:text-sm">
-                    <Sparkles size={14} className="text-indigo-400" />
-                    AI Visual Search
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    {isDashboardImageSearching ? 'Searching catalog...' : `${displayProducts.length} matching products`}
-                  </span>
-                </div>
-                {dashboardImageError ? (
-                  <p className="text-[11px] text-rose-400 mt-0.5 truncate">{dashboardImageError}</p>
-                ) : (
-                  <p className="text-[11px] text-slate-400 mt-0.5 truncate hidden sm:block">
-                    Filtered by visual similarity from uploaded image
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={handleClearDashboardImage}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-slate-300 hover:text-white border border-white/10 flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shrink-0 shadow-sm"
-              title="Clear visual search and show all products"
-            >
-              <X size={14} />
-              <span>Clear</span>
-            </button>
+        {/* Visual Search Error Notice (only shown if an error occurs) */}
+        {activeTab === 'Products' && dashboardImageError && (
+          <div className="mx-3.5 md:mx-8 mb-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center animate-in fade-in duration-200">
+            {dashboardImageError}
           </div>
         )}
 
