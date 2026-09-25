@@ -334,7 +334,7 @@ export function SearchModal({
         className="absolute inset-0 bg-white/60 lg:bg-[#09090b]/20 backdrop-blur-md pointer-events-auto cursor-pointer touch-none"
       />
       
-      <div className="pt-4 px-4 pb-3 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:p-0">
+      <div className="pt-3 px-2.5 sm:px-4 pb-2.5 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:p-0">
         <motion.div 
           layoutId="search-bar-morph"
           style={{ borderRadius: 9999 }}
@@ -402,13 +402,13 @@ export function SearchModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 10 }}
         transition={{ duration: 0.2 }}
-        className="flex-grow lg:flex-grow-0 overflow-y-auto lg:overflow-visible px-4 pb-4 lg:p-0 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:mt-2 lg:max-h-[70vh] custom-scroll"
+        className="flex-grow lg:flex-grow-0 overflow-y-auto lg:overflow-visible px-2.5 sm:px-4 pb-4 lg:p-0 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:mt-2 lg:max-h-[70vh] custom-scroll"
       >
         {/* Visual Search Indicator Banner */}
         {imagePreview && (
           <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-2.5 mb-2 shadow-lg border border-indigo-100 flex items-center justify-between gap-3 pointer-events-auto">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-sm bg-gray-50">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-sm bg-gray-50">
                 <img src={imagePreview} alt="Search Preview" className="w-full h-full object-cover" />
                 {isImageSearching && (
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
@@ -451,35 +451,38 @@ export function SearchModal({
         )}
 
         {hasActiveSearch && results.length > 0 && (
-          <div className="bg-white/95 backdrop-blur-xl rounded-[20px] lg:rounded-2xl overflow-hidden shadow-2xl pointer-events-auto pb-1 border border-gray-100 lg:max-h-[70vh] lg:overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur-xl rounded-[22px] lg:rounded-2xl overflow-hidden shadow-2xl pointer-events-auto pb-1 border border-gray-100 lg:max-h-[70vh] lg:overflow-y-auto">
             {results.map((product, idx) => (
               <div 
                 key={product.id} 
                 onClick={() => { onProductClick(product); }}
-                className="flex items-center gap-3 p-2.5 lg:p-3 bg-transparent cursor-pointer hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-3 p-2 pl-2 sm:p-2.5 sm:pl-2.5 lg:p-3 bg-transparent cursor-pointer hover:bg-gray-50/80 transition-colors group"
                 style={{ borderBottom: idx !== results.length - 1 ? '1px solid rgba(243, 244, 246, 0.8)' : 'none' }}
               >
-                <img src={product.thumbnail || product.image} className="w-14 h-14 lg:w-12 lg:h-12 rounded-xl lg:rounded-lg object-cover bg-gray-50 shrink-0 shadow-sm" />
-                <div className="flex-grow min-w-0 pr-2">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-1">{product.title}</h4>
+                <img 
+                  src={product.thumbnail || product.image} 
+                  className="w-24 h-24 sm:w-24 sm:h-24 lg:w-20 lg:h-20 rounded-2xl lg:rounded-xl object-cover bg-gray-100 shrink-0 shadow-xs border border-gray-100/90 group-hover:scale-[1.02] transition-transform" 
+                />
+                <div className="flex-grow min-w-0 pr-2 py-0.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <h4 className="text-[14px] lg:text-[14px] font-semibold text-[var(--theme-black)] line-clamp-2 leading-snug">{product.title}</h4>
                     {imagePreview && (
                       <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
                         <Sparkles size={10} /> AI Match
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center justify-between mt-2">
                     {(() => {
                       const cItem = cart?.find(item => item.product.id === product.id);
                       const discount = cItem ? calculateProductDiscount(product, cItem.quantity, cItem.variantId, websiteSettings?.qtyRules) : 0;
                       return discount > 0 ? (
-                        <div className="flex items-baseline gap-1.5 font-bold text-[14px] lg:text-[13px] text-[var(--theme-primary)]">
+                        <div className="flex items-baseline gap-1.5 font-bold text-[15px] lg:text-[14px] text-[var(--theme-primary)]">
                           <span className="line-through text-gray-400 text-xs font-normal">{formatPrice(product.price)}</span>
                           <span>{formatPrice(product.price - discount)}</span>
                         </div>
                       ) : (
-                        <span className="font-bold text-[14px] lg:text-[13px] text-[var(--theme-primary)]">{formatPrice(product.price)}</span>
+                        <span className="font-bold text-[15px] lg:text-[14px] text-[var(--theme-primary)]">{formatPrice(product.price)}</span>
                       );
                     })()}
                     <span className="text-[10px] font-semibold text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded uppercase shrink-0 ml-2">{product.category}</span>
