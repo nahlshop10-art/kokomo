@@ -4,6 +4,7 @@ import { Product, CartItem, WebsiteSettings } from '../types';
 import { formatPrice, cn } from '../lib/utils';
 import { calculateProductDiscount } from '../lib/pricingUtils';
 import { Trash2, Plus, Minus } from 'lucide-react';
+import { StorefrontProductImage } from './StorefrontProductImage';
 
 export interface StorefrontProductCardProps {
   product: Product;
@@ -34,30 +35,17 @@ export const StorefrontProductCard = React.memo(function StorefrontProductCard({
       onClick={() => onSelect(product)}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-gray-100 group contain-strict xl:rounded-md">
-        <img 
+        <StorefrontProductImage 
           src={product.thumbnail || product.image} 
+          hoverSrc={productImageHover && product.images && product.images.length > 1 ? (product.thumbnails?.[1] || product.images[1]) : undefined}
           alt={product.title} 
-          loading="lazy"
-          decoding="async"
-          className={cn(
-            "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-            productImageHover && product.images && product.images.length > 1 ? "group-hover:opacity-0" : ""
-          )}
+          productImageHover={Boolean(productImageHover && product.images && product.images.length > 1)}
         />
-        {productImageHover && product.images && product.images.length > 1 && (
-          <img 
-            src={product.thumbnails?.[1] || product.images[1]} 
-            alt={`${product.title} hover`} 
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 opacity-0 group-hover:opacity-100"
-          />
-        )}
         
         {product.colors && (
-          <div className="absolute bottom-2 right-2 flex -space-x-1">
+          <div className="absolute bottom-2 right-2 flex -space-x-1 z-20 pointer-events-none">
             {product.colors.map(c => (
-              <img key={c.name} src={c.image} className="w-6 h-6 rounded-full border border-[var(--theme-white)] shadow-sm object-cover" />
+              <img key={c.name} src={c.image} alt={c.name} loading="lazy" decoding="async" className="w-6 h-6 rounded-full border border-[var(--theme-white)] shadow-sm object-cover" />
             ))}
           </div>
         )}
@@ -226,7 +214,7 @@ export const StorefrontProductsGrid = React.memo(function StorefrontProductsGrid
   const virtualizer = useWindowVirtualizer({
     count: rowCount,
     estimateSize: estimateRowHeight,
-    overscan: windowWidth < 768 ? 6 : 4,
+    overscan: windowWidth < 768 ? 2 : 3,
   });
 
   return (
