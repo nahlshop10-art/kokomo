@@ -6385,6 +6385,45 @@ export function SeoSettingsManager({ settings, setSettings, onClose, themePrimar
   );
 }
 
+const RECOMMENDED_AI_MODELS = [
+  {
+    id: 'models/gemini-embedding-2',
+    name: 'Gemini Embedding 2',
+    badge: 'Recommended',
+    badgeColor: 'emerald',
+    tag: '512d Vector Search',
+    desc: 'Multimodal vector embeddings for 100% accurate visual jewelry & product matching.',
+    isVector: true,
+  },
+  {
+    id: 'models/gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    badge: 'Fast Vision',
+    badgeColor: 'indigo',
+    tag: 'Multimodal Vision',
+    desc: 'High-speed generative vision AI with deep contextual scene and product understanding.',
+    isVector: false,
+  },
+  {
+    id: 'models/gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash-Lite',
+    badge: 'Lightweight',
+    badgeColor: 'sky',
+    tag: 'High Throughput',
+    desc: 'Ultra-lightweight multimodal model optimized for minimal latency and high quota efficiency.',
+    isVector: false,
+  },
+  {
+    id: 'models/gemini-embedding-2-preview',
+    name: 'Gemini Embedding 2 Preview',
+    badge: 'Preview',
+    badgeColor: 'purple',
+    tag: 'Multimodal Vector',
+    desc: 'Experimental preview release of Google multimodal vector embedding engine.',
+    isVector: true,
+  },
+];
+
 export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () => void; themePrimary?: string }) {
   const [enabled, setEnabled] = useState(true);
   const [quality, setQuality] = useState(70);
@@ -6404,6 +6443,8 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
   const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [showAllModels, setShowAllModels] = useState(false);
+  const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'embedding' | 'vision'>('all');
 
   const fetchRealtimeModels = async (keyOverride?: string) => {
     const key = (keyOverride || geminiApiKey).trim();
@@ -6520,6 +6561,35 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
     }
   };
 
+  const modelsToDisplay = availableModels.length > 0 
+    ? availableModels 
+    : [
+        { name: 'models/gemini-embedding-2', displayName: 'Gemini Embedding 2', description: 'Google multimodal vector embedding model (512-dim) for accurate visual search.' },
+        { name: 'models/gemini-embedding-2-preview', displayName: 'Gemini Embedding 2 Preview', description: 'Preview release of multimodal vector embedding model.' },
+        { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Next-generation multimodal vision model.' },
+        { name: 'models/gemini-2.5-flash-lite', displayName: 'Gemini 2.5 Flash-Lite', description: 'Lightweight fast multimodal model.' }
+      ];
+
+  const filteredModels = modelsToDisplay.filter(m => {
+    const q = modelSearchQuery.trim().toLowerCase();
+    const matchesSearch = !q || 
+      m.name.toLowerCase().includes(q) || 
+      (m.displayName && m.displayName.toLowerCase().includes(q));
+    
+    if (!matchesSearch) return false;
+
+    if (modelCategoryFilter === 'embedding') {
+      return m.name.toLowerCase().includes('embedding');
+    }
+    if (modelCategoryFilter === 'vision') {
+      return !m.name.toLowerCase().includes('embedding');
+    }
+    return true;
+  });
+
+  const activeModelInfo = RECOMMENDED_AI_MODELS.find(m => selectedModel === m.id || selectedModel === m.id.replace('models/', '')) || 
+    (availableModels.find(m => selectedModel === m.name || selectedModel === m.name.replace('models/', '')) as any);
+
   const themeColor = '#6366F1';
 
   return (
@@ -6560,16 +6630,36 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Gemini AI Visual Image Search Card */}
-        <div className="bg-[var(--dash-card)] border border-indigo-500/30 rounded-2xl p-4 md:p-6 shadow-xl space-y-4 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5 shadow-sm">
-                <Sparkles size={18} />
+        <div className="bg-[var(--dash-card)] border border-indigo-500/30 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-xl space-y-5 relative overflow-hidden backdrop-blur-sm">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Header */}
+          <div className="flex items-center justify-between gap-3 relative z-10">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
+                <Sparkles size={20} />
               </div>
-              <div>
-                <h3 className="text-sm md:text-base font-bold text-white">Google Gemini AI Visual Search</h3>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm md:text-base font-bold text-white tracking-tight">
+                    Google Gemini AI Visual Search
+                  </h3>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0",
+                    aiSearchEnabled 
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                      : "bg-slate-500/15 border-slate-500/30 text-slate-400"
+                  )}>
+                    <span className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      aiSearchEnabled ? "bg-emerald-400 animate-pulse" : "bg-slate-400"
+                    )} />
+                    {aiSearchEnabled ? "Active" : "Disabled"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                  Visual similarity search powered by Google Gemini AI
+                </p>
               </div>
             </div>
 
@@ -6590,12 +6680,24 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
             </button>
           </div>
 
-          <div className="space-y-4 pt-3 border-t border-[var(--dash-border)]/50">
+          {/* API Key Box */}
+          <div className="space-y-3 pt-4 border-t border-[var(--dash-border)]/60">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Key size={13} className="text-indigo-400" />
-                Gemini API Key
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Key size={13} className="text-indigo-400" />
+                  Gemini API Key
+                </label>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors hover:underline"
+                >
+                  <span>Get Free Key</span>
+                  <ExternalLink size={11} />
+                </a>
+              </div>
               
               <div className="relative flex items-center">
                 <input 
@@ -6605,8 +6707,8 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                     setGeminiApiKey(e.target.value);
                     setTestStatus(null);
                   }}
-                  placeholder="Paste your Google Gemini API key..."
-                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-20 text-xs md:text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  placeholder="Paste your Google Gemini API key (e.g. AIzaSy...)"
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-20 text-xs md:text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all"
                 />
                 
                 <div className="absolute right-2 flex items-center gap-1">
@@ -6627,12 +6729,12 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                   type="button"
                   onClick={handleTestKey}
                   disabled={isTestingKey || !geminiApiKey.trim()}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 active:scale-95 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/15 hover:bg-indigo-600/25 active:scale-95 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                 >
                   {isTestingKey ? (
                     <>
                       <Loader2 size={13} className="animate-spin text-indigo-400" />
-                      Testing API Key...
+                      Testing Connection...
                     </>
                   ) : (
                     <>
@@ -6641,40 +6743,49 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                     </>
                   )}
                 </button>
+
+                <span className="text-[11px] text-slate-400">
+                  Stored securely on server
+                </span>
               </div>
 
               {testStatus && (
                 <div className={cn(
-                  "mt-3 p-2.5 rounded-xl border text-xs flex items-center gap-2 animate-in fade-in duration-200",
+                  "mt-3 p-3 rounded-xl border text-xs flex items-center gap-2.5 animate-in fade-in duration-200",
                   testStatus.ok 
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                     : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                 )}>
                   {testStatus.ok ? (
-                    <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+                    <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
                   ) : (
-                    <AlertCircle size={15} className="shrink-0 text-rose-400" />
+                    <AlertCircle size={16} className="shrink-0 text-rose-400" />
                   )}
-                  <span>{testStatus.message}</span>
+                  <span className="font-medium leading-relaxed">{testStatus.message}</span>
                 </div>
               )}
             </div>
 
             {/* Realtime Model Selector */}
-            <div className="pt-3 border-t border-[var(--dash-border)]/50 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <Cpu size={14} className="text-indigo-400" />
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    AI Visual Search Model
-                  </label>
+            <div className="pt-4 border-t border-[var(--dash-border)]/50 space-y-3.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Cpu size={14} className="text-indigo-400" />
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                      AI Visual Search Model
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Select the Gemini model to power customer image search
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => fetchRealtimeModels()}
                   disabled={isFetchingModels || !geminiApiKey.trim()}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white/5 hover:bg-white/10 active:scale-95 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 active:scale-95 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Fetch supported models from your Google Gemini account in real time"
                 >
                   <RefreshCw size={12} className={cn(isFetchingModels && "animate-spin text-indigo-400")} />
@@ -6683,106 +6794,217 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
               </div>
 
               {modelFetchError && (
-                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
                   <AlertCircle size={14} className="shrink-0" />
                   <span>{modelFetchError}</span>
                 </div>
               )}
 
-              {/* Quick filter & Model List */}
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
-                    type="text"
-                    value={modelSearchQuery}
-                    onChange={(e) => setModelSearchQuery(e.target.value)}
-                    placeholder="Search models (e.g. embedding, flash, 2.5)..."
-                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
-                  />
+              {/* Active Model Indicator Card */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/50 to-slate-900/60 border border-indigo-500/30 flex items-center justify-between gap-3 shadow-inner">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs md:text-sm font-bold text-white">
+                      {activeModelInfo?.displayName || activeModelInfo?.name || selectedModel.replace('models/', '')}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Active Model
+                    </span>
+                    {activeModelInfo?.tag && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/15 border border-indigo-500/25 text-indigo-300">
+                        {activeModelInfo.tag}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-mono text-slate-400 truncate mt-1">
+                    {selectedModel}
+                  </p>
                 </div>
 
-                {/* Model cards list */}
-                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                  {(availableModels.length > 0 
-                    ? availableModels.filter(m => 
-                        !modelSearchQuery.trim() || 
-                        m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) || 
-                        (m.displayName && m.displayName.toLowerCase().includes(modelSearchQuery.toLowerCase()))
-                      )
-                    : [
-                        { name: 'models/gemini-embedding-2', displayName: 'Gemini Embedding 2', description: 'Google multimodal vector embedding model (512-dim) for 100% accurate visual jewelry search.' },
-                        { name: 'models/gemini-embedding-2-preview', displayName: 'Gemini Embedding 2 Preview', description: 'Preview release of multimodal vector embedding model.' },
-                        { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Next-generation multimodal vision model.' },
-                        { name: 'models/gemini-2.5-flash-lite', displayName: 'Gemini 2.5 Flash-Lite', description: 'Lightweight fast multimodal model.' }
-                      ]
-                  ).map((m) => {
-                    const isSelected = selectedModel === m.name || (selectedModel && selectedModel === m.name.replace('models/', ''));
-                    const isEmbedding = m.name.toLowerCase().includes('embedding');
-                    const isRecommended = m.name === 'models/gemini-embedding-2' || m.name === 'gemini-embedding-2';
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Check size={13} strokeWidth={3} />
+                </div>
+              </div>
+
+              {/* Recommended Models Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Recommended Models
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">Click to select</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {RECOMMENDED_AI_MODELS.map((m) => {
+                    const isSelected = selectedModel === m.id || selectedModel === m.id.replace('models/', '');
 
                     return (
                       <div
-                        key={m.name}
-                        onClick={() => setSelectedModel(m.name)}
+                        key={m.id}
+                        onClick={() => setSelectedModel(m.id)}
                         className={cn(
-                          "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-left group",
+                          "p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2.5 text-left group relative",
                           isSelected
-                            ? "bg-indigo-600/15 border-indigo-500 shadow-sm shadow-indigo-500/20"
-                            : "bg-white/[0.02] border-white/5 hover:border-white/15 hover:bg-white/[0.04]"
+                            ? "bg-indigo-600/15 border-indigo-500 ring-1 ring-indigo-500/40 shadow-md shadow-indigo-950/40"
+                            : "bg-white/[0.02] border-white/8 hover:bg-white/[0.05] hover:border-white/20"
                         )}
                       >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
                             <span className="text-xs font-bold text-white group-hover:text-indigo-200 transition-colors">
-                              {m.displayName || m.name.replace('models/', '')}
+                              {m.name}
                             </span>
-                            {isRecommended && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
-                                Recommended
-                              </span>
-                            )}
-                            <span className={cn(
-                              "px-1.5 py-0.5 rounded-md text-[9px] font-semibold border",
-                              isEmbedding 
-                                ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"
-                                : "bg-purple-500/10 border-purple-500/25 text-purple-300"
+
+                            <div className={cn(
+                              "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors",
+                              isSelected 
+                                ? "border-indigo-500 bg-indigo-500 text-white" 
+                                : "border-slate-600 group-hover:border-slate-400"
                             )}>
-                              {isEmbedding ? "Multimodal Vector (512d)" : "Vision Generative"}
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                              m.badgeColor === 'emerald' && "bg-emerald-500/15 border-emerald-500/30 text-emerald-300",
+                              m.badgeColor === 'indigo' && "bg-indigo-500/15 border-indigo-500/30 text-indigo-300",
+                              m.badgeColor === 'sky' && "bg-sky-500/15 border-sky-500/30 text-sky-300",
+                              m.badgeColor === 'purple' && "bg-purple-500/15 border-purple-500/30 text-purple-300"
+                            )}>
+                              {m.badge}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5 border border-white/10 text-slate-300">
+                              {m.tag}
                             </span>
                           </div>
-                          <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
-                            {m.name}
+
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            {m.desc}
                           </p>
                         </div>
 
-                        <div className={cn(
-                          "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors",
-                          isSelected 
-                            ? "border-indigo-500 bg-indigo-500 text-white" 
-                            : "border-slate-600 group-hover:border-slate-500"
-                        )}>
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        <div className="pt-1.5 text-[10px] font-mono text-slate-500 truncate border-t border-white/5">
+                          {m.id}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-[11px] text-slate-400">
-              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
-                <div className="font-semibold text-slate-300 flex items-center gap-1">🎯 100% Vector Match</div>
-                <div>512-ডাইমেনশন ভিজুয়াল ভেক্টর দিয়ে সরাসরি কালার, শেইপ ও ডিজাইন মেলায়।</div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
-                <div className="font-semibold text-slate-300 flex items-center gap-1">🚫 No Random Items</div>
-                <div>সরাসরি মিল না থাকলে কোনো রেন্ডম প্রোডাক্ট দেখাবে না, নির্ভুল রেজাল্ট দেবে।</div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
-                <div className="font-semibold text-slate-300 flex items-center gap-1">⚡ Sub-Second Speed</div>
-                <div>ক্যাটালগ প্রি-ইনডেক্সড থাকায় মাত্র ~0.8 সেকেন্ডে নিখুঁত রেজাল্ট আসে।</div>
+              {/* Expandable All Models / Search Section */}
+              <div className="pt-2 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setShowAllModels(!showAllModels)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 flex items-center justify-between text-xs text-slate-300 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    {showAllModels ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
+                    <span className="font-semibold text-white">Browse All Account Models</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-slate-400 font-mono border border-white/5">
+                      {availableModels.length > 0 ? `${availableModels.length} models` : 'Default presets'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-indigo-400 font-medium">
+                    {showAllModels ? 'Hide' : 'Show All'}
+                  </span>
+                </button>
+
+                {showAllModels && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-black/25 border border-white/10 space-y-2.5 animate-in fade-in duration-200">
+                    {/* Search & Category Tabs */}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input
+                          type="text"
+                          value={modelSearchQuery}
+                          onChange={(e) => setModelSearchQuery(e.target.value)}
+                          placeholder="Filter models (e.g. embedding, flash, 2.5)..."
+                          className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {(['all', 'embedding', 'vision'] as const).map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setModelCategoryFilter(cat)}
+                            className={cn(
+                              "px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all capitalize cursor-pointer",
+                              modelCategoryFilter === cat
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                            )}
+                          >
+                            {cat === 'all' ? 'All' : cat === 'embedding' ? 'Vector' : 'Vision'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Scrollable Model List */}
+                    <div className="max-h-52 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                      {filteredModels.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-500">
+                          No matching models found for "{modelSearchQuery}"
+                        </div>
+                      ) : (
+                        filteredModels.map((m) => {
+                          const isSelected = selectedModel === m.name || (selectedModel && selectedModel === m.name.replace('models/', ''));
+                          const isEmbedding = m.name.toLowerCase().includes('embedding');
+
+                          return (
+                            <div
+                              key={m.name}
+                              onClick={() => setSelectedModel(m.name)}
+                              className={cn(
+                                "p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2.5 text-left group",
+                                isSelected
+                                  ? "bg-indigo-600/15 border-indigo-500 text-white"
+                                  : "bg-white/[0.01] border-white/5 hover:border-white/15 hover:bg-white/[0.03]"
+                              )}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-semibold text-white group-hover:text-indigo-200">
+                                    {m.displayName || m.name.replace('models/', '')}
+                                  </span>
+                                  <span className={cn(
+                                    "px-1.5 py-0.2 rounded text-[9px] font-medium border",
+                                    isEmbedding 
+                                      ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"
+                                      : "bg-purple-500/10 border-purple-500/25 text-purple-300"
+                                  )}>
+                                    {isEmbedding ? "Vector" : "Vision"}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
+                                  {m.name}
+                                </p>
+                              </div>
+
+                              <div className={cn(
+                                "w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0",
+                                isSelected 
+                                  ? "border-indigo-500 bg-indigo-500 text-white" 
+                                  : "border-slate-600 group-hover:border-slate-500"
+                              )}>
+                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
