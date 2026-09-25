@@ -420,6 +420,16 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
   const handleTabChange = (tab: any) => {
     setActiveTab(tab);
+    // Reset search modes and search inputs when switching tabs
+    if (topBarMode === 'search') {
+      setTopBarMode('default');
+      setSearchQuery('');
+      handleClearDashboardImage();
+    }
+    if (isOrderSearchMode) {
+      setIsOrderSearchMode(false);
+      setOrderSearchQuery('');
+    }
     // Crucial: Close any open modals so navigation switches immediately
     setSelectedOrder(null);
     setEditingProduct(null);
@@ -2308,21 +2318,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         </div>
       )}
 
-      <AnimatePresence>
-        {(topBarMode === 'search' || isOrderSearchMode) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => {
-              setTopBarMode('default');
-              setIsOrderSearchMode(false);
-            }}
-            className="absolute inset-0 bg-transparent z-40 pointer-events-auto cursor-pointer"
-          />
-        )}
-      </AnimatePresence>
 
       <div 
         ref={setScrollContainerRef} 
