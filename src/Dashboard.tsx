@@ -1888,10 +1888,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
 
           {topBarMode === 'search' ? (
           <div className="flex-grow flex items-center gap-2 z-10 relative">
-            <motion.div 
-              layoutId="dashboard-product-search-morph"
+            <div 
               style={{ borderRadius: 9999 }}
-              transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
               className="flex-grow flex items-center bg-white border-[1.5px] border-[var(--theme-primary)] overflow-hidden shadow-sm pointer-events-auto pr-2 rounded-full"
             >
               {dashboardImagePreview ? (
@@ -1936,31 +1934,18 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               >
                 <X size={18} />
               </button>
-            </motion.div>
+            </div>
           </div>
         ) : (
           <>
-            <motion.button 
-              layoutId="dashboard-product-search-morph" 
+            <button 
+              type="button"
               style={{ borderRadius: 9999 }}
-              transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
               onClick={() => { setShowEditMenu(false); setTopBarMode('search'); }} 
               className="w-10 h-10 bg-transparent flex items-center justify-center relative overflow-hidden border-[1.5px] border-transparent shrink-0 cursor-pointer"
               title="Search products"
             >
               <Search size={22} className="text-white" />
-            </motion.button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowEditMenu(false);
-                dashboardFileInputRef.current?.click();
-              }}
-              className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-indigo-400 hover:text-indigo-300 transition-all shrink-0 cursor-pointer"
-              title="Search products by image"
-            >
-              <Camera size={19} />
             </button>
             
             <div className="relative">
@@ -2156,10 +2141,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           <div className="flex items-center gap-2">
             {isOrderSearchMode ? (
               <div className="flex-grow flex items-center gap-2 z-10 relative">
-                <motion.div 
-                  layoutId="dashboard-order-search-morph"
+                <div 
                   style={{ borderRadius: 9999 }}
-                  transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
                   className="flex-grow flex items-center bg-white border-[1.5px] border-[var(--theme-primary)] overflow-hidden shadow-sm pointer-events-auto"
                 >
                   <input 
@@ -2176,18 +2159,17 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                   >
                     <X size={18} />
                   </button>
-                </motion.div>
+                </div>
               </div>
             ) : (
-              <motion.button 
-                layoutId="dashboard-order-search-morph" 
+              <button 
+                type="button"
                 style={{ borderRadius: 9999 }}
-                transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
                 onClick={() => setIsOrderSearchMode(true)} 
                 className="w-10 h-10 bg-transparent flex items-center justify-center relative overflow-hidden border-[1.5px] border-transparent shrink-0"
               >
                 <Search size={22} className="text-white" />
-              </motion.button>
+              </button>
             )}
             
             {!isOrderSearchMode && (
