@@ -449,6 +449,86 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
+  // Dashboard Products Visual Image Search
+  const [dashboardImagePreview, setDashboardImagePreview] = useState<string | null>(null);
+  const [isDashboardImageSearching, setIsDashboardImageSearching] = useState(false);
+  const [dashboardMatchedIds, setDashboardMatchedIds] = useState<string[]>([]);
+  const [dashboardImageError, setDashboardImageError] = useState<string | null>(null);
+  const dashboardFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDashboardImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setDashboardImageError(null);
+    setIsDashboardImageSearching(true);
+    setTopBarMode('search');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawData = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 380;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setIsDashboardImageSearching(false);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+        setDashboardImagePreview(compressedBase64);
+
+        fetch('/api/search_by_image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: compressedBase64 })
+        })
+          .then(async (res) => {
+            const data = await res.json();
+            if (res.ok && data.success) {
+              setDashboardMatchedIds(data.matchedIds || []);
+            } else {
+              setDashboardImageError(data.error || 'Failed to detect products from image');
+            }
+          })
+          .catch(() => {
+            setDashboardImageError('Network error while performing visual search');
+          })
+          .finally(() => {
+            setIsDashboardImageSearching(false);
+            if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
+          });
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearDashboardImage = () => {
+    setDashboardImagePreview(null);
+    setDashboardMatchedIds([]);
+    setDashboardImageError(null);
+    setIsDashboardImageSearching(false);
+    if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
+  };
+
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [visibilityChanges, setVisibilityChanges] = useState<Record<string, boolean>>({});
@@ -1133,6 +1213,17 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const displayProducts = React.useMemo(() => {
     let result = [...products];
 
+    // Visual Search (AI Image Match Priority)
+    if (dashboardImagePreview) {
+      if (dashboardMatchedIds.length > 0) {
+        result = dashboardMatchedIds
+          .map(id => products.find(p => String(p.id) === String(id)))
+          .filter(Boolean) as Product[];
+      } else if (!isDashboardImageSearching) {
+        result = [];
+      }
+    }
+
     // Search
     if (searchQuery) {
       const cleanSearchQuery = searchQuery.replace(/#/g, '').toLowerCase();
@@ -1169,7 +1260,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       default:
         return result;
     }
-  }, [products, searchQuery, selectedCategory, selectedFilter]);
+  }, [products, searchQuery, selectedCategory, selectedFilter, dashboardImagePreview, dashboardMatchedIds, isDashboardImageSearching]);
 
   // Stats calculation for Products tab (memoized)
   const { totalItems, totalStock, totalBuy, totalSell, totalProfit } = React.useMemo(() => {
@@ -1781,19 +1872,47 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               layoutId="dashboard-product-search-morph"
               style={{ borderRadius: 9999 }}
               transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
-              className="flex-grow flex items-center bg-white border-[1.5px] border-[var(--theme-primary)] overflow-hidden shadow-sm pointer-events-auto"
+              className="flex-grow flex items-center bg-white border-[1.5px] border-[var(--theme-primary)] overflow-hidden shadow-sm pointer-events-auto pr-2 rounded-full"
             >
+              {dashboardImagePreview ? (
+                <div className="ml-3 w-7 h-7 rounded-full overflow-hidden border border-[var(--theme-primary)]/40 shrink-0 shadow-xs">
+                  <img src={dashboardImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              ) : null}
+
               <input 
                 type="text" 
-                placeholder="Search products..." 
+                placeholder={dashboardImagePreview ? "Refine visual search..." : "Search products..."} 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full h-12 bg-transparent px-4 text-sm outline-none text-[var(--dash-bg)] placeholder-gray-400"
-                autoFocus
+                className="w-full h-12 bg-transparent px-3 sm:px-4 text-sm outline-none text-[var(--dash-bg)] placeholder-gray-400"
+                autoFocus={!dashboardImagePreview}
               />
+
+              {isDashboardImageSearching && (
+                <Loader2 size={18} className="animate-spin text-indigo-600 mr-2 shrink-0" />
+              )}
+
+              <button
+                type="button"
+                onClick={() => dashboardFileInputRef.current?.click()}
+                title="Search products by image / camera"
+                className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-indigo-600 hover:text-black transition-all shrink-0 cursor-pointer mr-1 relative group"
+              >
+                <Camera size={19} />
+              </button>
+
               <button 
-                onClick={() => { setTopBarMode('default'); setSearchQuery(''); }}
-                className="p-3 text-gray-400 hover:text-[var(--dash-bg)] transition-colors"
+                onClick={() => { 
+                  if (dashboardImagePreview) {
+                    handleClearDashboardImage();
+                  } else {
+                    setTopBarMode('default'); 
+                    setSearchQuery(''); 
+                  }
+                }}
+                className="p-2 text-gray-400 hover:text-[var(--dash-bg)] transition-colors cursor-pointer"
+                title={dashboardImagePreview || searchQuery ? "Clear search" : "Close"}
               >
                 <X size={18} />
               </button>
@@ -1806,10 +1925,31 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               style={{ borderRadius: 9999 }}
               transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
               onClick={() => { setShowEditMenu(false); setTopBarMode('search'); }} 
-              className="w-10 h-10 bg-transparent flex items-center justify-center relative overflow-hidden border-[1.5px] border-transparent shrink-0"
+              className="w-10 h-10 bg-transparent flex items-center justify-center relative overflow-hidden border-[1.5px] border-transparent shrink-0 cursor-pointer"
+              title="Search products"
             >
               <Search size={22} className="text-white" />
             </motion.button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditMenu(false);
+                dashboardFileInputRef.current?.click();
+              }}
+              className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-indigo-400 hover:text-indigo-300 transition-all shrink-0 cursor-pointer"
+              title="Search products by image"
+            >
+              <Camera size={19} />
+            </button>
+
+            <input 
+              ref={dashboardFileInputRef} 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleDashboardImageUpload} 
+            />
             
             <div className="relative">
               <button onClick={() => { setShowEditMenu(false); setTopBarMode(topBarMode === 'category' ? 'default' : 'category'); }} className={cn("p-2 rounded-lg border transition-colors", topBarMode === 'category' ? "bg-[var(--dash-border)] border-[#fafafa] text-[#fafafa]" : "bg-[var(--dash-card)] border-[var(--dash-border)] hover:bg-[var(--dash-border)]")}>
@@ -2325,6 +2465,44 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               </div>
             )}
           </>
+        )}
+
+        {/* Visual Search Indicator Banner */}
+        {activeTab === 'Products' && dashboardImagePreview && (
+          <div className="mx-3.5 md:mx-8 mb-3 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl overflow-hidden border border-indigo-500/40 shrink-0 shadow-sm">
+                <img src={dashboardImagePreview} alt="Search source" className="w-full h-full object-cover" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-white flex items-center gap-1.5 text-xs md:text-sm">
+                    <Sparkles size={14} className="text-indigo-400" />
+                    AI Visual Search Active
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {isDashboardImageSearching ? 'Searching catalog...' : `${displayProducts.length} matching products`}
+                  </span>
+                </div>
+                {dashboardImageError ? (
+                  <p className="text-[11px] text-rose-400 mt-0.5 truncate">{dashboardImageError}</p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 mt-0.5 truncate hidden sm:block">
+                    Filtered by visual similarity from uploaded image
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={handleClearDashboardImage}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-slate-300 hover:text-white border border-white/10 flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shrink-0 shadow-sm"
+              title="Clear visual search and show all products"
+            >
+              <X size={14} />
+              <span>Clear</span>
+            </button>
+          </div>
         )}
 
         {/* Products Grid */}
@@ -6432,12 +6610,13 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const [thumbnailQuality, setThumbnailQuality] = useState(70);
   const [saved, setSaved] = useState(false);
 
-  // AI Visual Image Search with Google Gemini
+  // AI Visual Image Search with Google Gemini - Multi-Key Pool
   const [aiSearchEnabled, setAiSearchEnabled] = useState(true);
-  const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [isTestingKey, setIsTestingKey] = useState(false);
-  const [testStatus, setTestStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [geminiApiKeys, setGeminiApiKeys] = useState<string[]>(['']);
+  const [visibleKeyIndices, setVisibleKeyIndices] = useState<Record<number, boolean>>({});
+  const [testingKeyIndex, setTestingKeyIndex] = useState<number | null>(null);
+  const [keyTestStatuses, setKeyTestStatuses] = useState<Record<number, { ok: boolean; message: string }>>({});
+  const [isTestingAllKeys, setIsTestingAllKeys] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('models/gemini-embedding-2');
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; displayName: string; description?: string; supportedGenerationMethods: string[] }>>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
@@ -6447,9 +6626,9 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'embedding' | 'vision'>('all');
 
   const fetchRealtimeModels = async (keyOverride?: string) => {
-    const key = (keyOverride || geminiApiKey).trim();
+    const key = (keyOverride || geminiApiKeys.find(k => k.trim()) || '').trim();
     if (!key) {
-      setModelFetchError('Please enter a Gemini API Key first.');
+      setModelFetchError('Please enter at least one Gemini API Key first.');
       return;
     }
     setIsFetchingModels(true);
@@ -6493,10 +6672,16 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
         if (typeof st.settings.imageSearchSettings.enabled === 'boolean') {
           setAiSearchEnabled(st.settings.imageSearchSettings.enabled);
         }
-        if (st.settings.imageSearchSettings.geminiApiKey) {
-          const loadedKey = st.settings.imageSearchSettings.geminiApiKey;
-          setGeminiApiKey(loadedKey);
-          fetchRealtimeModels(loadedKey);
+        let loadedKeys: string[] = [];
+        if (Array.isArray(st.settings.imageSearchSettings.geminiApiKeys) && st.settings.imageSearchSettings.geminiApiKeys.length > 0) {
+          loadedKeys = st.settings.imageSearchSettings.geminiApiKeys.map((k: any) => String(k).trim()).filter(Boolean);
+        } else if (st.settings.imageSearchSettings.geminiApiKey) {
+          const single = st.settings.imageSearchSettings.geminiApiKey.trim();
+          if (single) loadedKeys = [single];
+        }
+        if (loadedKeys.length > 0) {
+          setGeminiApiKeys(loadedKeys);
+          fetchRealtimeModels(loadedKeys[0]);
         }
         if (st.settings.imageSearchSettings.model) {
           setSelectedModel(st.settings.imageSearchSettings.model);
@@ -6508,11 +6693,13 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const handleSave = async () => {
     const cfg = { enabled, quality, scale, thumbnailWidth, thumbnailQuality };
     setDefaultImageOptimization(cfg);
+    const cleanedKeys = geminiApiKeys.map(k => k.trim()).filter(Boolean);
     await Promise.all([
       cloudStore.saveSetting('imageOptimization', cfg, true),
       cloudStore.saveSetting('imageSearchSettings', {
         enabled: aiSearchEnabled,
-        geminiApiKey: geminiApiKey.trim(),
+        geminiApiKey: cleanedKeys[0] || '', // legacy single key compatibility
+        geminiApiKeys: cleanedKeys,
         model: selectedModel
       }, true)
     ]);
@@ -6520,14 +6707,19 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleTestKey = async () => {
-    const keyToTest = geminiApiKey.trim();
+  const handleTestKey = async (index: number) => {
+    const keyToTest = (geminiApiKeys[index] || '').trim();
     if (!keyToTest) {
-      setTestStatus({ ok: false, message: 'Please enter a Gemini API Key first.' });
+      setKeyTestStatuses(prev => ({ ...prev, [index]: { ok: false, message: 'Please enter a Gemini API Key first.' } }));
       return;
     }
-    setIsTestingKey(true);
-    setTestStatus(null);
+    setTestingKeyIndex(index);
+    setKeyTestStatuses(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+
     try {
       const cleanModel = selectedModel.startsWith('models/') ? selectedModel.replace(/^models\//, '') : selectedModel;
       const isEmbed = cleanModel.toLowerCase().includes('embedding');
@@ -6547,18 +6739,63 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
       });
 
       if (res.ok) {
-        setTestStatus({ ok: true, message: `Connection Successful! ${cleanModel} is verified and active.` });
-        fetchRealtimeModels(keyToTest);
+        setKeyTestStatuses(prev => ({ ...prev, [index]: { ok: true, message: `Key #${index + 1} Verified! Active & Ready for visual search.` } }));
+        if (index === 0) fetchRealtimeModels(keyToTest);
       } else {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson?.error?.message || `API error (${res.status})`;
-        setTestStatus({ ok: false, message: `Verification failed: ${errMsg}` });
+        setKeyTestStatuses(prev => ({ ...prev, [index]: { ok: false, message: `Key #${index + 1} Failed: ${errMsg}` } }));
       }
     } catch (err: any) {
-      setTestStatus({ ok: false, message: `Network error: ${err.message || 'Could not reach Google Gemini API'}` });
+      setKeyTestStatuses(prev => ({ ...prev, [index]: { ok: false, message: `Key #${index + 1} Network error: ${err.message || 'Could not reach Google API'}` } }));
     } finally {
-      setIsTestingKey(false);
+      setTestingKeyIndex(null);
     }
+  };
+
+  const handleTestAllKeys = async () => {
+    setIsTestingAllKeys(true);
+    for (let i = 0; i < geminiApiKeys.length; i++) {
+      if (geminiApiKeys[i].trim()) {
+        await handleTestKey(i);
+      }
+    }
+    setIsTestingAllKeys(false);
+  };
+
+  const handleAddKey = () => {
+    setGeminiApiKeys(prev => [...prev, '']);
+  };
+
+  const handleRemoveKey = (index: number) => {
+    if (geminiApiKeys.length <= 1) {
+      setGeminiApiKeys(['']);
+      setKeyTestStatuses({});
+      return;
+    }
+    setGeminiApiKeys(prev => prev.filter((_, i) => i !== index));
+    setKeyTestStatuses(prev => {
+      const next: Record<number, { ok: boolean; message: string }> = {};
+      Object.keys(prev).forEach(k => {
+        const num = Number(k);
+        if (num < index) next[num] = prev[num];
+        else if (num > index) next[num - 1] = prev[num];
+      });
+      return next;
+    });
+  };
+
+  const handleKeyChange = (index: number, val: string) => {
+    setGeminiApiKeys(prev => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+    setKeyTestStatuses(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const modelsToDisplay = availableModels.length > 0 
@@ -6680,14 +6917,20 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
             </button>
           </div>
 
-          {/* API Key Box */}
-          <div className="space-y-3 pt-4 border-t border-[var(--dash-border)]/60">
+          {/* API Key Box - Multi-Key Failover Pool */}
+          <div className="space-y-4 pt-4 border-t border-[var(--dash-border)]/60">
             <div>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                  <Key size={13} className="text-indigo-400" />
-                  Gemini API Key
-                </label>
+              <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Key size={13} className="text-indigo-400" />
+                    Gemini API Keys (Multi-Key Failover Pool)
+                  </label>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 border border-indigo-500/25 text-indigo-300">
+                    {geminiApiKeys.filter(k => k.trim()).length} Active
+                  </span>
+                </div>
+
                 <a
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
@@ -6698,72 +6941,139 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                   <ExternalLink size={11} />
                 </a>
               </div>
-              
-              <div className="relative flex items-center">
-                <input 
-                  type={showApiKey ? 'text' : 'password'}
-                  value={geminiApiKey}
-                  onChange={(e) => {
-                    setGeminiApiKey(e.target.value);
-                    setTestStatus(null);
-                  }}
-                  placeholder="Paste your Google Gemini API key (e.g. AIzaSy...)"
-                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-20 text-xs md:text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all"
-                />
-                
-                <div className="absolute right-2 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-                    title={showApiKey ? 'Hide API Key' : 'Show API Key'}
-                  >
-                    {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                  <CopyButton text={geminiApiKey} />
-                </div>
+
+              <p className="text-[11px] text-slate-400 mb-3">
+                Add multiple API keys without limit. If Key 1 reaches its daily quota limit (429) or fails, search automatically fails over to Key 2, Key 3, etc. Zero downtime!
+              </p>
+
+              {/* Multiple Keys List */}
+              <div className="space-y-2.5">
+                {geminiApiKeys.map((keyVal, idx) => {
+                  const isPrimary = idx === 0;
+                  const isVisible = Boolean(visibleKeyIndices[idx]);
+                  const isTestingThis = testingKeyIndex === idx;
+                  const keyStatus = keyTestStatuses[idx];
+
+                  return (
+                    <div 
+                      key={idx}
+                      className="p-3 rounded-xl bg-white/[0.02] border border-white/8 hover:border-white/15 transition-all space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-md text-[10px] font-bold border",
+                            isPrimary 
+                              ? "bg-indigo-500/20 border-indigo-500/35 text-indigo-300"
+                              : "bg-slate-700/40 border-slate-600/40 text-slate-300"
+                          )}>
+                            Key #{idx + 1} {isPrimary ? '(Primary Active)' : '(Failover Backup)'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleTestKey(idx)}
+                            disabled={isTestingThis || !keyVal.trim()}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-600/15 hover:bg-indigo-600/25 active:scale-95 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Test this specific API key"
+                          >
+                            {isTestingThis ? (
+                              <>
+                                <Loader2 size={11} className="animate-spin text-indigo-400" />
+                                <span>Testing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw size={11} />
+                                <span>Test Key</span>
+                              </>
+                            )}
+                          </button>
+
+                          {geminiApiKeys.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveKey(idx)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete this API key from pool"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="relative flex items-center">
+                        <input 
+                          type={isVisible ? 'text' : 'password'}
+                          value={keyVal}
+                          onChange={(e) => handleKeyChange(idx, e.target.value)}
+                          placeholder={`Paste Gemini API Key #${idx + 1} (e.g. AIzaSy...)`}
+                          className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2 pr-20 text-xs md:text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all"
+                        />
+                        
+                        <div className="absolute right-2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setVisibleKeyIndices(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                            title={isVisible ? 'Hide API Key' : 'Show API Key'}
+                          >
+                            {isVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                          <CopyButton text={keyVal} />
+                        </div>
+                      </div>
+
+                      {keyStatus && (
+                        <div className={cn(
+                          "p-2 rounded-lg border text-[11px] flex items-center gap-2 animate-in fade-in duration-200",
+                          keyStatus.ok 
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                            : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                        )}>
+                          {keyStatus.ok ? (
+                            <CheckCircle2 size={14} className="shrink-0 text-emerald-400" />
+                          ) : (
+                            <AlertCircle size={14} className="shrink-0 text-rose-400" />
+                          )}
+                          <span className="font-medium leading-tight">{keyStatus.message}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
+              {/* Pool Actions: Add Key & Test All */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
                 <button
                   type="button"
-                  onClick={handleTestKey}
-                  disabled={isTestingKey || !geminiApiKey.trim()}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/15 hover:bg-indigo-600/25 active:scale-95 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  onClick={handleAddKey}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600/10 hover:bg-indigo-600/20 active:scale-95 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-indigo-500/10"
                 >
-                  {isTestingKey ? (
-                    <>
-                      <Loader2 size={13} className="animate-spin text-indigo-400" />
-                      Testing Connection...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw size={13} />
-                      Test Connection
-                    </>
-                  )}
+                  <Plus size={14} />
+                  <span>Add Another Gemini API Key</span>
                 </button>
 
-                <span className="text-[11px] text-slate-400">
-                  Stored securely on server
-                </span>
+                {geminiApiKeys.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleTestAllKeys}
+                    disabled={isTestingAllKeys || geminiApiKeys.every(k => !k.trim())}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 active:scale-95 text-slate-300 hover:text-white border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  >
+                    <RefreshCw size={13} className={cn(isTestingAllKeys && "animate-spin text-indigo-400")} />
+                    <span>{isTestingAllKeys ? "Testing All Keys..." : "Test All Keys"}</span>
+                  </button>
+                )}
               </div>
 
-              {testStatus && (
-                <div className={cn(
-                  "mt-3 p-3 rounded-xl border text-xs flex items-center gap-2.5 animate-in fade-in duration-200",
-                  testStatus.ok 
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                )}>
-                  {testStatus.ok ? (
-                    <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
-                  ) : (
-                    <AlertCircle size={16} className="shrink-0 text-rose-400" />
-                  )}
-                  <span className="font-medium leading-relaxed">{testStatus.message}</span>
-                </div>
-              )}
+              <div className="pt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span>Stored securely on server • Zero Cloudflare looping • Unlimited failover keys</span>
+              </div>
             </div>
 
             {/* Realtime Model Selector */}

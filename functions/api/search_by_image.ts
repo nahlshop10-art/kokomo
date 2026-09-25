@@ -40,7 +40,7 @@ export async function onRequestPost(context: any) {
     }
 
     // 1. Retrieve Image Search settings from D1 or environment
-    let apiKey = env.GEMINI_API_KEY || '';
+    let apiKeys: string[] = [];
     let isEnabled = true;
     let selectedModel = 'models/gemini-embedding-2';
 
@@ -48,14 +48,26 @@ export async function onRequestPost(context: any) {
       const settingsRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'imageSearchSettings'").first();
       if (settingsRow && settingsRow.value) {
         const parsed = JSON.parse(settingsRow.value as string);
-        if (parsed.geminiApiKey) apiKey = parsed.geminiApiKey.trim();
+        if (Array.isArray(parsed.geminiApiKeys)) {
+          apiKeys = parsed.geminiApiKeys.map((k: any) => String(k).trim()).filter(Boolean);
+        }
+        if (parsed.geminiApiKey) {
+          const single = parsed.geminiApiKey.trim();
+          if (single && !apiKeys.includes(single)) {
+            apiKeys.unshift(single);
+          }
+        }
         if (parsed.enabled !== undefined) isEnabled = Boolean(parsed.enabled);
         if (parsed.model) selectedModel = parsed.model.trim();
       }
     } catch (e) {}
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Gemini API key is not configured in store dashboard settings.' }), {
+    if (apiKeys.length === 0 && env.GEMINI_API_KEY) {
+      apiKeys.push(env.GEMINI_API_KEY.trim());
+    }
+
+    if (apiKeys.length === 0) {
+      return new Response(JSON.stringify({ error: 'No Gemini API keys are configured in store dashboard settings.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -112,7 +124,6 @@ Return a JSON object with this EXACT structure:
 If no single product is an exact match, include the closest visually similar product IDs (maximum 5) or [] if completely unrelated.
 IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra commentary.`;
 
-      const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
       const genPayload = {
         contents: [{
           parts: [
@@ -123,21 +134,47 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
         generationConfig: { temperature: 0.1, maxOutputTokens: 200 }
       };
 
-      const genRes = await fetch(genUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(genPayload)
-      });
+      let genData: any = null;
+      let lastGenError = '';
+      let keyIndexUsed = -1;
 
-      if (!genRes.ok) {
-        const errText = await genRes.text();
-        return new Response(JSON.stringify({ error: `Model ${cleanModel} error: ${errText}` }), {
-          status: genRes.status,
+      // Sequential Failover Loop across multiple API keys (Zero Cloudflare looping)
+      for (let i = 0; i < apiKeys.length; i++) {
+        const currentKey = apiKeys[i];
+        const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${currentKey}`;
+
+        try {
+          const genRes = await fetch(genUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(genPayload)
+          });
+
+          if (genRes.ok) {
+            genData = await genRes.json();
+            keyIndexUsed = i;
+            break;
+          } else {
+            const errText = await genRes.text();
+            lastGenError = `Key #${i + 1} (${genRes.status}): ${errText}`;
+            console.warn(`[Gemini Failover] Key #${i + 1} failed (${genRes.status}), switching to next key...`);
+          }
+        } catch (fetchErr: any) {
+          lastGenError = `Key #${i + 1} network error: ${fetchErr?.message || fetchErr}`;
+          console.warn(`[Gemini Failover] Key #${i + 1} network exception, switching to next key...`);
+        }
+      }
+
+      if (!genData) {
+        return new Response(JSON.stringify({ 
+          error: `All ${apiKeys.length} Gemini API keys failed or exhausted quota.`, 
+          details: lastGenError 
+        }), {
+          status: 429,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      const genData = await genRes.json();
       const textOutput = genData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       let matchedIds: string[] = [];
       let keywords = '';
@@ -159,7 +196,9 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
         matchConfidence: matchedIds.length > 0 ? 'exact' : 'none',
         topScore: matchedIds.length > 0 ? 95 : 0,
         keywords,
-        modelUsed: cleanModel
+        modelUsed: cleanModel,
+        keyIndexUsed: keyIndexUsed + 1,
+        totalKeysInPool: apiKeys.length
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -167,8 +206,6 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
     }
 
     // 3. Generate Multimodal Vector Embedding using selected embedding model
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:embedContent?key=${apiKey}`;
-
     const geminiPayload = {
       content: {
         parts: [
@@ -183,25 +220,48 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
       outputDimensionality: 512
     };
 
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiPayload)
-    });
+    let geminiData: any = null;
+    let lastEmbedError = '';
+    let keyIndexUsed = -1;
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Gemini Embedding API Error:', geminiRes.status, errText);
+    // Sequential Failover Loop across multiple API keys (Zero Cloudflare looping)
+    for (let i = 0; i < apiKeys.length; i++) {
+      const currentKey = apiKeys[i];
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:embedContent?key=${currentKey}`;
+
+      try {
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiPayload)
+        });
+
+        if (geminiRes.ok) {
+          geminiData = await geminiRes.json();
+          keyIndexUsed = i;
+          break;
+        } else {
+          const errText = await geminiRes.text();
+          lastEmbedError = `Key #${i + 1} (${geminiRes.status}): ${errText}`;
+          console.warn(`[Gemini Failover] Embedding Key #${i + 1} failed (${geminiRes.status}), switching to next key...`);
+        }
+      } catch (fetchErr: any) {
+        lastEmbedError = `Key #${i + 1} network error: ${fetchErr?.message || fetchErr}`;
+        console.warn(`[Gemini Failover] Embedding Key #${i + 1} network exception, switching to next key...`);
+      }
+    }
+
+    if (!geminiData) {
+      console.error('All Gemini API keys failed in embedding pool:', lastEmbedError);
       return new Response(JSON.stringify({ 
-        error: `Vision AI analysis failed with ${cleanModel}. Please verify your Gemini API key.`, 
-        details: errText 
+        error: `All ${apiKeys.length} Gemini API keys failed or exhausted daily quota limit.`, 
+        details: lastEmbedError 
       }), {
-        status: geminiRes.status,
+        status: 429,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const geminiData = await geminiRes.json();
     const queryVec: number[] = geminiData?.embedding?.values || [];
 
     if (!queryVec || queryVec.length !== 512) {
@@ -269,7 +329,10 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
       matchedIds,
       matchConfidence,
       topScore: topMatch ? Math.round(topMatch.score * 100) : 0,
-      keywords: topTitle
+      keywords: topTitle,
+      modelUsed: cleanModel,
+      keyIndexUsed: keyIndexUsed + 1,
+      totalKeysInPool: apiKeys.length
     }), {
       status: 200,
       headers: {
