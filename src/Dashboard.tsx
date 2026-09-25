@@ -11,7 +11,7 @@ import {
   HelpCircle, Shield, Layers, Database, Info, ExternalLink,
   TrendingUp, ShoppingBag, CircleDollarSign, Undo2, MinusCircle, ClipboardList, ClipboardCheck, XCircle, Tag,
   Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb, Mail, Clock, BarChart2,
-  Building, Percent, Send, MessageCircle, Box, Image
+  Building, Percent, Send, MessageCircle, Box, Image, Sparkles, Loader2, Camera, CheckCircle2
 } from 'lucide-react';
 import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, PixelBatchSettings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
 import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff, getAvailableStock } from './lib/stockUtils';
@@ -2655,7 +2655,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                       <div className="text-sky-400 shrink-0 flex items-center justify-center w-6 h-6">
                         <ImageIcon size={20} strokeWidth={1.75} />
                       </div>
-                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Image Settings</span>
+                      <span className="text-white text-sm md:text-base font-medium tracking-wide">Image & AI Visual Search</span>
                     </div>
                     <ChevronRight size={16} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
                   </div>
@@ -3303,7 +3303,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             >
               <div className="flex items-center gap-2.5">
                 <Image size={16} className="text-teal-400 shrink-0" />
-                <span className="text-xs font-medium">Image Settings</span>
+                <span className="text-xs font-medium">Image & AI Visual Search</span>
               </div>
               <ChevronRight size={13} className="text-slate-500 shrink-0" />
             </div>
@@ -6393,6 +6393,13 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const [thumbnailQuality, setThumbnailQuality] = useState(70);
   const [saved, setSaved] = useState(false);
 
+  // AI Visual Image Search with Google Gemini
+  const [aiSearchEnabled, setAiSearchEnabled] = useState(true);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [testStatus, setTestStatus] = useState<{ ok: boolean; message: string } | null>(null);
+
   useEffect(() => {
     const cfg = getDefaultImageOptimization();
     setEnabled(cfg.enabled);
@@ -6400,14 +6407,62 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
     setScale(cfg.scale);
     setThumbnailWidth(cfg.thumbnailWidth);
     setThumbnailQuality(cfg.thumbnailQuality);
+
+    cloudStore.getAdminState().then(st => {
+      if (st?.settings?.imageSearchSettings) {
+        if (typeof st.settings.imageSearchSettings.enabled === 'boolean') {
+          setAiSearchEnabled(st.settings.imageSearchSettings.enabled);
+        }
+        if (st.settings.imageSearchSettings.geminiApiKey) {
+          setGeminiApiKey(st.settings.imageSearchSettings.geminiApiKey);
+        }
+      }
+    }).catch(console.error);
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const cfg = { enabled, quality, scale, thumbnailWidth, thumbnailQuality };
     setDefaultImageOptimization(cfg);
-    cloudStore.saveSetting('imageOptimization', cfg).catch(console.error);
+    await Promise.all([
+      cloudStore.saveSetting('imageOptimization', cfg, true),
+      cloudStore.saveSetting('imageSearchSettings', {
+        enabled: aiSearchEnabled,
+        geminiApiKey: geminiApiKey.trim()
+      }, true)
+    ]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleTestKey = async () => {
+    const keyToTest = geminiApiKey.trim();
+    if (!keyToTest) {
+      setTestStatus({ ok: false, message: 'Please enter a Gemini API Key first.' });
+      return;
+    }
+    setIsTestingKey(true);
+    setTestStatus(null);
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${keyToTest}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Respond with OK.' }] }],
+          generationConfig: { maxOutputTokens: 10 }
+        })
+      });
+      if (res.ok) {
+        setTestStatus({ ok: true, message: 'Connection Successful! Google Gemini 3.5 Flash Lite is verified and active.' });
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg = errJson?.error?.message || `API error (${res.status})`;
+        setTestStatus({ ok: false, message: `Verification failed: ${errMsg}` });
+      }
+    } catch (err: any) {
+      setTestStatus({ ok: false, message: `Network error: ${err.message || 'Could not reach Google Gemini API'}` });
+    } finally {
+      setIsTestingKey(false);
+    }
   };
 
   const themeColor = '#6366F1';
@@ -6430,8 +6485,8 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                 <ImageIcon size={20} />
               </div>
               <div>
-                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Image Processing & Optimization</h1>
-                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Real-time WebP compression, thumbnail sizing & asset delivery</p>
+                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Image & Visual Search Settings</h1>
+                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">AI image search, WebP compression & asset delivery</p>
               </div>
             </div>
           </div>
@@ -6449,6 +6504,136 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
         className="flex-1 overflow-y-auto p-2.5 md:p-8 space-y-4 max-w-3xl mx-auto w-full overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
+        {/* Gemini AI Visual Image Search Card */}
+        <div className="bg-[var(--dash-card)] border border-indigo-500/30 rounded-2xl p-4 md:p-6 shadow-xl space-y-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5 shadow-sm">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm md:text-base font-bold text-white">Google Gemini AI Visual Search</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold tracking-wide">
+                    Gemini 3.5 Flash Lite
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  ক্রেতারা ক্যামেরা দিয়ে ছবি তুলে বা 1688/Pinterest থেকে ছবি আপলোড করে স্টোরের প্রোডাক্ট সহজে খুঁজে বের করতে পারবেন।
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setAiSearchEnabled(!aiSearchEnabled)}
+              className={cn(
+                "w-12 h-6.5 rounded-full relative transition-all duration-300 ease-in-out p-0.5 focus:outline-none shrink-0 cursor-pointer",
+                aiSearchEnabled ? "bg-indigo-600 shadow-md shadow-indigo-500/25" : "bg-slate-700/60"
+              )}
+              title="Toggle AI Visual Search"
+            >
+              <div 
+                className={cn(
+                  "w-5.5 h-5.5 rounded-full bg-white transition-all duration-300 shadow-md",
+                  aiSearchEnabled ? "translate-x-5.5" : "translate-x-0"
+                )} 
+              />
+            </button>
+          </div>
+
+          <div className="space-y-4 pt-3 border-t border-[var(--dash-border)]/50">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Key size={13} className="text-indigo-400" />
+                Gemini API Key
+              </label>
+              
+              <div className="relative flex items-center">
+                <input 
+                  type={showApiKey ? 'text' : 'password'}
+                  value={geminiApiKey}
+                  onChange={(e) => {
+                    setGeminiApiKey(e.target.value);
+                    setTestStatus(null);
+                  }}
+                  placeholder="Paste your Google Gemini API key..."
+                  className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-3.5 py-2.5 pr-20 text-xs md:text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+                
+                <div className="absolute right-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                    title={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                  >
+                    {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                  <CopyButton text={geminiApiKey} />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
+                <button
+                  type="button"
+                  onClick={handleTestKey}
+                  disabled={isTestingKey || !geminiApiKey.trim()}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 active:scale-95 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isTestingKey ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin text-indigo-400" />
+                      Testing API Key...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={13} />
+                      Test Connection
+                    </>
+                  )}
+                </button>
+
+                <span className="text-[11px] text-slate-500">
+                  🔒 Secretly stored on Cloudflare D1 server (never exposed to visitors)
+                </span>
+              </div>
+
+              {testStatus && (
+                <div className={cn(
+                  "mt-3 p-2.5 rounded-xl border text-xs flex items-center gap-2 animate-in fade-in duration-200",
+                  testStatus.ok 
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                )}>
+                  {testStatus.ok ? (
+                    <CheckCircle2 size={15} className="shrink-0 text-emerald-400" />
+                  ) : (
+                    <AlertCircle size={15} className="shrink-0 text-rose-400" />
+                  )}
+                  <span>{testStatus.message}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-[11px] text-slate-400">
+              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
+                <div className="font-semibold text-slate-300 flex items-center gap-1">⚡ Super Fast</div>
+                <div>Client-side Canvas রিলিজ করে মাত্র ~30KB ছবি আপলোড করে।</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
+                <div className="font-semibold text-slate-300 flex items-center gap-1">🚫 No Loops</div>
+                <div>১ সার্চ = ১ Edge কল = ১ Gemini AI প্রম্পট। কোনো লুপ নেই।</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
+                <div className="font-semibold text-slate-300 flex items-center gap-1">🆓 Free Tier</div>
+                <div>Google Gemini Free Tier দিয়ে প্রতি মাসে হাজারো সার্চ ফ্রি।</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Auto Optimization */}
         <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">

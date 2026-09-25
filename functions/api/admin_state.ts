@@ -75,6 +75,9 @@ export async function onRequestGet(context: any) {
       if (settings.marketingSettings?.ga4?.apiSecret) {
         settings.marketingSettings.ga4.apiSecret = '***REDACTED***';
       }
+      if (settings.imageSearchSettings?.geminiApiKey) {
+        settings.imageSearchSettings.geminiApiKey = '***REDACTED***';
+      }
     }
 
     let responseBody = JSON.stringify({

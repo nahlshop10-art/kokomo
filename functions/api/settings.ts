@@ -12,8 +12,8 @@ export async function onRequestPost(context: any) {
 
     const isOwner = Boolean(ctxData?.isOwner);
 
-    // High security: Only Owner can modify admin users, marketing credentials, or sync settings
-    const ownerOnlyKeys = ['adminUsers', 'marketingSettings', 'registered_retails', 'courierSettings'];
+    // High security: Only Owner can modify admin users, marketing credentials, AI search, or sync settings
+    const ownerOnlyKeys = ['adminUsers', 'marketingSettings', 'registered_retails', 'courierSettings', 'imageSearchSettings'];
     if (ownerOnlyKeys.includes(key) && !isOwner) {
       return new Response(JSON.stringify({ error: `Forbidden: Only the Owner account can modify ${key}.` }), {
         status: 403,

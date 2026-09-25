@@ -46,6 +46,10 @@ export async function onRequestGet(context: any) {
         if (value?.ga4) delete value.ga4.apiSecret;
       }
 
+      if (r.key === 'imageSearchSettings') {
+        if (value) delete value.geminiApiKey;
+      }
+
       if (r.key === 'websiteSettings' || r.key === 'website') {
          if (value?.telegramNotification) {
             delete value.telegramNotification.botToken;

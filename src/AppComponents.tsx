@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, Search, ShoppingBag, LayoutGrid, Gem, Circle, Sparkles, LifeBuoy, Activity, CircleDashed, SlidersHorizontal, Lock, Unlock, Trash2, Minus, Plus, X, ArrowRight, ArrowLeft, User, Phone, MapPin, Truck, Check, Send, Copy, ChevronUp, MoreHorizontal, RefreshCw, Star, Download, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, BadgePercent, Edit3, EyeOff, MessageSquareText, Package, CheckCircle2, Navigation } from 'lucide-react';
+import { Menu, Search, ShoppingBag, LayoutGrid, Gem, Circle, Sparkles, LifeBuoy, Activity, CircleDashed, SlidersHorizontal, Lock, Unlock, Trash2, Minus, Plus, X, ArrowRight, ArrowLeft, User, Phone, MapPin, Truck, Check, Send, Copy, ChevronUp, MoreHorizontal, RefreshCw, Star, Download, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, BadgePercent, Edit3, EyeOff, MessageSquareText, Package, CheckCircle2, Navigation, Camera, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getCartTotal, calculateProductDiscount, getProductQtyRules } from './lib/pricingUtils';
 import { isProductInStock } from './lib/stockUtils';
@@ -214,7 +214,13 @@ export function SearchModal({
   websiteSettings?: any
 }) {
   const [query, setQuery] = useState('');
+  const [isImageSearching, setIsImageSearching] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [matchedIds, setMatchedIds] = useState<string[]>([]);
+  const [aiKeywords, setAiKeywords] = useState<string>('');
+  const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -223,10 +229,102 @@ export function SearchModal({
     return () => clearTimeout(timer);
   }, []);
 
-  const results = products.filter(p => 
-    p.title.toLowerCase().includes(query.toLowerCase()) && 
-    isProductInStock(p) && p.isVisible !== false
-  );
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSearchError(null);
+    setIsImageSearching(true);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawData = event.target?.result as string;
+      if (!rawData) {
+        setIsImageSearching(false);
+        return;
+      }
+
+      const img = new window.Image();
+      img.onload = () => {
+        // High-speed client compression: max 380px, ~30KB
+        const maxDim = 380;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setIsImageSearching(false);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+        setImagePreview(compressedBase64);
+
+        fetch('/api/search_by_image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: compressedBase64 })
+        })
+          .then(async (res) => {
+            const data = await res.json();
+            if (res.ok && data.success) {
+              setMatchedIds(data.matchedIds || []);
+              if (data.keywords) {
+                setAiKeywords(data.keywords);
+                setQuery(data.keywords);
+              }
+            } else {
+              setSearchError(data.error || 'ছবি থেকে প্রোডাক্ট সনাক্ত করতে পারেনি।');
+            }
+          })
+          .catch(() => {
+            setSearchError('নেটওয়ার্ক সমস্যার কারণে ছবি সার্চ করা যায়নি।');
+          })
+          .finally(() => {
+            setIsImageSearching(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          });
+      };
+      img.src = rawData;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearImage = () => {
+    setImagePreview(null);
+    setMatchedIds([]);
+    setAiKeywords('');
+    setSearchError(null);
+    setIsImageSearching(false);
+    setQuery('');
+  };
+
+  // Matched products priority
+  const aiProducts = matchedIds.length > 0 
+    ? products.filter(p => matchedIds.includes(String(p.id)) && isProductInStock(p) && p.isVisible !== false)
+    : [];
+
+  const matchedIdSet = new Set(aiProducts.map(p => String(p.id)));
+
+  const textProducts = query 
+    ? products.filter(p => !matchedIdSet.has(String(p.id)) && p.title.toLowerCase().includes(query.toLowerCase()) && isProductInStock(p) && p.isVisible !== false)
+    : [];
+
+  const results = [...aiProducts, ...textProducts];
+  const hasActiveSearch = query.trim().length > 0 || imagePreview !== null || isImageSearching;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col pointer-events-none lg:right-[320px] xl:right-[360px] lg:items-center lg:pt-3">
@@ -246,7 +344,14 @@ export function SearchModal({
           transition={{ type: "spring", bounce: 0.05, duration: 0.4 }}
           className="w-full h-12 flex items-center bg-[var(--theme-white)] border-[1.5px] border-[var(--theme-primary)] overflow-hidden pointer-events-auto shadow-lg pr-2 rounded-full"
         >
-          <Search size={20} className="ml-4 text-gray-400 shrink-0 hidden sm:block" />
+          {imagePreview ? (
+            <div className="ml-3 w-7 h-7 rounded-full overflow-hidden border border-[var(--theme-primary)]/40 shrink-0 shadow-xs">
+              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <Search size={20} className="ml-4 text-gray-400 shrink-0 hidden sm:block" />
+          )}
+
           <motion.input
             ref={inputRef}
             initial={{ opacity: 0 }}
@@ -256,15 +361,39 @@ export function SearchModal({
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="w-full px-4 h-full bg-transparent text-sm focus:outline-none text-[var(--theme-black)] lg:text-[15px]"
-            placeholder="Search products..."
+            className="w-full px-3 sm:px-4 h-full bg-transparent text-sm focus:outline-none text-[var(--theme-black)] lg:text-[15px]"
+            placeholder={imagePreview ? "Refine visual search..." : "Search products or use camera..."}
           />
+
+          {isImageSearching && (
+            <Loader2 size={18} className="animate-spin text-[var(--theme-primary)] mr-1.5 shrink-0" />
+          )}
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Search by image / photo"
+            className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-[var(--theme-primary)] hover:text-black transition-all shrink-0 cursor-pointer mr-1 relative group"
+          >
+            <Camera size={19} />
+            <span className="sr-only">Search by image</span>
+          </button>
+
+          <input 
+            ref={fileInputRef} 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            onChange={handleImageUpload} 
+          />
+
           <motion.button 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={imagePreview || query ? handleClearImage : onClose}
             className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-[#09090b] transition-colors shrink-0 cursor-pointer"
+            title={imagePreview || query ? "Clear search" : "Close"}
           >
             <X size={18} />
           </motion.button>
@@ -278,7 +407,53 @@ export function SearchModal({
         transition={{ duration: 0.2 }}
         className="flex-grow lg:flex-grow-0 overflow-y-auto lg:overflow-visible px-4 pb-4 lg:p-0 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:mt-2 lg:max-h-[70vh] custom-scroll"
       >
-        {query && results.length > 0 && (
+        {/* Visual Search Indicator Banner */}
+        {imagePreview && (
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-2.5 mb-2 shadow-lg border border-indigo-100 flex items-center justify-between gap-3 pointer-events-auto">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-sm bg-gray-50">
+                <img src={imagePreview} alt="Search Preview" className="w-full h-full object-cover" />
+                {isImageSearching && (
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                    <Loader2 className="animate-spin text-white" size={16} />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-indigo-600 shrink-0" />
+                  <span className="text-xs font-bold text-gray-900">
+                    {isImageSearching ? 'Gemini AI ছবি বিশ্লেষণ করছে...' : 'Visual Search Match'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                  {isImageSearching 
+                    ? 'স্টোরের জুয়েলারি ক্যাটালগে মিল খোঁজা হচ্ছে...' 
+                    : aiProducts.length > 0 
+                      ? `${aiProducts.length}টি মিলে যাওয়া প্রোডাক্ট পাওয়া গেছে` 
+                      : 'সরাসরি কোনো মিল পাওয়া যায়নি, কি-ওয়ার্ড দিয়ে দেখানো হচ্ছে'}
+                </p>
+              </div>
+            </div>
+
+            <button 
+              type="button" 
+              onClick={handleClearImage}
+              className="text-xs font-semibold text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors shrink-0 cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        {searchError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-2xl mb-2 pointer-events-auto flex items-center justify-between shadow-sm">
+            <span>{searchError}</span>
+            <button onClick={() => setSearchError(null)} className="text-xs font-bold underline ml-2 cursor-pointer">Dismiss</button>
+          </div>
+        )}
+
+        {hasActiveSearch && results.length > 0 && (
           <div className="bg-white/95 backdrop-blur-xl rounded-[20px] lg:rounded-2xl overflow-hidden shadow-2xl pointer-events-auto pb-1 border border-gray-100 lg:max-h-[70vh] lg:overflow-y-auto">
             {results.map((product, idx) => (
               <div 
@@ -289,7 +464,14 @@ export function SearchModal({
               >
                 <img src={product.thumbnail || product.image} className="w-14 h-14 lg:w-12 lg:h-12 rounded-xl lg:rounded-lg object-cover bg-gray-50 shrink-0 shadow-sm" />
                 <div className="flex-grow min-w-0 pr-2">
-                  <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-1 mb-0.5">{product.title}</h4>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-1">{product.title}</h4>
+                    {matchedIdSet.has(String(product.id)) && (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
+                        <Sparkles size={10} /> AI Match
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between mt-1">
                     {(() => {
                       const cItem = cart?.find(item => item.product.id === product.id);
@@ -308,6 +490,16 @@ export function SearchModal({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {hasActiveSearch && results.length === 0 && !isImageSearching && (
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 text-center shadow-lg border border-gray-100 pointer-events-auto">
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mx-auto mb-2">
+              <Search size={22} />
+            </div>
+            <p className="text-sm font-semibold text-gray-800">কোনো প্রোডাক্ট খুঁজে পাওয়া যায়নি</p>
+            <p className="text-xs text-gray-500 mt-1">অন্য কোনো ছবি আপলোড করে বা কি-ওয়ার্ড দিয়ে আবার চেষ্টা করুন।</p>
           </div>
         )}
       </motion.div>
