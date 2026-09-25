@@ -1,3 +1,16 @@
+import defaultEmbeddings from './visual_embeddings.json';
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, ma = 0, mb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    ma += a[i] * a[i];
+    mb += b[i] * b[i];
+  }
+  const denom = Math.sqrt(ma) * Math.sqrt(mb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
 export async function onRequestPost(context: any) {
   const { request, env } = context;
 
@@ -62,65 +75,24 @@ export async function onRequestPost(context: any) {
       mimeType = dataUriMatch[1];
       cleanBase64 = dataUriMatch[2];
     } else {
-      // Normalize if raw base64 was sent
       cleanBase64 = body.image.trim().replace(/^data:image\/[a-z]+;base64,/, '');
     }
 
-    // 3. Load active products catalog from D1 (id, title, category, material, colors)
-    const productsRes = await env.DB.prepare('SELECT id, data FROM products LIMIT 600').all();
-    const catalog = (productsRes.results || []).map((r: any) => {
-      try {
-        const p = JSON.parse(r.data);
-        if (p.isDeleted || p.isVisible === false) return null;
-        return {
-          id: String(p.id),
-          title: p.title || '',
-          category: p.category || '',
-          material: p.material || undefined,
-          colors: Array.isArray(p.colors) ? p.colors.map((c: any) => typeof c === 'string' ? c : c?.name).filter(Boolean).slice(0, 4) : undefined
-        };
-      } catch {
-        return null;
-      }
-    }).filter(Boolean);
-
-    // 4. Prompt Gemini 3.5 Flash Lite
-    const promptText = `You are an expert jewelry product matching assistant for our online store.
-Examine this customer photo and match it against our store catalog:
-${JSON.stringify(catalog)}
-
-Instructions:
-1. Identify the jewelry item in the photo: category (ring, earring, necklace, bracelet, anklet), color (gold, silver, rose gold), design motifs (flower, pearl, geometric, chunky, textured, stone color, multi-piece set).
-2. Find the best matching product(s) from our catalog that correspond to this item.
-3. Return a JSON object with this EXACT structure:
-{
-  "matchedIds": ["P001"],
-  "keywords": "chunky gold hoop earrings",
-  "category": "Earring"
-}
-If no single product is an exact match, include the closest visually similar product IDs in "matchedIds" and describe the item in "keywords".
-IMPORTANT: Return ONLY valid JSON, without any markdown formatting, backticks, or explanatory text.`;
-
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+    // 3. Generate Multimodal Vector Embedding using Google Gemini Embedding 2
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${apiKey}`;
 
     const geminiPayload = {
-      contents: [{
+      content: {
         parts: [
           {
             inline_data: {
               mime_type: mimeType,
               data: cleanBase64
             }
-          },
-          {
-            text: promptText
           }
         ]
-      }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 250
-      }
+      },
+      outputDimensionality: 512
     };
 
     const geminiRes = await fetch(geminiUrl, {
@@ -131,7 +103,7 @@ IMPORTANT: Return ONLY valid JSON, without any markdown formatting, backticks, o
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini API Error:', geminiRes.status, errText);
+      console.error('Gemini Embedding API Error:', geminiRes.status, errText);
       return new Response(JSON.stringify({ 
         error: 'Vision AI analysis failed. Please verify your Gemini API key.', 
         details: errText 
@@ -142,28 +114,74 @@ IMPORTANT: Return ONLY valid JSON, without any markdown formatting, backticks, o
     }
 
     const geminiData = await geminiRes.json();
-    const candidateText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const queryVec: number[] = geminiData?.embedding?.values || [];
 
-    // Clean JSON response (strip any ```json fences if model added them)
-    let parsedResult = { matchedIds: [], keywords: '', category: '' };
+    if (!queryVec || queryVec.length !== 512) {
+      return new Response(JSON.stringify({ error: 'Failed to extract visual embedding from image' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 4. Load catalog embeddings (pre-compiled index + dynamic D1 additions)
+    const catalogEmbeddings: Record<string, number[]> = { ...(defaultEmbeddings as Record<string, number[]>) };
+
     try {
-      const cleaned = candidateText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      parsedResult = JSON.parse(cleaned);
-    } catch (e) {
-      // Fallback regex extraction if json parsing fails
-      const idMatches = candidateText.match(/"matchedIds"\s*:\s*\[(.*?)\]/s);
-      if (idMatches && idMatches[1]) {
-        try {
-          parsedResult.matchedIds = JSON.parse(`[${idMatches[1]}]`);
-        } catch {}
+      const dbRows = await env.DB.prepare('SELECT id, embedding FROM product_embeddings').all();
+      if (dbRows && dbRows.results) {
+        for (const row of dbRows.results) {
+          try {
+            catalogEmbeddings[row.id] = JSON.parse(row.embedding);
+          } catch {}
+        }
       }
+    } catch (e) {}
+
+    // 5. Compute Cosine Similarity against all catalog products
+    const scores = Object.keys(catalogEmbeddings).map((id) => {
+      return {
+        id,
+        score: cosineSimilarity(queryVec, catalogEmbeddings[id])
+      };
+    });
+
+    // Sort descending by highest visual similarity
+    scores.sort((a, b) => b.score - a.score);
+
+    const topMatch = scores[0];
+    let matchedIds: string[] = [];
+    let matchConfidence: 'exact' | 'similar' | 'none' = 'none';
+
+    // Strict accuracy thresholds to eliminate random hallucinated matches:
+    // If top match score is below 0.75, it's not a match for our catalog
+    if (topMatch && topMatch.score >= 0.75) {
+      matchConfidence = topMatch.score >= 0.85 ? 'exact' : 'similar';
+      // Only include items within 0.08 similarity distance from the top match, max 5 items
+      const threshold = Math.max(0.75, topMatch.score - 0.08);
+      matchedIds = scores
+        .filter(s => s.score >= threshold)
+        .slice(0, 5)
+        .map(s => s.id);
+    }
+
+    // 6. Retrieve top matched product title for clean context
+    let topTitle = '';
+    if (matchedIds.length > 0) {
+      try {
+        const topRow = await env.DB.prepare('SELECT data FROM products WHERE id = ?').bind(matchedIds[0]).first();
+        if (topRow && topRow.data) {
+          const parsed = JSON.parse(topRow.data as string);
+          topTitle = parsed.title || '';
+        }
+      } catch {}
     }
 
     return new Response(JSON.stringify({
       success: true,
-      matchedIds: Array.isArray(parsedResult.matchedIds) ? parsedResult.matchedIds : [],
-      keywords: parsedResult.keywords || '',
-      category: parsedResult.category || ''
+      matchedIds,
+      matchConfidence,
+      topScore: topMatch ? Math.round(topMatch.score * 100) : 0,
+      keywords: topTitle
     }), {
       status: 200,
       headers: {

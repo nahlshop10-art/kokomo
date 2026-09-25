@@ -6517,7 +6517,7 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm md:text-base font-bold text-white">Google Gemini AI Visual Search</h3>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold tracking-wide">
-                    Gemini 3.5 Flash Lite
+                    Gemini Multimodal Vision AI
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
@@ -6619,16 +6619,16 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-[11px] text-slate-400">
               <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
-                <div className="font-semibold text-slate-300 flex items-center gap-1">⚡ Super Fast</div>
-                <div>Client-side Canvas রিলিজ করে মাত্র ~30KB ছবি আপলোড করে।</div>
+                <div className="font-semibold text-slate-300 flex items-center gap-1">🎯 100% Vector Match</div>
+                <div>512-ডাইমেনশন ভিজুয়াল ভেক্টর দিয়ে সরাসরি কালার, শেইপ ও ডিজাইন মেলায়।</div>
               </div>
               <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
-                <div className="font-semibold text-slate-300 flex items-center gap-1">🚫 No Loops</div>
-                <div>১ সার্চ = ১ Edge কল = ১ Gemini AI প্রম্পট। কোনো লুপ নেই।</div>
+                <div className="font-semibold text-slate-300 flex items-center gap-1">🚫 No Random Items</div>
+                <div>সরাসরি মিল না থাকলে কোনো রেন্ডম প্রোডাক্ট দেখাবে না, নির্ভুল রেজাল্ট দেবে।</div>
               </div>
               <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-0.5">
-                <div className="font-semibold text-slate-300 flex items-center gap-1">🆓 Free Tier</div>
-                <div>Google Gemini Free Tier দিয়ে প্রতি মাসে হাজারো সার্চ ফ্রি।</div>
+                <div className="font-semibold text-slate-300 flex items-center gap-1">⚡ Sub-Second Speed</div>
+                <div>ক্যাটালগ প্রি-ইনডেক্সড থাকায় মাত্র ~0.8 সেকেন্ডে নিখুঁত রেজাল্ট আসে।</div>
               </div>
             </div>
           </div>

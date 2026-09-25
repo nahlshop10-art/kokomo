@@ -282,10 +282,7 @@ export function SearchModal({
             const data = await res.json();
             if (res.ok && data.success) {
               setMatchedIds(data.matchedIds || []);
-              if (data.keywords) {
-                setAiKeywords(data.keywords);
-                setQuery(data.keywords);
-              }
+              setAiKeywords(data.keywords || '');
             } else {
               setSearchError(data.error || 'ছবি থেকে প্রোডাক্ট সনাক্ত করতে পারেনি।');
             }
@@ -312,19 +309,19 @@ export function SearchModal({
     setQuery('');
   };
 
-  // Matched products priority
+  // Matched products strictly in AI priority order
   const aiProducts = matchedIds.length > 0 
-    ? products.filter(p => matchedIds.includes(String(p.id)) && isProductInStock(p) && p.isVisible !== false)
+    ? matchedIds
+        .map(id => products.find(p => String(p.id) === String(id)))
+        .filter((p): p is Product => Boolean(p && isProductInStock(p) && p.isVisible !== false))
     : [];
 
-  const matchedIdSet = new Set(aiProducts.map(p => String(p.id)));
-
-  const textProducts = query 
-    ? products.filter(p => !matchedIdSet.has(String(p.id)) && p.title.toLowerCase().includes(query.toLowerCase()) && isProductInStock(p) && p.isVisible !== false)
+  const textProducts = (!imagePreview && query.trim().length > 0)
+    ? products.filter(p => p.title.toLowerCase().includes(query.toLowerCase()) && isProductInStock(p) && p.isVisible !== false)
     : [];
 
-  const results = [...aiProducts, ...textProducts];
-  const hasActiveSearch = query.trim().length > 0 || imagePreview !== null || isImageSearching;
+  const results = imagePreview ? aiProducts : textProducts;
+  const hasActiveSearch = imagePreview !== null || query.trim().length > 0 || isImageSearching;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col pointer-events-none lg:right-[320px] xl:right-[360px] lg:items-center lg:pt-3">
@@ -428,10 +425,10 @@ export function SearchModal({
                 </div>
                 <p className="text-[11px] text-gray-500 truncate mt-0.5">
                   {isImageSearching 
-                    ? 'স্টোরের জুয়েলারি ক্যাটালগে মিল খোঁজা হচ্ছে...' 
+                    ? 'AI ক্যাটালগে ভিজুয়াল মিল বিশ্লেষণ করছে...' 
                     : aiProducts.length > 0 
                       ? `${aiProducts.length}টি মিলে যাওয়া প্রোডাক্ট পাওয়া গেছে` 
-                      : 'সরাসরি কোনো মিল পাওয়া যায়নি, কি-ওয়ার্ড দিয়ে দেখানো হচ্ছে'}
+                      : 'এই ছবির সাথে হুবহু মিলে এমন কোনো প্রোডাক্ট পাওয়া যায়নি'}
                 </p>
               </div>
             </div>
@@ -466,7 +463,7 @@ export function SearchModal({
                 <div className="flex-grow min-w-0 pr-2">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <h4 className="text-[13px] lg:text-[14px] font-medium text-[var(--theme-black)] line-clamp-1">{product.title}</h4>
-                    {matchedIdSet.has(String(product.id)) && (
+                    {imagePreview && (
                       <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
                         <Sparkles size={10} /> AI Match
                       </span>
@@ -498,8 +495,12 @@ export function SearchModal({
             <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mx-auto mb-2">
               <Search size={22} />
             </div>
-            <p className="text-sm font-semibold text-gray-800">কোনো প্রোডাক্ট খুঁজে পাওয়া যায়নি</p>
-            <p className="text-xs text-gray-500 mt-1">অন্য কোনো ছবি আপলোড করে বা কি-ওয়ার্ড দিয়ে আবার চেষ্টা করুন।</p>
+            <p className="text-sm font-semibold text-gray-800">
+              {imagePreview ? 'কোনো সরাসরি ভিজুয়াল মিল পাওয়া যায়নি' : 'কোনো প্রোডাক্ট খুঁজে পাওয়া যায়নি'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {imagePreview ? 'অন্য কোনো পরিষ্কার কোণ থেকে বা ভিন্ন আলোর ছবি দিয়ে চেষ্টা করুন।' : 'অন্য কোনো কি-ওয়ার্ড দিয়ে আবার চেষ্টা করুন।'}
+            </p>
           </div>
         )}
       </motion.div>
