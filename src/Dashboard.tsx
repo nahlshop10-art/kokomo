@@ -7094,7 +7094,7 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                 <button
                   type="button"
                   onClick={() => fetchRealtimeModels()}
-                  disabled={isFetchingModels || !geminiApiKey.trim()}
+                  disabled={isFetchingModels || !geminiApiKeys.some(k => k.trim())}
                   className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 active:scale-95 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Fetch supported models from your Google Gemini account in real time"
                 >
