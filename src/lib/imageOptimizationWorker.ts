@@ -146,3 +146,127 @@ export function arrayBufferToDataUrl(buffer: ArrayBuffer, mimeType: string): str
   }
   return `data:${mimeType};base64,${window.btoa(binary)}`;
 }
+
+/**
+ * Ultra-fast, crash-resilient client-side image compressor for visual search.
+ * Handles high-resolution camera photos (12-50MP), HEIC/JPEG on Android & iOS,
+ * without freezing or leaking memory on mobile devices.
+ */
+export async function compressImageForVisualSearch(file: File | Blob, maxDimension: number = 380): Promise<string> {
+  // Strategy 1: Native hardware-accelerated createImageBitmap (fastest, zero memory spike)
+  if (typeof window !== 'undefined' && 'createImageBitmap' in window) {
+    try {
+      let bitmap: ImageBitmap | null = null;
+      try {
+        bitmap = await (createImageBitmap as any)(file, { resizeWidth: maxDimension, resizeQuality: 'medium' });
+      } catch {
+        bitmap = await createImageBitmap(file);
+      }
+
+      if (bitmap) {
+        let width = bitmap.width;
+        let height = bitmap.height;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(bitmap, 0, 0, width, height);
+          bitmap.close();
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          canvas.width = 0;
+          canvas.height = 0;
+          return dataUrl;
+        }
+        bitmap.close();
+      }
+    } catch (e) {
+      console.warn('[VisualSearch] Native createImageBitmap failed, trying object URL fallback:', e);
+    }
+  }
+
+  // Strategy 2: URL.createObjectURL + HTMLImageElement with strict error & timeout handling
+  return new Promise<string>((resolve, reject) => {
+    let objectUrl = '';
+    try {
+      objectUrl = URL.createObjectURL(file);
+    } catch (err) {
+      return reject(new Error('Cannot read image file.'));
+    }
+
+    const img = new Image();
+    let settled = false;
+
+    const cleanup = () => {
+      settled = true;
+      clearTimeout(timer);
+      try {
+        if (objectUrl && objectUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(objectUrl);
+        }
+      } catch {}
+    };
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        cleanup();
+        reject(new Error('Image processing timed out. Please try another photo.'));
+      }
+    }, 7000);
+
+    img.onload = () => {
+      if (settled) return;
+      try {
+        let width = img.naturalWidth || img.width || maxDimension;
+        let height = img.naturalHeight || img.height || maxDimension;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          cleanup();
+          return reject(new Error('Canvas 2D rendering failed'));
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        canvas.width = 0;
+        canvas.height = 0;
+        cleanup();
+        resolve(dataUrl);
+      } catch (err) {
+        cleanup();
+        reject(err);
+      }
+    };
+
+    img.onerror = () => {
+      if (settled) return;
+      cleanup();
+      reject(new Error('Failed to decode image format. Please take a standard photo or screenshot.'));
+    };
+
+    img.src = objectUrl;
+  });
+}
+

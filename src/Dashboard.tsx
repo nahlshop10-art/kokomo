@@ -21,7 +21,7 @@ import { downloadReceiptAsJPG } from './lib/downloadReceipt';
 import { Receipt } from './components/Receipt';
 
 import { cloudStore } from './lib/cloudStore';
-import { getDefaultImageOptimization, setDefaultImageOptimization, ImageOptimizationConfig } from './lib/imageOptimizationWorker';
+import { getDefaultImageOptimization, setDefaultImageOptimization, ImageOptimizationConfig, compressImageForVisualSearch } from './lib/imageOptimizationWorker';
 import ProductEditorModal, { clean1688Url } from './ProductEditorModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import ZipImportModal from './components/ZipImportModal';
@@ -456,72 +456,72 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [dashboardImageError, setDashboardImageError] = useState<string | null>(null);
   const dashboardFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDashboardImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDashboardImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (e.target) e.target.value = '';
 
     setDashboardImageError(null);
     setIsDashboardImageSearching(true);
     setTopBarMode('search');
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const rawData = event.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const maxDim = 380;
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
+    let instantBlobUrl = '';
+    try {
+      instantBlobUrl = URL.createObjectURL(file);
+      setDashboardImagePreview(instantBlobUrl);
+    } catch {}
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setIsDashboardImageSearching(false);
-          return;
-        }
+    try {
+      const compressedBase64 = await compressImageForVisualSearch(file, 380);
+      setDashboardImagePreview(compressedBase64);
+      if (instantBlobUrl && instantBlobUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(instantBlobUrl); } catch {}
+      }
 
-        ctx.drawImage(img, 0, 0, width, height);
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
-        setDashboardImagePreview(compressedBase64);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 18000);
 
-        fetch('/api/search_by_image', {
+      try {
+        const res = await fetch('/api/search_by_image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: compressedBase64 })
-        })
-          .then(async (res) => {
-            const data = await res.json();
-            if (res.ok && data.success) {
-              setDashboardMatchedIds(data.matchedIds || []);
-            } else {
-              setDashboardImageError(data.error || 'Failed to detect products from image');
-            }
-          })
-          .catch(() => {
-            setDashboardImageError('Network error while performing visual search');
-          })
-          .finally(() => {
-            setIsDashboardImageSearching(false);
-            if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
-          });
-      };
-      img.src = rawData;
-    };
-    reader.readAsDataURL(file);
+          body: JSON.stringify({ image: compressedBase64 }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        const data = await res.json().catch(() => null);
+        if (res.ok && data && data.success) {
+          const matched = Array.isArray(data.matchedIds) ? data.matchedIds : [];
+          setDashboardMatchedIds(matched);
+          if (matched.length === 0) {
+            setDashboardImageError('No visually matching products found in store');
+          }
+        } else {
+          setDashboardImageError(data?.error || 'Failed to detect products from image');
+        }
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        if (fetchErr?.name === 'AbortError') {
+          setDashboardImageError('Visual search timed out. Please check your connection.');
+        } else {
+          setDashboardImageError('Network error while performing visual search');
+        }
+      }
+    } catch (compressErr: any) {
+      console.error('Image compression error:', compressErr);
+      setDashboardImageError(compressErr?.message || 'Could not process this image format.');
+    } finally {
+      setIsDashboardImageSearching(false);
+      if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
+    }
   };
 
   const handleClearDashboardImage = () => {
+    if (dashboardImagePreview && dashboardImagePreview.startsWith('blob:')) {
+      try { URL.revokeObjectURL(dashboardImagePreview); } catch {}
+    }
     setDashboardImagePreview(null);
     setDashboardMatchedIds([]);
     setDashboardImageError(null);
@@ -1866,6 +1866,15 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       {/* Top Bar */}
       {activeTab === 'Products' && perms.sections.products && (
         <div className="flex items-center gap-2 p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] relative z-50 bg-[var(--dash-bg)]">
+          <input 
+            ref={dashboardFileInputRef} 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            onChange={handleDashboardImageUpload} 
+            onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
+          />
+
           {topBarMode === 'search' ? (
           <div className="flex-grow flex items-center gap-2 z-10 relative">
             <motion.div 
@@ -1942,14 +1951,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             >
               <Camera size={19} />
             </button>
-
-            <input 
-              ref={dashboardFileInputRef} 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={handleDashboardImageUpload} 
-            />
             
             <div className="relative">
               <button onClick={() => { setShowEditMenu(false); setTopBarMode(topBarMode === 'category' ? 'default' : 'category'); }} className={cn("p-2 rounded-lg border transition-colors", topBarMode === 'category' ? "bg-[var(--dash-border)] border-[#fafafa] text-[#fafafa]" : "bg-[var(--dash-card)] border-[var(--dash-border)] hover:bg-[var(--dash-border)]")}>
@@ -2468,17 +2469,19 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
         )}
 
         {/* Visual Search Indicator Banner */}
-        {activeTab === 'Products' && dashboardImagePreview && (
+        {activeTab === 'Products' && (dashboardImagePreview || dashboardImageError) && (
           <div className="mx-3.5 md:mx-8 mb-3 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs animate-in fade-in duration-200">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl overflow-hidden border border-indigo-500/40 shrink-0 shadow-sm">
-                <img src={dashboardImagePreview} alt="Search source" className="w-full h-full object-cover" />
-              </div>
+              {dashboardImagePreview ? (
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-indigo-500/40 shrink-0 shadow-sm">
+                  <img src={dashboardImagePreview} alt="Search source" className="w-full h-full object-cover" />
+                </div>
+              ) : null}
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-white flex items-center gap-1.5 text-xs md:text-sm">
                     <Sparkles size={14} className="text-indigo-400" />
-                    AI Visual Search Active
+                    AI Visual Search
                   </span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                     {isDashboardImageSearching ? 'Searching catalog...' : `${displayProducts.length} matching products`}

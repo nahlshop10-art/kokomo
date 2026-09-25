@@ -12,6 +12,7 @@ import MinOrderPopup from './MinOrderPopup';
 import ActionBtn from './components/ActionBtn';
 import { useScrollLock } from './hooks/useScrollLock';
 import { DEFAULT_ACTION_BUTTONS, Category, Product, WebsiteSettings, Order, CartItem, IncompleteOrderStatus } from './types';
+import { compressImageForVisualSearch } from './lib/imageOptimizationWorker';
 
 export function BannerSlider({ banners, borderRadius = '0px' }: { banners: string[], borderRadius?: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -229,78 +230,72 @@ export function SearchModal({
     return () => clearTimeout(timer);
   }, []);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (e.target) e.target.value = '';
 
     setSearchError(null);
     setIsImageSearching(true);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const rawData = event.target?.result as string;
-      if (!rawData) {
-        setIsImageSearching(false);
-        return;
+    let tempBlobUrl = '';
+    try {
+      tempBlobUrl = URL.createObjectURL(file);
+      setImagePreview(tempBlobUrl);
+    } catch {}
+
+    try {
+      const compressedBase64 = await compressImageForVisualSearch(file, 380);
+      setImagePreview(compressedBase64);
+      if (tempBlobUrl && tempBlobUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(tempBlobUrl); } catch {}
       }
 
-      const img = new window.Image();
-      img.onload = () => {
-        // High-speed client compression: max 380px, ~30KB
-        const maxDim = 380;
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 18000);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setIsImageSearching(false);
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
-        setImagePreview(compressedBase64);
-
-        fetch('/api/search_by_image', {
+      try {
+        const res = await fetch('/api/search_by_image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: compressedBase64 })
-        })
-          .then(async (res) => {
-            const data = await res.json();
-            if (res.ok && data.success) {
-              setMatchedIds(data.matchedIds || []);
-              setAiKeywords(data.keywords || '');
-            } else {
-              setSearchError(data.error || 'ছবি থেকে প্রোডাক্ট সনাক্ত করতে পারেনি।');
-            }
-          })
-          .catch(() => {
-            setSearchError('নেটওয়ার্ক সমস্যার কারণে ছবি সার্চ করা যায়নি।');
-          })
-          .finally(() => {
-            setIsImageSearching(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-          });
-      };
-      img.src = rawData;
-    };
-    reader.readAsDataURL(file);
+          body: JSON.stringify({ image: compressedBase64 }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        const data = await res.json().catch(() => null);
+        if (res.ok && data && data.success) {
+          const matched = Array.isArray(data.matchedIds) ? data.matchedIds : [];
+          setMatchedIds(matched);
+          setAiKeywords(data.keywords || '');
+          if (matched.length === 0) {
+            setSearchError('দোকানের ক্যাটালগে এই ছবির সাথে মিল পাওয়া যায়নি।');
+          }
+        } else {
+          setSearchError(data?.error || 'ছবি থেকে প্রোডাক্ট সনাক্ত করতে পারেনি।');
+        }
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        if (fetchErr?.name === 'AbortError') {
+          setSearchError('ছবি সার্চের সময় শেষ হয়ে গেছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+        } else {
+          setSearchError('নেটওয়ার্ক সমস্যার কারণে ছবি সার্চ করা যায়নি।');
+        }
+      }
+    } catch (compressErr: any) {
+      console.error('Customer image search error:', compressErr);
+      setSearchError('এই ছবির ফরম্যাট প্রসেস করা সম্ভব হয়নি। অন্য ছবি ব্যবহার করুন।');
+    } finally {
+      setIsImageSearching(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleClearImage = () => {
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      try { URL.revokeObjectURL(imagePreview); } catch {}
+    }
     setImagePreview(null);
     setMatchedIds([]);
     setAiKeywords('');
@@ -382,6 +377,7 @@ export function SearchModal({
             accept="image/*" 
             className="hidden" 
             onChange={handleImageUpload} 
+            onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
           />
 
           <motion.button 
