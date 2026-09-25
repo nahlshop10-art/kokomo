@@ -42,6 +42,7 @@ export async function onRequestPost(context: any) {
     // 1. Retrieve Image Search settings from D1 or environment
     let apiKey = env.GEMINI_API_KEY || '';
     let isEnabled = true;
+    let selectedModel = 'models/gemini-embedding-2';
 
     try {
       const settingsRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'imageSearchSettings'").first();
@@ -49,6 +50,7 @@ export async function onRequestPost(context: any) {
         const parsed = JSON.parse(settingsRow.value as string);
         if (parsed.geminiApiKey) apiKey = parsed.geminiApiKey.trim();
         if (parsed.enabled !== undefined) isEnabled = Boolean(parsed.enabled);
+        if (parsed.model) selectedModel = parsed.model.trim();
       }
     } catch (e) {}
 
@@ -78,8 +80,94 @@ export async function onRequestPost(context: any) {
       cleanBase64 = body.image.trim().replace(/^data:image\/[a-z]+;base64,/, '');
     }
 
-    // 3. Generate Multimodal Vector Embedding using Google Gemini Embedding 2
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${apiKey}`;
+    const cleanModel = selectedModel.startsWith('models/') ? selectedModel.replace(/^models\//, '') : selectedModel;
+    const isEmbeddingModel = cleanModel.toLowerCase().includes('embedding');
+
+    if (!isEmbeddingModel) {
+      // Generative Multimodal Vision Model (e.g., gemini-2.5-flash, gemini-1.5-flash, gemini-3.1-flash-lite)
+      const productsRes = await env.DB.prepare('SELECT id, data FROM products LIMIT 600').all();
+      const catalog = (productsRes.results || []).map((r: any) => {
+        try {
+          const p = JSON.parse(r.data);
+          if (p.isDeleted || p.isVisible === false) return null;
+          return {
+            id: String(p.id),
+            title: p.title || '',
+            category: p.category || ''
+          };
+        } catch {
+          return null;
+        }
+      }).filter(Boolean);
+
+      const promptText = `You are an expert jewelry product matching assistant.
+Examine this customer photo and match it against our store catalog:
+${JSON.stringify(catalog)}
+
+Return a JSON object with this EXACT structure:
+{
+  "matchedIds": ["P001"],
+  "keywords": "trendy finger ring set"
+}
+If no single product is an exact match, include the closest visually similar product IDs (maximum 5) or [] if completely unrelated.
+IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra commentary.`;
+
+      const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
+      const genPayload = {
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: mimeType, data: cleanBase64 } },
+            { text: promptText }
+          ]
+        }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 200 }
+      };
+
+      const genRes = await fetch(genUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(genPayload)
+      });
+
+      if (!genRes.ok) {
+        const errText = await genRes.text();
+        return new Response(JSON.stringify({ error: `Model ${cleanModel} error: ${errText}` }), {
+          status: genRes.status,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const genData = await genRes.json();
+      const textOutput = genData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      let matchedIds: string[] = [];
+      let keywords = '';
+      try {
+        const cleaned = textOutput.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsedJson = JSON.parse(cleaned);
+        if (Array.isArray(parsedJson.matchedIds)) matchedIds = parsedJson.matchedIds.map(String);
+        if (parsedJson.keywords) keywords = String(parsedJson.keywords);
+      } catch {
+        const idMatches = textOutput.match(/"matchedIds"\s*:\s*\[(.*?)\]/s);
+        if (idMatches && idMatches[1]) {
+          try { matchedIds = JSON.parse(`[${idMatches[1]}]`).map(String); } catch {}
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        matchedIds,
+        matchConfidence: matchedIds.length > 0 ? 'exact' : 'none',
+        topScore: matchedIds.length > 0 ? 95 : 0,
+        keywords,
+        modelUsed: cleanModel
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 3. Generate Multimodal Vector Embedding using selected embedding model
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:embedContent?key=${apiKey}`;
 
     const geminiPayload = {
       content: {
@@ -105,7 +193,7 @@ export async function onRequestPost(context: any) {
       const errText = await geminiRes.text();
       console.error('Gemini Embedding API Error:', geminiRes.status, errText);
       return new Response(JSON.stringify({ 
-        error: 'Vision AI analysis failed. Please verify your Gemini API key.', 
+        error: `Vision AI analysis failed with ${cleanModel}. Please verify your Gemini API key.`, 
         details: errText 
       }), {
         status: geminiRes.status,

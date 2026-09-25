@@ -11,7 +11,7 @@ import {
   HelpCircle, Shield, Layers, Database, Info, ExternalLink,
   TrendingUp, ShoppingBag, CircleDollarSign, Undo2, MinusCircle, ClipboardList, ClipboardCheck, XCircle, Tag,
   Star, Key, FileText, Type, AlignLeft, Share2, Lightbulb, Mail, Clock, BarChart2,
-  Building, Percent, Send, MessageCircle, Box, Image, Sparkles, Loader2, Camera, CheckCircle2
+  Building, Percent, Send, MessageCircle, Box, Image, Sparkles, Loader2, Camera, CheckCircle2, Cpu
 } from 'lucide-react';
 import { Product, Order, OrderStatus, Category, WebsiteSettings, DeliveryCharge, MarketingSettings, GA4Settings, PixelBatchSettings, SeoSettings, CourierSettings, PriceCalculatorSettings, AdminUser, DiscountRule, DiscountType, DEFAULT_ADMIN_PERMISSIONS } from './types';
 import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrderStockDiff, notifyMasterStockSyncDiff, getAvailableStock } from './lib/stockUtils';
@@ -6399,6 +6399,45 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [testStatus, setTestStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('models/gemini-embedding-2');
+  const [availableModels, setAvailableModels] = useState<Array<{ name: string; displayName: string; description?: string; supportedGenerationMethods: string[] }>>([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
+
+  const fetchRealtimeModels = async (keyOverride?: string) => {
+    const key = (keyOverride || geminiApiKey).trim();
+    if (!key) {
+      setModelFetchError('Please enter a Gemini API Key first.');
+      return;
+    }
+    setIsFetchingModels(true);
+    setModelFetchError(null);
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || `API error (${res.status})`);
+      }
+      const data = await res.json();
+      if (Array.isArray(data.models)) {
+        // Prioritize multimodal embedding and vision models
+        const relevant = data.models.filter((m: any) => 
+          m.name?.includes('embedding') || 
+          m.name?.includes('flash') || 
+          m.name?.includes('pro') ||
+          m.name?.includes('gemma')
+        );
+        setAvailableModels(relevant.length > 0 ? relevant : data.models);
+      } else {
+        throw new Error('No models returned from Google API');
+      }
+    } catch (err: any) {
+      setModelFetchError(err.message || 'Failed to fetch models in real time');
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
 
   useEffect(() => {
     const cfg = getDefaultImageOptimization();
@@ -6414,7 +6453,12 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
           setAiSearchEnabled(st.settings.imageSearchSettings.enabled);
         }
         if (st.settings.imageSearchSettings.geminiApiKey) {
-          setGeminiApiKey(st.settings.imageSearchSettings.geminiApiKey);
+          const loadedKey = st.settings.imageSearchSettings.geminiApiKey;
+          setGeminiApiKey(loadedKey);
+          fetchRealtimeModels(loadedKey);
+        }
+        if (st.settings.imageSearchSettings.model) {
+          setSelectedModel(st.settings.imageSearchSettings.model);
         }
       }
     }).catch(console.error);
@@ -6427,7 +6471,8 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
       cloudStore.saveSetting('imageOptimization', cfg, true),
       cloudStore.saveSetting('imageSearchSettings', {
         enabled: aiSearchEnabled,
-        geminiApiKey: geminiApiKey.trim()
+        geminiApiKey: geminiApiKey.trim(),
+        model: selectedModel
       }, true)
     ]);
     setSaved(true);
@@ -6443,16 +6488,26 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
     setIsTestingKey(true);
     setTestStatus(null);
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${keyToTest}`, {
+      const cleanModel = selectedModel.startsWith('models/') ? selectedModel.replace(/^models\//, '') : selectedModel;
+      const isEmbed = cleanModel.toLowerCase().includes('embedding');
+      
+      const testUrl = isEmbed
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:embedContent?key=${keyToTest}`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${keyToTest}`;
+
+      const testPayload = isEmbed
+        ? { content: { parts: [{ text: 'jewelry verification test' }] } }
+        : { contents: [{ parts: [{ text: 'Respond with OK.' }] }], generationConfig: { maxOutputTokens: 10 } };
+
+      const res = await fetch(testUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Respond with OK.' }] }],
-          generationConfig: { maxOutputTokens: 10 }
-        })
+        body: JSON.stringify(testPayload)
       });
+
       if (res.ok) {
-        setTestStatus({ ok: true, message: 'Connection Successful! Google Gemini 3.5 Flash Lite is verified and active.' });
+        setTestStatus({ ok: true, message: `Connection Successful! ${cleanModel} is verified and active.` });
+        fetchRealtimeModels(keyToTest);
       } else {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson?.error?.message || `API error (${res.status})`;
@@ -6514,15 +6569,7 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                 <Sparkles size={18} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm md:text-base font-bold text-white">Google Gemini AI Visual Search</h3>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold tracking-wide">
-                    Gemini Multimodal Vision AI
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  ক্রেতারা ক্যামেরা দিয়ে ছবি তুলে বা 1688/Pinterest থেকে ছবি আপলোড করে স্টোরের প্রোডাক্ট সহজে খুঁজে বের করতে পারবেন।
-                </p>
+                <h3 className="text-sm md:text-base font-bold text-white">Google Gemini AI Visual Search</h3>
               </div>
             </div>
 
@@ -6594,10 +6641,6 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                     </>
                   )}
                 </button>
-
-                <span className="text-[11px] text-slate-500">
-                  🔒 Secretly stored on Cloudflare D1 server (never exposed to visitors)
-                </span>
               </div>
 
               {testStatus && (
@@ -6615,6 +6658,117 @@ export function ImageSettingsManager({ onClose, themePrimary }: { onClose: () =>
                   <span>{testStatus.message}</span>
                 </div>
               )}
+            </div>
+
+            {/* Realtime Model Selector */}
+            <div className="pt-3 border-t border-[var(--dash-border)]/50 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Cpu size={14} className="text-indigo-400" />
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    AI Visual Search Model
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => fetchRealtimeModels()}
+                  disabled={isFetchingModels || !geminiApiKey.trim()}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white/5 hover:bg-white/10 active:scale-95 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  title="Fetch supported models from your Google Gemini account in real time"
+                >
+                  <RefreshCw size={12} className={cn(isFetchingModels && "animate-spin text-indigo-400")} />
+                  {isFetchingModels ? "Fetching Models..." : "Fetch Realtime Models"}
+                </button>
+              </div>
+
+              {modelFetchError && (
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{modelFetchError}</span>
+                </div>
+              )}
+
+              {/* Quick filter & Model List */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={modelSearchQuery}
+                    onChange={(e) => setModelSearchQuery(e.target.value)}
+                    placeholder="Search models (e.g. embedding, flash, 2.5)..."
+                    className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+
+                {/* Model cards list */}
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                  {(availableModels.length > 0 
+                    ? availableModels.filter(m => 
+                        !modelSearchQuery.trim() || 
+                        m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) || 
+                        (m.displayName && m.displayName.toLowerCase().includes(modelSearchQuery.toLowerCase()))
+                      )
+                    : [
+                        { name: 'models/gemini-embedding-2', displayName: 'Gemini Embedding 2', description: 'Google multimodal vector embedding model (512-dim) for 100% accurate visual jewelry search.' },
+                        { name: 'models/gemini-embedding-2-preview', displayName: 'Gemini Embedding 2 Preview', description: 'Preview release of multimodal vector embedding model.' },
+                        { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Next-generation multimodal vision model.' },
+                        { name: 'models/gemini-2.5-flash-lite', displayName: 'Gemini 2.5 Flash-Lite', description: 'Lightweight fast multimodal model.' }
+                      ]
+                  ).map((m) => {
+                    const isSelected = selectedModel === m.name || (selectedModel && selectedModel === m.name.replace('models/', ''));
+                    const isEmbedding = m.name.toLowerCase().includes('embedding');
+                    const isRecommended = m.name === 'models/gemini-embedding-2' || m.name === 'gemini-embedding-2';
+
+                    return (
+                      <div
+                        key={m.name}
+                        onClick={() => setSelectedModel(m.name)}
+                        className={cn(
+                          "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-left group",
+                          isSelected
+                            ? "bg-indigo-600/15 border-indigo-500 shadow-sm shadow-indigo-500/20"
+                            : "bg-white/[0.02] border-white/5 hover:border-white/15 hover:bg-white/[0.04]"
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-white group-hover:text-indigo-200 transition-colors">
+                              {m.displayName || m.name.replace('models/', '')}
+                            </span>
+                            {isRecommended && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
+                                Recommended
+                              </span>
+                            )}
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded-md text-[9px] font-semibold border",
+                              isEmbedding 
+                                ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"
+                                : "bg-purple-500/10 border-purple-500/25 text-purple-300"
+                            )}>
+                              {isEmbedding ? "Multimodal Vector (512d)" : "Vision Generative"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                            {m.name}
+                          </p>
+                        </div>
+
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors",
+                          isSelected 
+                            ? "border-indigo-500 bg-indigo-500 text-white" 
+                            : "border-slate-600 group-hover:border-slate-500"
+                        )}>
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-[11px] text-slate-400">

@@ -404,42 +404,10 @@ export function SearchModal({
         transition={{ duration: 0.2 }}
         className="flex-grow lg:flex-grow-0 overflow-y-auto lg:overflow-visible px-2.5 sm:px-4 pb-4 lg:p-0 relative z-10 pointer-events-none w-full max-w-xl mx-auto lg:mt-2 lg:max-h-[70vh] custom-scroll"
       >
-        {/* Visual Search Indicator Banner */}
-        {imagePreview && (
-          <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-2.5 mb-2 shadow-lg border border-indigo-100 flex items-center justify-between gap-3 pointer-events-auto">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-gray-200 shadow-sm bg-gray-50">
-                <img src={imagePreview} alt="Search Preview" className="w-full h-full object-cover" />
-                {isImageSearching && (
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
-                    <Loader2 className="animate-spin text-white" size={16} />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles size={12} className="text-indigo-600 shrink-0" />
-                  <span className="text-xs font-bold text-gray-900">
-                    {isImageSearching ? 'Gemini AI ছবি বিশ্লেষণ করছে...' : 'Visual Search Match'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                  {isImageSearching 
-                    ? 'AI ক্যাটালগে ভিজুয়াল মিল বিশ্লেষণ করছে...' 
-                    : aiProducts.length > 0 
-                      ? `${aiProducts.length}টি মিলে যাওয়া প্রোডাক্ট পাওয়া গেছে` 
-                      : 'এই ছবির সাথে হুবহু মিলে এমন কোনো প্রোডাক্ট পাওয়া যায়নি'}
-                </p>
-              </div>
-            </div>
-
-            <button 
-              type="button" 
-              onClick={handleClearImage}
-              className="text-xs font-semibold text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors shrink-0 cursor-pointer"
-            >
-              Clear
-            </button>
+        {isImageSearching && (
+          <div className="bg-white/95 backdrop-blur-xl rounded-[22px] lg:rounded-2xl p-6 text-center shadow-lg border border-gray-100 pointer-events-auto flex flex-col items-center justify-center mb-2">
+            <Loader2 size={24} className="animate-spin text-[var(--theme-primary)] mb-2" />
+            <p className="text-sm font-medium text-gray-700">খোঁজা হচ্ছে...</p>
           </div>
         )}
 
