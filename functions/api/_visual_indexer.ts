@@ -61,46 +61,58 @@ export async function indexSingleProduct(
     return { success: false, id: product.id, error: 'No Gemini API keys configured in dashboard settings' };
   }
 
-  // 1. Fetch image buffer (from R2 directly if key matches, or via HTTP fetch)
-  let imageBuffer: ArrayBuffer | null = null;
+  // 1. Fetch image buffer (native Data URL handling, R2 direct get, or HTTP fetch)
+  let base64Data = '';
   let mimeType = 'image/jpeg';
 
-  const r2KeyMatch = rawImage.match(/(uploads\/.*)$/);
-  if (r2KeyMatch && env.BUCKET) {
-    try {
-      const r2Obj = await env.BUCKET.get(r2KeyMatch[1]);
-      if (r2Obj) {
-        imageBuffer = await r2Obj.arrayBuffer();
-        if (r2Obj.httpMetadata?.contentType) {
-          mimeType = r2Obj.httpMetadata.contentType;
+  if (rawImage.startsWith('data:')) {
+    const match = rawImage.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      mimeType = match[1];
+      base64Data = match[2];
+    }
+  }
+
+  if (!base64Data) {
+    let imageBuffer: ArrayBuffer | null = null;
+    const cleanUrl = rawImage.split('?')[0];
+    const r2KeyMatch = cleanUrl.match(/(uploads\/.*)$/);
+    if (r2KeyMatch && env.BUCKET) {
+      try {
+        const r2Obj = await env.BUCKET.get(r2KeyMatch[1]);
+        if (r2Obj) {
+          imageBuffer = await r2Obj.arrayBuffer();
+          if (r2Obj.httpMetadata?.contentType) {
+            mimeType = r2Obj.httpMetadata.contentType;
+          }
         }
-      }
-    } catch (e) {}
-  }
-
-  if (!imageBuffer) {
-    let fullUrl = rawImage;
-    if (fullUrl.startsWith('/')) {
-      const originBase = getOriginBase(env, 'https://kokomo-1r0.pages.dev');
-      fullUrl = originBase + fullUrl;
+      } catch (e) {}
     }
-    try {
-      const imgRes = await fetch(fullUrl);
-      if (imgRes.ok) {
-        imageBuffer = await imgRes.arrayBuffer();
-        const ct = imgRes.headers.get('content-type');
-        if (ct) mimeType = ct.split(';')[0].trim();
+
+    if (!imageBuffer) {
+      let fullUrl = rawImage;
+      if (fullUrl.startsWith('/')) {
+        const originBase = getOriginBase(env, 'https://kokomo-1r0.pages.dev');
+        fullUrl = originBase + fullUrl;
       }
-    } catch (err: any) {
-      return { success: false, id: product.id, error: `Failed to fetch image: ${err.message}` };
+      try {
+        const imgRes = await fetch(fullUrl);
+        if (imgRes.ok) {
+          imageBuffer = await imgRes.arrayBuffer();
+          const ct = imgRes.headers.get('content-type');
+          if (ct) mimeType = ct.split(';')[0].trim();
+        }
+      } catch (err: any) {
+        return { success: false, id: product.id, error: `Failed to fetch image: ${err.message}` };
+      }
     }
-  }
 
-  if (!imageBuffer || imageBuffer.byteLength === 0) {
-    return { success: false, id: product.id, error: 'Empty or inaccessible image' };
-  }
+    if (!imageBuffer || imageBuffer.byteLength === 0) {
+      return { success: false, id: product.id, error: 'Empty or inaccessible image' };
+    }
 
-  const base64Data = bufferToBase64(imageBuffer);
+    base64Data = bufferToBase64(imageBuffer);
+  }
 
   // 2. Call Gemini Embedding 2 with sequential failover across all keys in pool
   const geminiPayload = {
@@ -152,14 +164,28 @@ export async function indexSingleProduct(
     return { success: false, id: product.id, error: lastError || 'Failed to generate visual embedding' };
   }
 
+  // Ensure title and category are always populated in metadata
+  let prodTitle = product.title || '';
+  let prodCategory = (product as any).category || '';
+  if (!prodTitle || !prodCategory) {
+    try {
+      const row = await env.DB.prepare('SELECT data FROM products WHERE id = ?').bind(product.id).first();
+      if (row && row.data) {
+        const parsed = JSON.parse(row.data as string);
+        if (!prodTitle) prodTitle = parsed.title || '';
+        if (!prodCategory) prodCategory = parsed.category || '';
+      }
+    } catch (e) {}
+  }
+
   // 3. Upsert directly into Cloudflare Vectorize (Zero D1 vector storage)
   if (env.VECTORIZE) {
     await env.VECTORIZE.upsert([{
       id: String(product.id),
       values: embeddingVec,
       metadata: {
-        title: (product.title || '').substring(0, 60),
-        category: (product.category || '').substring(0, 60)
+        title: prodTitle.substring(0, 60),
+        category: prodCategory.substring(0, 60)
       }
     }]);
   }
@@ -189,6 +215,19 @@ export async function getVisualIndexStatus(env: any) {
   let indexedIds = new Set<string>();
   if (env.VECTORIZE) {
     try {
+      const desc = await env.VECTORIZE.describe().catch(() => null);
+      const vectorCount = desc?.vectorCount || 0;
+
+      // If all active products are already indexed, skip looping getByIds entirely (0 extra requests!)
+      if (vectorCount >= allActiveProducts.length && allActiveProducts.length > 0) {
+        return {
+          totalActiveProducts: allActiveProducts.length,
+          indexedCount: allActiveProducts.length,
+          missingCount: 0,
+          missingProducts: []
+        };
+      }
+
       const allIds = allActiveProducts.map(p => p.id);
       // Cloudflare Vectorize getByIds accepts max 20 IDs per request
       const chunks: string[][] = [];

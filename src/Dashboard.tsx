@@ -1167,17 +1167,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       setProducts([updatedProduct, ...products]);
     }
     cloudStore.upsertProduct(updatedProduct).catch(console.error);
-    if (updatedProduct.image || (Array.isArray(updatedProduct.images) && updatedProduct.images.length > 0)) {
-      fetch('/api/index_embeddings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'index_product', 
-          productId: updatedProduct.id, 
-          imageUrl: updatedProduct.image || updatedProduct.images?.[0] 
-        })
-      }).catch(() => {});
-    }
     setEditingProduct(null);
     setIsAddingProduct(false);
     setImportedProductData(null);

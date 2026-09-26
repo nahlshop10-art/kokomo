@@ -281,10 +281,10 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
       const topMatch = matches[0];
       topScore = topMatch.score ? Math.round(topMatch.score * 100) : 0;
 
-      // Strict accuracy thresholds to eliminate random hallucinated matches:
-      if (topMatch.score >= 0.75) {
-        matchConfidence = topMatch.score >= 0.85 ? 'exact' : 'similar';
-        const threshold = Math.max(0.75, topMatch.score - 0.08);
+      // Calibrated accuracy thresholds for e-commerce visual search (studio + real customer photos):
+      if (topMatch.score >= 0.65) {
+        matchConfidence = topMatch.score >= 0.82 ? 'exact' : 'similar';
+        const threshold = Math.max(0.65, topMatch.score - 0.08);
         matchedIds = matches
           .filter((m: any) => m.score >= threshold)
           .slice(0, 5)

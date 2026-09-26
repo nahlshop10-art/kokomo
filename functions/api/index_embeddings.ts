@@ -38,7 +38,12 @@ export async function onRequestPost(context: any) {
         });
       }
 
-      const res = await indexSingleProduct(env, { id: String(productId), image: imageUrl });
+      const res = await indexSingleProduct(env, { 
+        id: String(productId), 
+        image: imageUrl,
+        title: body.title,
+        category: body.category
+      });
       if (!res.success) {
         return new Response(JSON.stringify({ error: res.error || 'Failed to index product' }), {
           status: 500,
