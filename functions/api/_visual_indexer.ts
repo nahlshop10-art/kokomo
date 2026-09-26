@@ -1,4 +1,3 @@
-import defaultEmbeddings from './visual_embeddings.json';
 import { getOriginBase } from './_domain';
 
 export async function getGeminiApiKeys(env: any): Promise<string[]> {
@@ -153,18 +152,22 @@ export async function indexSingleProduct(
     return { success: false, id: product.id, error: lastError || 'Failed to generate visual embedding' };
   }
 
-  // 3. Save into D1 product_embeddings table
-  await env.DB.prepare(
-    'INSERT INTO product_embeddings (id, embedding, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET embedding = excluded.embedding, updated_at = CURRENT_TIMESTAMP'
-  ).bind(product.id, JSON.stringify(embeddingVec)).run();
+  // 3. Upsert directly into Cloudflare Vectorize (Zero D1 vector storage)
+  if (env.VECTORIZE) {
+    await env.VECTORIZE.upsert([{
+      id: String(product.id),
+      values: embeddingVec,
+      metadata: {
+        title: (product.title || '').substring(0, 60),
+        category: (product.category || '').substring(0, 60)
+      }
+    }]);
+  }
 
   return { success: true, id: product.id };
 }
 
 export async function getVisualIndexStatus(env: any) {
-  const staticIndex = defaultEmbeddings as Record<string, number[]>;
-  const staticIds = new Set(Object.keys(staticIndex));
-
   // 1. Fetch all active products
   const productsRes = await env.DB.prepare('SELECT id, data FROM products').all();
   const allActiveProducts: { id: string; title: string; image: string }[] = [];
@@ -182,21 +185,37 @@ export async function getVisualIndexStatus(env: any) {
     } catch {}
   }
 
-  // 2. Fetch all dynamic indexed IDs from D1
-  const d1Rows = await env.DB.prepare('SELECT id FROM product_embeddings').all();
-  const d1Ids = new Set((d1Rows.results || []).map((r: any) => String(r.id)));
+  // 2. Fetch Vectorize indexed IDs
+  let indexedIds = new Set<string>();
+  if (env.VECTORIZE) {
+    try {
+      const allIds = allActiveProducts.map(p => p.id);
+      // Cloudflare Vectorize getByIds accepts max 20 IDs per request
+      const chunks: string[][] = [];
+      for (let i = 0; i < allIds.length; i += 20) {
+        chunks.push(allIds.slice(i, i + 20));
+      }
+      const results = await Promise.all(
+        chunks.map(chunk => env.VECTORIZE.getByIds(chunk).catch(() => []))
+      );
+      for (const batch of results) {
+        for (const v of batch || []) {
+          if (v && v.id) indexedIds.add(String(v.id));
+        }
+      }
+    } catch (e) {
+      console.warn('[VisualIndexer] getByIds error:', e);
+    }
+  }
 
-  // 3. Compute missing products (those with images that have no embedding in static or D1)
+  // 3. Compute missing products
   const missingProducts = allActiveProducts.filter(
-    (p) => !staticIds.has(p.id) && !d1Ids.has(p.id) && Boolean(p.image)
+    (p) => !indexedIds.has(p.id) && Boolean(p.image)
   );
-
-  const allIndexedUniqueIds = new Set([...staticIds, ...d1Ids]);
-  const indexedActiveCount = allActiveProducts.filter((p) => allIndexedUniqueIds.has(p.id)).length;
 
   return {
     totalActiveProducts: allActiveProducts.length,
-    indexedCount: indexedActiveCount,
+    indexedCount: indexedIds.size,
     missingCount: missingProducts.length,
     missingProducts
   };

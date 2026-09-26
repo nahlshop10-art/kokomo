@@ -17,6 +17,11 @@ database_id = "a15fa67b-bd47-4a39-b673-10718d166edd"
 binding = "BUCKET"
 bucket_name = "kokomo"
 
+# Cloudflare Vectorize binding for High-Speed Visual Search
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "kokomo-products"
+
 [vars]
 ENVIRONMENT = "production"
 # R2 Public Development URL for kokomo

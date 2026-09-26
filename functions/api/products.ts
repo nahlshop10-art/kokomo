@@ -96,10 +96,14 @@ export async function onRequestPost(context: any) {
           }
         }
 
-        // Clean up visual embeddings from D1
-        await Promise.all(ids.map((id: string) => 
-          env.DB.prepare('DELETE FROM product_embeddings WHERE id = ?').bind(id).run().catch(() => {})
-        ));
+        // Clean up visual embeddings from Vectorize
+        if (env.VECTORIZE && ids.length > 0) {
+          try {
+            await env.VECTORIZE.deleteByIds(ids.map((id: any) => String(id)));
+          } catch (e) {
+            console.warn('[Vectorize] Failed to delete embeddings for products:', ids, e);
+          }
+        }
 
         // Broadcast deletes to connected retails
         try {

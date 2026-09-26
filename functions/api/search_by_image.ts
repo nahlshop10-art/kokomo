@@ -1,16 +1,3 @@
-import defaultEmbeddings from './visual_embeddings.json';
-
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0, ma = 0, mb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    ma += a[i] * a[i];
-    mb += b[i] * b[i];
-  }
-  const denom = Math.sqrt(ma) * Math.sqrt(mb);
-  return denom === 0 ? 0 : dot / denom;
-}
-
 export async function onRequestPost(context: any) {
   const { request, env } = context;
 
@@ -271,55 +258,50 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
       });
     }
 
-    // 4. Load catalog embeddings (pre-compiled index + dynamic D1 additions)
-    const catalogEmbeddings: Record<string, number[]> = { ...(defaultEmbeddings as Record<string, number[]>) };
-
-    try {
-      const dbRows = await env.DB.prepare('SELECT id, embedding FROM product_embeddings').all();
-      if (dbRows && dbRows.results) {
-        for (const row of dbRows.results) {
-          try {
-            catalogEmbeddings[row.id] = JSON.parse(row.embedding);
-          } catch {}
-        }
-      }
-    } catch (e) {}
-
-    // 5. Compute Cosine Similarity against all catalog products
-    const scores = Object.keys(catalogEmbeddings).map((id) => {
-      return {
-        id,
-        score: cosineSimilarity(queryVec, catalogEmbeddings[id])
-      };
-    });
-
-    // Sort descending by highest visual similarity
-    scores.sort((a, b) => b.score - a.score);
-
-    const topMatch = scores[0];
+    // 4. Query Cloudflare Vectorize directly (Sub-15ms native HNSW search, ZERO D1 vector reads)
     let matchedIds: string[] = [];
     let matchConfidence: 'exact' | 'similar' | 'none' = 'none';
+    let topScore = 0;
+    let topTitle = '';
 
-    // Strict accuracy thresholds to eliminate random hallucinated matches:
-    // If top match score is below 0.75, it's not a match for our catalog
-    if (topMatch && topMatch.score >= 0.75) {
-      matchConfidence = topMatch.score >= 0.85 ? 'exact' : 'similar';
-      // Only include items within 0.08 similarity distance from the top match, max 5 items
-      const threshold = Math.max(0.75, topMatch.score - 0.08);
-      matchedIds = scores
-        .filter(s => s.score >= threshold)
-        .slice(0, 5)
-        .map(s => s.id);
+    if (!env.VECTORIZE) {
+      return new Response(JSON.stringify({ error: 'Cloudflare Vectorize binding is not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // 6. Retrieve top matched product title for clean context
-    let topTitle = '';
-    if (matchedIds.length > 0) {
+    const vectorizeResults = await env.VECTORIZE.query(queryVec, {
+      topK: 10,
+      returnMetadata: "indexed"
+    });
+
+    const matches = vectorizeResults?.matches || [];
+    if (matches.length > 0) {
+      const topMatch = matches[0];
+      topScore = topMatch.score ? Math.round(topMatch.score * 100) : 0;
+
+      // Strict accuracy thresholds to eliminate random hallucinated matches:
+      if (topMatch.score >= 0.75) {
+        matchConfidence = topMatch.score >= 0.85 ? 'exact' : 'similar';
+        const threshold = Math.max(0.75, topMatch.score - 0.08);
+        matchedIds = matches
+          .filter((m: any) => m.score >= threshold)
+          .slice(0, 5)
+          .map((m: any) => String(m.id));
+
+        if (topMatch.metadata?.title) {
+          topTitle = String(topMatch.metadata.title);
+        }
+      }
+    }
+
+    // Fallback: If title wasn't indexed in Vectorize metadata, read single row from D1 products table
+    if (!topTitle && matchedIds.length > 0) {
       try {
-        const topRow = await env.DB.prepare('SELECT data FROM products WHERE id = ?').bind(matchedIds[0]).first();
-        if (topRow && topRow.data) {
-          const parsed = JSON.parse(topRow.data as string);
-          topTitle = parsed.title || '';
+        const topRow = await env.DB.prepare('SELECT json_extract(data, \'$.title\') as title FROM products WHERE id = ?').bind(matchedIds[0]).first();
+        if (topRow && topRow.title) {
+          topTitle = String(topRow.title);
         }
       } catch {}
     }
@@ -328,7 +310,7 @@ IMPORTANT: Return ONLY valid JSON, without backticks, markdown, or extra comment
       success: true,
       matchedIds,
       matchConfidence,
-      topScore: topMatch ? Math.round(topMatch.score * 100) : 0,
+      topScore,
       keywords: topTitle,
       modelUsed: cleanModel,
       keyIndexUsed: keyIndexUsed + 1,
